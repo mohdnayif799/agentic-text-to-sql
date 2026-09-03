@@ -1,0 +1,42 @@
+# AgentCrew - runtime dependencies
+#
+# Exact pins, all verified installed together and passing the full test suite
+# on Python 3.12 (2026-08-25). Versions were read from PyPI and confirmed by
+# introspecting the installed packages, not copied from tutorials - several of
+# these had breaking major bumps recently (see docs/DECISIONS.md, D8).
+#
+#   python -m venv .venv && source .venv/bin/activate
+#   pip install -r requirements.txt
+#
+# Only direct dependencies are pinned. Transitive packages are resolved by pip;
+# a full lockfile would be more reproducible but is overkill here and rots fast.
+
+# ---- Agent orchestration ---------------------------------------------------
+langgraph==1.2.11
+
+# ---- Database + SQL safety -------------------------------------------------
+SQLAlchemy==2.0.52
+sqlglot==30.17.0          # AST-based SQL guard; do NOT replace with regex
+
+# ---- Config + validation ---------------------------------------------------
+pydantic==2.13.4
+pydantic-settings==2.15.0
+python-dotenv==1.2.3
+PyYAML==6.0.3             # evaluation question set
+
+# ---- Interface -------------------------------------------------------------
+streamlit==1.62.0
+pandas==3.0.5             # 3.x: string cols are `str` dtype, not `object`
+altair==6.2.2             # charts; app.py imports it directly, so it is pinned
+                          # here rather than relied on as a streamlit transitive
+
+# ---- Model providers (install the one(s) you plan to use) ------------------
+# The UI lets you pick Anthropic, OpenAI or Gemini at runtime, so install
+# whichever you have a key for. anthropic is the default provider.
+anthropic==1.0.0
+# openai==3.3.1           # for provider=openai
+# google-genai==2.20.0    # for provider=gemini
+
+# ---- Optional --------------------------------------------------------------
+# mcp==2.1.0              # only needed to run mcp_server.py
+# langfuse==4.14.5        # only needed if AGENTCREW_LANGFUSE_ENABLED=true

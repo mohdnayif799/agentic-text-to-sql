@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+data/traces/
+data/*.db
+eval/results.json
+.DS_Store
+
+# virtualenv
+.venv/
+env/
+
+agentcrew_env/
+pytest_temp/

@@ -1,0 +1,17 @@
+# Development dependencies. Includes everything in requirements.txt.
+#
+#   pip install -r requirements-dev.txt
+#
+# The full test suite runs offline with no API key, so this is all you need to
+# verify the project end to end.
+
+-r requirements.txt
+
+pytest==9.1.1
+ruff==0.16.4
+
+# Optional extras, installed here so `pytest` covers the MCP adapter and
+# every provider client.
+mcp==2.1.0
+openai==3.3.1
+google-genai==2.20.0

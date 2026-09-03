@@ -1,0 +1,63 @@
+[project]
+name = "agentcrew"
+version = "1.0.0"
+description = "Autonomous analytics agent: plans, writes, executes, repairs and verifies SQL against a read-only database."
+readme = "README.md"
+requires-python = ">=3.11"
+
+# Versions verified against PyPI on 2026-08-25 and installed together before
+# pinning. Upper bounds stop the next major from silently breaking the build -
+# mcp 2.0 removed FastMCP and pandas 3.0 changed string dtypes, both of which
+# broke code written against the previous major.
+dependencies = [
+    "langgraph>=1.2.11,<2.0",
+    "sqlglot>=30.17.0,<31.0",
+    "SQLAlchemy>=2.0.52,<3.0",
+    "pydantic>=2.13.4,<3.0",
+    "pydantic-settings>=2.15.0,<3.0",
+    "python-dotenv>=1.2.3,<2.0",
+    "PyYAML>=6.0.3,<7.0",
+    "streamlit>=1.62.0,<2.0",
+    "pandas>=3.0.5,<4.0",
+    "altair>=6.2.2,<7.0",
+]
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=1.0.0,<2.0"]
+openai = ["openai>=3.3.1,<4.0"]
+gemini = ["google-genai>=2.20.0,<3.0"]
+mcp = ["mcp>=2.1.0,<3.0"]
+observability = ["langfuse>=4.14.5,<5.0"]
+dev = ["pytest>=9.1.1,<10.0", "ruff>=0.9.0"]
+all = [
+    "anthropic>=1.0.0,<2.0",
+    "openai>=3.3.1,<4.0",
+    "google-genai>=2.20.0,<3.0",
+    "mcp>=2.1.0,<3.0",
+    "langfuse>=4.14.5,<5.0",
+    "pytest>=9.1.1,<10.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["agentcrew*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "S"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "E501"]
+"scripts/*" = ["S"]
