@@ -49,9 +49,8 @@ The design principle throughout: **agents are expensive and functions are free, 
 ## Demo
 
 <!-- ==========================================================
-     SCREENSHOT PLACEHOLDER
-     Replace the line below with your execution screenshot, e.g.
-     ![AgentCrew answering a question](docs/images/demo.png)
+   <img width="1906" height="1032" alt="image" src="https://github.com/user-attachments/assets/8967ce7c-e09f-4230-ac41-ce03aaef913f" />
+
      ========================================================== -->
 
 > **Screenshot coming here.** Place your execution screenshot at `docs/images/demo.png` and replace this block with `![AgentCrew running](docs/images/demo.png)`.
