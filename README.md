@@ -467,3 +467,13 @@ Stated plainly, because these are the interesting questions.
 | [INTERVIEW_NOTES.md](docs/INTERVIEW_NOTES.md) | Answers to the questions this project invites |
 
 The decision log is the most useful entry point for reviewers. It records thirteen architectural decisions with the evidence behind each one, including a LangGraph routing bug caught by four failing tests, a pandas 3.0 dtype change that silently disabled chart rendering, and a test suite that passed only because a stale editable install was shadowing the repository.
+
+
+
+## Author
+
+**Muhammed Nayifuddin**
+
+CSE (AI&ML) student
+
+[GitHub](https://github.com/mohdnayif799) · [LinkedIn](https://www.linkedin.com/in/muhammed-nayifuddin/) · [Email](mailto:mohdnayif799@gmail.com)
