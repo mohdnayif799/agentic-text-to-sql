@@ -53,7 +53,7 @@ The design principle throughout: **agents are expensive and functions are free, 
 
      ========================================================== -->
 
-> **Screenshot coming here.** Place your execution screenshot at `docs/images/demo.png` and replace this block with `![AgentCrew running](docs/images/demo.png)`.
+![AgentCrew running](docs/images/demo.png)
 
 ---
 
@@ -476,3 +476,6 @@ The decision log is the most useful entry point for reviewers. It records thirte
 CSE (AI&ML) student
 
 [GitHub](https://github.com/mohdnayif799) · [LinkedIn](https://www.linkedin.com/in/muhammed-nayifuddin/) · [Email](mailto:mohdnayif799@gmail.com)
+
+
+
