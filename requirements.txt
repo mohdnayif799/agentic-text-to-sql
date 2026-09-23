@@ -32,10 +32,11 @@ altair==6.2.2             # charts; app.py imports it directly, so it is pinned
 
 # ---- Model providers (install the one(s) you plan to use) ------------------
 # The UI lets you pick Anthropic, OpenAI or Gemini at runtime, so install
-# whichever you have a key for. anthropic is the default provider.
+# whichever you have a key for. google-genai is always installed because the
+# public demo (see the Dockerfile) runs on Gemini.
 anthropic==1.0.0
+google-genai==2.20.0
 # openai==3.3.1           # for provider=openai
-# google-genai==2.20.0    # for provider=gemini
 
 # ---- Optional --------------------------------------------------------------
 # mcp==2.1.0              # only needed to run mcp_server.py

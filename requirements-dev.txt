@@ -11,7 +11,7 @@ pytest==9.1.1
 ruff==0.16.4
 
 # Optional extras, installed here so `pytest` covers the MCP adapter and
-# every provider client.
+# every provider client. (google-genai is a runtime dependency now, so it
+# comes in through requirements.txt above.)
 mcp==2.1.0
 openai==3.3.1
-google-genai==2.20.0

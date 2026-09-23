@@ -1,0 +1,16 @@
+# Streamlit reads this from .streamlit/ in the working directory, both locally
+# ("streamlit run app.py" from the repo root) and in the Docker image (/app).
+# app.py's CHART_COLOR must equal primaryColor; tests/test_chat_ui.py checks.
+
+[theme]
+base = "light"
+primaryColor = "#2563EB"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#EFF6FF"
+textColor = "#1E293B"
+
+[client]
+toolbarMode = "minimal"
+# Unhandled exceptions show a generic message in the browser, never their text
+# or traceback: a backstop in case a future error path forgets redact().
+showErrorDetails = "none"

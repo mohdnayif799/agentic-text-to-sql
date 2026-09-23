@@ -1,8 +1,9 @@
 # AgentCrew
 
+[![CI](https://github.com/mohdnayif799/agentic-text-to-sql/actions/workflows/ci.yml/badge.svg)](https://github.com/mohdnayif799/agentic-text-to-sql/actions/workflows/ci.yml)
+
 **An autonomous analytics agent that answers plain-English questions by writing, executing, and repairing its own SQL against a read-only database.**
 
-![tests](https://img.shields.io/badge/tests-216%20passing-brightgreen)
 ![python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![LangGraph](https://img.shields.io/badge/LangGraph-1.2-orange)
 ![providers](https://img.shields.io/badge/providers-Anthropic%20%7C%20OpenAI%20%7C%20Gemini-8a2be2)

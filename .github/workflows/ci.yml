@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Least privilege: the jobs only read the repository. No secrets are used -
+# the test suite runs offline on a scripted model, and the Docker job only
+# checks that the app starts.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          # requirements-dev.txt includes requirements.txt, so both decide the
+          # cache key.
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
+
+      # The demo database is built on demand by the db_path fixture in
+      # tests/conftest.py, so no separate build step is needed.
+      - name: Test
+        run: pytest -q
+
+  docker:
+    name: Build and smoke-test the image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the image
+        run: docker build -t agentcrew:ci .
+
+      - name: Start the container
+        run: docker run -d --name agentcrew -p 8080:8080 agentcrew:ci
+
+      - name: Wait for the health endpoint
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/_stcore/health; then
+              echo
+              echo "Healthy after ${attempt} attempt(s)."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "The app did not answer /_stcore/health within 60 seconds."
+          exit 1
+
+      - name: Container logs
+        if: always()
+        run: docker logs agentcrew

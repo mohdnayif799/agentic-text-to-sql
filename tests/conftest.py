@@ -223,3 +223,31 @@ def make_deps(settings: Settings, tmp_path: Path):
 
 def load_trace(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text())
+
+
+# ---------------------------------------------------------------------------
+# Streamlit UI (AppTest) fixtures - helpers live in ui_harness.py
+# ---------------------------------------------------------------------------
+@pytest.fixture
+def fake_agent(monkeypatch: pytest.MonkeyPatch):
+    """Replace the agent inside app.py with a recording FakeAgent.
+
+    app.py imports build_deps / run_question each time AppTest executes the
+    script, so patching the module attributes beforehand is enough.
+    """
+    from ui_harness import FakeAgent
+
+    agent = FakeAgent()
+    monkeypatch.setattr("agentcrew.graph.build.build_deps", agent.build_deps)
+    monkeypatch.setattr("agentcrew.graph.build.run_question", agent.run_question)
+    return agent
+
+
+@pytest.fixture
+def demo_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The deployed demo's configuration (see the Dockerfile)."""
+    from ui_harness import SERVER_KEY
+
+    monkeypatch.setenv("AGENTCREW_GEMINI_API_KEY", SERVER_KEY)
+    monkeypatch.setenv("AGENTCREW_PROVIDER", "gemini")
+    monkeypatch.setenv("AGENTCREW_MODEL", "gemini-3.5-flash-lite")

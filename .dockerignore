@@ -1,0 +1,37 @@
+# .dockerignore decides what "docker build" sends to the builder (the "build
+# context"). Anything excluded here cannot end up in the image, even by
+# accident, e.g. a careless "COPY . .".
+#
+# This is an ALLOWLIST: exclude everything, then re-include only the files the
+# Dockerfile actually reads. A denylist ("exclude .env, .venv, ...") protects
+# only against files you remembered; a new .env.production or a stray key file
+# would ship silently. With an allowlist, a file you forgot to allow makes
+# COPY fail loudly at build time, which is the safe way to fail.
+#
+# Excluded by the first rule, among everything else:
+#   .env / .env.*          API keys - these must only ever arrive at runtime
+#   .venv/ agentcrew_env/  local virtualenvs (~560 MB of Windows binaries that
+#                          would not even run on Linux)
+#   .git/                  full history, including anything ever committed
+#   __pycache__/ *.pyc     stale bytecode compiled by your Windows Python
+#   .pytest_cache/ pytest_temp/ .ruff_cache/   test and lint artifacts
+#   data/traces/           local run traces (contain your questions and SQL)
+#   data/*.db              the database is rebuilt inside the image instead
+#   eval/ tests/ docs/ workflows/ .remember/ .claude/   not needed at runtime
+
+# 1. Exclude everything.
+*
+
+# 2. Re-include what the Dockerfile COPYs. Later rules override earlier ones.
+!requirements.txt
+!app.py
+!agentcrew/
+!scripts/build_database.py
+!.streamlit/config.toml
+
+# 3. Re-exclude junk that can live INSIDE the allowed paths. These come last
+#    so they win over step 2.
+**/__pycache__
+**/*.py[cod]
+**/.env
+**/.env.*
