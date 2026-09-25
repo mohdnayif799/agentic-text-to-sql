@@ -688,7 +688,7 @@ def key_format_warning(run: RunChoice) -> str | None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="AgentCrew Analytics", layout="wide")
+    st.set_page_config(page_title="Agentic Text-to-SQL", layout="wide")
     st.markdown(PAGE_CSS, unsafe_allow_html=True)
     st.session_state.setdefault("turns", [])
     st.session_state.setdefault("pending", None)
@@ -696,7 +696,7 @@ def main() -> None:
     run, counter = render_sidebar(*configured_defaults())
     show_demo_counter(counter, run)
 
-    st.title("AgentCrew - Autonomous Analytics Agent")
+    st.title("Agentic Text-to-SQL")
     # Checked in the code: run_question() receives only the current question,
     # never the earlier turns, so the chat look must not imply memory.
     st.caption(
