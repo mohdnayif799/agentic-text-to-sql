@@ -302,6 +302,17 @@ Two failures were root-caused after the run:
 
 The corrected row fixes only q15's broken reference query, which grouped by non-unique customer names. The q05 fix (D14) is **not counted**: it was derived by inspecting a failure inside this set, so re-scoring the same 17 questions would validate a post-hoc fix on the data that motivated it. A fair re-measurement uses held-out questions written after the fixes; see `eval/heldout.yaml`.
 
+#### Held-out check (5 questions written after the fixes)
+
+| Metric | AgentCrew | Baseline |
+| --- | --- | --- |
+| Task success | 5/5 (100%) | 5/5 (100%) |
+| LLM calls | 20 | 5 |
+| Total tokens | 16,918 | 4,873 |
+| Median latency | 4.25s | 1.37s |
+
+Five questions is a small sample, so a one-question difference between the arms would be noise.
+
 ### What the evaluation actually demonstrated
 
 The orchestration **did not improve accuracy**, and that finding is reported rather than buried.
