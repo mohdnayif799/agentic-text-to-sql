@@ -1,0 +1,80 @@
+# --- Held-out questions (written 29 Sep 2026, AFTER the D14 and q15 fixes) --
+# These were never used to debug or tune AgentCrew, so scoring them is a fair
+# re-measurement (see D14: re-scoring q01-q15 would be test-set contamination).
+# Each hard question has a "rate vs count" trap: the count-based answer and the
+# rate-based answer point to different labels, so a wrong-metric query fails.
+# Reference answers were checked against data/northstar.db under more than one
+# reasonable reading of the question; the graded label does not change.
+
+- id: h01
+  question: "How much discount did we give away on completed orders in 2025?"
+  difficulty: medium
+  check: scalar
+  tolerance: 0.02
+  notes: >
+    Same column class that broke q05: discount is a rate (0.0 to 0.15), not a
+    currency amount. Correct answer is about 693,841; summing the raw discount
+    column gives about 575.
+  reference_sql: >
+    SELECT ROUND(SUM(oi.quantity * oi.unit_price * oi.discount), 2)
+    FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+    WHERE o.status = 'completed'
+      AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31'
+
+- id: h02
+  question: "What was the average completed order value in 2025?"
+  difficulty: medium
+  check: scalar
+  tolerance: 0.02
+  notes: >
+    Must average per ORDER, not per line item. Per order is about 2,873;
+    averaging line items gives about 1,149.
+  reference_sql: >
+    SELECT ROUND(AVG(order_total), 2) FROM (
+      SELECT o.order_id,
+             SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS order_total
+      FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+      WHERE o.status = 'completed'
+        AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31'
+      GROUP BY o.order_id
+    )
+
+- id: h03
+  question: "Which region had the highest refund rate on orders in 2025?"
+  difficulty: hard
+  check: top_label
+  notes: >
+    Rate vs count trap. By rate LATAM is highest (about 17%); by raw refund
+    count LATAM is LOWEST and North America is highest. LATAM stays top whether
+    the denominator is all orders or completed plus refunded orders.
+  reference_sql: >
+    SELECT r.region_name,
+           1.0 * SUM(o.status = 'refunded') / COUNT(*) AS refund_rate
+    FROM orders o
+    JOIN customers c ON c.customer_id = o.customer_id
+    JOIN regions r ON r.region_id = c.region_id
+    WHERE o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31'
+    GROUP BY r.region_name ORDER BY refund_rate DESC
+
+- id: h04
+  question: "Which customer segment filed the most support tickets per customer in 2025?"
+  difficulty: hard
+  check: top_label
+  notes: >
+    Rate vs count trap. Per customer, Enterprise is highest; by raw ticket
+    count SMB is highest. Enterprise stays top whether the denominator is all
+    customers in the segment or only customers active in 2025.
+  reference_sql: >
+    SELECT c.segment,
+           1.0 * COUNT(t.ticket_id) /
+             (SELECT COUNT(*) FROM customers c2 WHERE c2.segment = c.segment)
+             AS tickets_per_customer
+    FROM support_tickets t JOIN customers c ON c.customer_id = t.customer_id
+    WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31'
+    GROUP BY c.segment ORDER BY tickets_per_customer DESC
+
+- id: h05
+  question: "How many products are in the Software category?"
+  difficulty: easy
+  check: scalar
+  reference_sql: "SELECT COUNT(*) FROM products WHERE category = 'Software'"

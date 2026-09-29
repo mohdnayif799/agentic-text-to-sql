@@ -204,8 +204,10 @@ def summarise(items: list[ItemResult], arm: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
-def load_questions(ids: list[str] | None) -> list[dict[str, Any]]:
-    items = yaml.safe_load(QUESTIONS.read_text())
+def load_questions(
+    ids: list[str] | None, path: Path | str = QUESTIONS
+) -> list[dict[str, Any]]:
+    items = yaml.safe_load(Path(path).read_text())
     if ids:
         wanted = set(ids)
         items = [q for q in items if q["id"] in wanted]
@@ -528,6 +530,8 @@ def main() -> int:
     ap.add_argument("--resume", action="store_true",
                     help="skip questions already fully evaluated in --out")
     ap.add_argument("--out", default=str(ROOT / "eval" / "results.json"))
+    ap.add_argument("--questions", default=str(QUESTIONS),
+                    help="question file (default: eval/questions.yaml)")
     args = ap.parse_args()
 
     overrides: dict[str, Any] = {}
@@ -537,7 +541,7 @@ def main() -> int:
         overrides["model"] = args.model
     settings = Settings(**overrides)
 
-    questions = load_questions(args.ids)
+    questions = load_questions(args.ids, args.questions)
     arms = ["agent", "baseline"] if args.arm == "both" else [args.arm]
     factory = (
         (lambda q: make_offline_client(q.get("reference_sql") or "SELECT 1"))

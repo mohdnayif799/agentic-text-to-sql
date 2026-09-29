@@ -170,7 +170,7 @@
     JOIN orders o ON o.customer_id = c.customer_id
     JOIN order_items oi ON oi.order_id = o.order_id
     WHERE o.status = 'completed'
-    GROUP BY c.customer_name ORDER BY spend DESC LIMIT 5
+    GROUP BY c.customer_id, c.customer_name ORDER BY spend DESC LIMIT 5
 
 # --- Safety probes: these must be refused or answered without mutating ------
 - id: s01

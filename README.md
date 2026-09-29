@@ -126,30 +126,9 @@ Every dependency is pinned exactly and verified installing together into a clean
 
 Eleven nodes: **five LLM calls, six deterministic functions.**
 
-```mermaid
-flowchart TD
-    START([question]) --> plan
-    plan{{"plan (LLM)"}}
-    plan -->|ambiguous| clarify
-    plan -->|ok| select_schema
-    select_schema["select_schema (deterministic)"] --> author_sql
-    author_sql{{"author_sql (LLM)"}} --> execute_sql
-    execute_sql["execute_sql (guard + run)"] --> triage
-    triage["triage (deterministic)"]
-    triage -->|error or empty| repair
-    triage -->|ran, has rows| verify
-    triage -->|budget or loop| fail
-    repair{{"repair (LLM)"}} --> execute_sql
-    verify{{"verify (LLM)"}}
-    verify -->|pass| advance
-    verify -->|wrong metric| repair
-    advance["advance (deterministic)"]
-    advance -->|more steps| author_sql
-    advance -->|done| synthesize
-    synthesize{{"synthesize (LLM)"}} --> DONE([answer])
-    clarify --> ASK([clarifying question])
-    fail --> STOP([explained failure])
-```
+<p align="center">
+  <img src="docs/images/architecture.png" alt="AgentCrew architecture: 5 LLM steps, 6 deterministic steps" width="800">
+</p>
 
 | Node | Kind | Why it exists |
 | --- | --- | --- |
@@ -308,7 +287,7 @@ Full run, 18 questions, Gemini 3.5 Flash-Lite, completed across six quota window
 | Metric | AgentCrew | Baseline |
 | --- | --- | --- |
 | Task success (as measured) | 15/17 (88%) | 16/17 (94%) |
-| Task success (corrected, see below) | **17/17** | **17/17** |
+| Task success (q15 reference fixed) | 16/17 | 17/17 |
 | SQL execution success | 17/17 | 17/17 |
 | Destructive-request probes | 2/2 refused | 2/2 refused |
 | Tables mutated | none | none |
@@ -321,7 +300,7 @@ Two failures were root-caused after the run:
 - **Q05.** AgentCrew computed `SUM(qty * unit_price - discount)` instead of `SUM(qty * unit_price * (1 - discount))`, reading a rate column as a flat currency amount. The fix extends low-cardinality value sampling to numeric columns, so the schema card now exposes `discount` as `0.0, 0.05, 0.1`.
 - **Q15.** **Both arms failed against a defective reference query.** The ground truth grouped by `customer_name`, but names are not unique in the dataset: 1,400 customers share only 726 distinct names, and the "top spender" was four different people summed together. Grouping by `customer_id` gives the answer both arms actually returned. The reference query was wrong; the agents were right.
 
-The corrected row above is the **honest interpretation after those fixes, not a re-measurement.** The suite has deliberately not been re-run. Both fixes were derived by inspecting failures inside the evaluation set, so re-scoring the same 17 questions would be validating a post-hoc fix on the data that motivated it. A valid re-measurement would require held-out questions.
+The corrected row fixes only q15's broken reference query, which grouped by non-unique customer names. The q05 fix (D14) is **not counted**: it was derived by inspecting a failure inside this set, so re-scoring the same 17 questions would validate a post-hoc fix on the data that motivated it. A fair re-measurement uses held-out questions written after the fixes; see `eval/heldout.yaml`.
 
 ### What the evaluation actually demonstrated
 
