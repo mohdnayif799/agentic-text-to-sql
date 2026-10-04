@@ -270,3 +270,35 @@ class TestStep0IsA:
         assert repair.signal == "fanout" and repair.accepted
         assert "not unique on either side" in repair.detail
         assert out.path == "escalated"
+
+
+class TestEverySqlCallGetsTheFullContext:
+    """Step 0, follow-ups and repairs all see exactly A's shared context."""
+
+    def test_follow_up_and_repair_prompts_carry_a_context(
+        self, pinned, engine, builder
+    ):
+        question = "Who was our top 2024 customer and their 2025 revenue?"
+        plan = {"base_step": 2, "columns": []}
+        script = Script(step0=TOP_2024, needs_followup=True,
+                        followups=["SELECT nope FROM orders"],
+                        repairs=[REVENUE_2025], plan=plan)
+        client = FakeClient(responder=script)
+        run_architecture("router", question, settings=pinned, llm=client,
+                         tools=ToolContext.create(engine), context_builder=builder)
+        context = builder.build(question).render()
+        sql_prompts = [
+            user for system, user in client.prompts
+            if "SQL analyst" in system or "continuing an analysis" in system
+            or "You fix one SQLite query" in system
+        ]
+        kinds = [s for s, _ in client.prompts]
+        assert any("You fix one SQLite query" in s for s in kinds)  # a repair ran
+        assert len(sql_prompts) >= 3  # step 0, a follow-up and a repair
+        for user in sql_prompts:
+            assert context in user  # schema, values, dictionary, date, examples
+            assert f"## Question\n{question}\n" in user
+            for section in ("## Database schema", "## Allowed values",
+                            "## Data dictionary", "Metric definitions:",
+                            "## Today's date\n2026-10-04"):
+                assert section in user

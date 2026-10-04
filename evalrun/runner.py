@@ -354,6 +354,7 @@ class Runner:
                       f"{judge['reason'] if judge else score.detail}")
         payload["rejudged_utc"] = datetime.now(UTC).isoformat(timespec="seconds")
         payload["summary"] = summarise(payload["items"], payload["archs"])
+        payload["escalation"] = escalation_effects(payload["items"])
         results_path.write_text(json.dumps(redact(payload, self.secrets), indent=1,
                                            default=str) + "\n", "utf-8", newline="\n")
         return payload
@@ -422,6 +423,7 @@ class Runner:
             "complete": stopped is None and len(items) == len(questions) * len(archs),
             "stopped_reason": stopped,
             "summary": summarise(items, archs),
+            "escalation": escalation_effects(items),
             "items": items,
         }
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -474,6 +476,35 @@ def _repair_effect(q: dict[str, Any], gold_entry: dict[str, Any], r: Any,
 def _not_evaluated(q: dict[str, Any], arch: str, reason: str) -> dict[str, Any]:
     return {"id": q["id"], "type": q["type"], "arch": arch,
             "state": "not_evaluated", "primary": None, "detail": reason}
+
+
+def escalation_effects(items: list[dict[str, Any]]) -> dict[str, Any]:
+    """For each escalated question of C and D, did escalation help or harm?
+
+    helped = A failed and the architecture passed; harmed = A passed and it
+    failed; no change otherwise. Direct-path questions are A's own run, so
+    only escalated ones can differ.
+    """
+    evaluated = {(i["id"], i["arch"]): i for i in items if i["state"] == "evaluated"}
+    out: dict[str, Any] = {}
+    for arch in SHARES_STEP0:
+        rows = []
+        for (qid, name), item in evaluated.items():
+            if name != arch or item.get("path") != "escalated":
+                continue
+            base = evaluated.get((qid, "baseline"))
+            a, c = (base or {}).get("primary"), item.get("primary")
+            effect = ("unknown" if a is None or c is None
+                      else "helped" if c and not a
+                      else "harmed" if a and not c else "no change")
+            rows.append({"id": qid, "baseline": a, arch: c, "effect": effect})
+        if rows:
+            out[arch] = {
+                **{k: sum(1 for r in rows if r["effect"] == k)
+                   for k in ("helped", "harmed", "no change", "unknown")},
+                "questions": rows,
+            }
+    return out
 
 
 def summarise(items: list[dict[str, Any]], archs: list[str]) -> dict[str, Any]:

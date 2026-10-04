@@ -217,3 +217,21 @@ def test_planned_calls():
     assert plan["judge_max"] == 3 * 2
     assert plan["typical"] == 2 * 2 + 5 * 2 + 6
     assert plan["max"] == 3 * 2 + 20 * 2 + 6
+
+
+def test_escalation_effects():
+    from evalrun.runner import escalation_effects
+
+    def item(qid, arch, primary, path):
+        return {"id": qid, "arch": arch, "state": "evaluated", "primary": primary,
+                "path": path}
+
+    items = [
+        item("q1", "baseline", False, "direct"), item("q1", "router", True, "escalated"),
+        item("q2", "baseline", True, "direct"), item("q2", "router", False, "escalated"),
+        item("q3", "baseline", False, "direct"), item("q3", "router", False, "escalated"),
+        item("q4", "baseline", True, "direct"), item("q4", "router", True, "direct"),
+    ]
+    effects = escalation_effects(items)["router"]
+    assert (effects["helped"], effects["harmed"], effects["no change"]) == (1, 1, 1)
+    assert [q["id"] for q in effects["questions"]] == ["q1", "q2", "q3"]
