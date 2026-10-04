@@ -3,7 +3,9 @@
 Key: architecture, question id, model and a SHA-256 of the exact prompt
 (system, user, max_tokens, temperature). One JSON file per response under
 <cache_dir>/<model>/<arch>/<question id>/<prompt hash>.json. A hit returns
-the stored text; a miss calls the live client (with backoff) and stores it.
+the stored text; a miss calls the live client (with backoff) and stores it
+together with its latency, so a replayed call still reports how long the
+live call took (original_latency_ms).
 """
 
 from __future__ import annotations
@@ -34,6 +36,9 @@ class CallRecord:
     latency_ms: float
     input_tokens: int
     output_tokens: int
+    original_latency_ms: float | None = None
+    """For a cache hit, the latency of the live call that filled the cache
+    (None if it was cached before latencies were stored)."""
 
 
 def prompt_hash(system: str, user: str, max_tokens: int, temperature: float) -> str:
@@ -99,6 +104,7 @@ class CachingClient(LLMClient):
             self.records.append(CallRecord(
                 _role(system), key, True, 0.0,
                 data["input_tokens"], data["output_tokens"],
+                data.get("latency_ms"),
             ))
             return LLMResponse(
                 text=data["text"],
@@ -124,6 +130,7 @@ class CachingClient(LLMClient):
             "text": response.text,
             "input_tokens": response.usage.input_tokens,
             "output_tokens": response.usage.output_tokens,
+            "latency_ms": round(latency_ms, 1),
         }, indent=1), "utf-8", newline="\n")
         self.records.append(CallRecord(
             _role(system), key, False, round(latency_ms, 1),

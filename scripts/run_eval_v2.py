@@ -24,20 +24,33 @@ sys.path.insert(0, str(ROOT))
 
 from agentcrew.archs import ARCHS  # noqa: E402
 from agentcrew.llm import build_client  # noqa: E402
-from evalkit.questions import SET_FILES, load_set  # noqa: E402
 from evalrun.runner import RunConfig, Runner, planned_calls  # noqa: E402
+from evalrun.sets import ALL_SET_FILES, load_questions  # noqa: E402
 
 
 def _print_summary(payload: dict) -> None:
     for arch, s in payload["summary"].items():
         print(f"{arch:9} primary {s['primary']} (Wilson {s['wilson95']}), "
               f"pending {s['pending']}, avg calls {s['avg_llm_calls']}, "
-              f"avg latency {s['avg_latency_s']}s, by type {s['by_type']}")
+              f"avg latency {s['avg_latency_s']}s "
+              f"(as if live {s.get('avg_latency_live_s', '?')}s), "
+              f"by type {s['by_type']}")
+    for arch, e in payload.get("escalation", {}).items():
+        print(f"{arch:9} escalation vs A: helped {e['helped']}, harmed "
+              f"{e['harmed']}, no change {e['no change']}, unknown {e['unknown']}")
+    missed = payload.get("missed_escalations")
+    if missed:
+        print(f"A failed {missed['baseline_failed']}: "
+              + "; ".join(f"{arch} escalated {missed[arch]['escalated']}, "
+                          f"not escalated {missed[arch]['not_escalated']}"
+                          for arch in ("router", "full")))
+        for row in missed["questions"]:
+            print(f"  {row['id']}: C {row['router']}, D {row['full']}")
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--set", required=True, choices=sorted(SET_FILES))
+    ap.add_argument("--set", required=True, choices=sorted(ALL_SET_FILES))
     ap.add_argument("--arch", nargs="+", choices=ARCHS)
     ap.add_argument("--run", required=True, help="run name (folder under eval/runs)")
     ap.add_argument("--offline", action="store_true", help="cache only; no API calls")
@@ -50,7 +63,7 @@ def main() -> int:
 
     cfg = RunConfig.load()
     if args.plan_only:
-        plan = planned_calls(load_set(args.set), args.arch)
+        plan = planned_calls(load_questions(args.set), args.arch)
         print(f"Planned LLM calls: typical {plan['typical']}, at most {plan['max']} "
               f"{plan['per_arch']} + judge <= {plan['judge_max']}")
         return 0

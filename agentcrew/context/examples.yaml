@@ -153,7 +153,7 @@ excluded:
 - id: diag/d02
   question: Which product has the highest list price?
   reasons:
-  - similarity 0.78 to he12
+  - similarity 0.79 to he12
   - paraphrase-level match to he12 and shares its answer (highest list price)
 - id: diag/d06
   question: How many customers signed up during 2024?

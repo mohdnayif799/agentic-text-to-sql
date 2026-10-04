@@ -16,9 +16,17 @@ dictionary text), never written by a model. Values supplied by the model
                              dimension contributes to the change, and which
                              one contributes most
 
-Comparisons: two periods (period_a, period_b), or two groups of one
-dimension (group_dimension, group_a, group_b) over an optional common
+Comparisons: two periods (period_a, period_b), or groups of one dimension
+(group_dimension with group_a and group_b, or with `groups`: the group being
+explained, then each group it is compared with) over an optional common
 period. Optional `filters` restrict both sides to dimension values.
+
+Both tools return the same columns (COLUMNS): one row per item compared
+between side_a (the reference) and side_b (what is explained), with the
+change, its share of the metric's change, a comparison label ("higher",
+"lower", or "about the same" within SIMILAR_PCT percent) and the largest
+contributor marked, so every component's comparison is stated by the tool,
+including the components that do not move.
 """
 
 from __future__ import annotations
@@ -227,24 +235,43 @@ class Period(BaseModel):
         return f"{self.start.isoformat()}..{self.end.isoformat()}"
 
 
+#: Most groups one comparison may list (the first and up to five others), so
+#: the result stays small enough for the answer step to read in full.
+MAX_GROUPS = 6
+
+
 class Comparison(BaseModel):
-    """Two periods, or two groups of one dimension (optionally within a period)."""
+    """What is compared: side_a is the reference, side_b what is explained.
+
+    Modes: two periods (period_a, then the period_b being explained); two
+    groups of one dimension (group_a, then the group_b being explained); or
+    `groups`, the group being explained first and then each group it is
+    compared with. Group modes take an optional common `period`.
+    """
 
     period_a: Period | None = None
     period_b: Period | None = None
     group_dimension: str | None = None
     group_a: str | None = None
     group_b: str | None = None
+    groups: list[str] | None = None
     period: Period | None = None
     filters: dict[str, str] = {}
 
     @model_validator(mode="after")
     def _one_mode(self) -> Comparison:
         periods = self.period_a is not None and self.period_b is not None
-        groups = bool(self.group_dimension and self.group_a and self.group_b)
-        if periods == groups:
+        pair = bool(self.group_a and self.group_b)
+        if pair and self.groups:
+            raise ValueError("give group_a and group_b, or groups, not both")
+        grouped = bool(self.group_dimension and (pair or self.groups))
+        if periods == grouped:
             raise ValueError("give either period_a and period_b, or "
-                             "group_dimension with group_a and group_b")
+                             "group_dimension with group_a and group_b (or groups)")
+        if self.groups is not None and not (
+                2 <= len(self.groups) <= MAX_GROUPS
+                and len(set(self.groups)) == len(self.groups)):
+            raise ValueError(f"groups needs 2 to {MAX_GROUPS} different values")
         return self
 
     @property
@@ -252,14 +279,19 @@ class Comparison(BaseModel):
         return self.period_a is not None
 
     def sides(self) -> list[tuple[str, Period | None, dict[str, str]]]:
+        """Every distinct side once: (label, period, filters)."""
         if self.by_period:
             return [(self.period_a.label(), self.period_a, dict(self.filters)),
                     (self.period_b.label(), self.period_b, dict(self.filters))]
         dim = self.group_dimension
-        return [
-            (self.group_a, self.period, {**self.filters, dim: self.group_a}),
-            (self.group_b, self.period, {**self.filters, dim: self.group_b}),
-        ]
+        names = self.groups or [self.group_a, self.group_b]
+        return [(g, self.period, {**self.filters, dim: g}) for g in names]
+
+    def pairs(self) -> list[tuple[int, int]]:
+        """(reference, explained) indexes into sides()."""
+        if self.groups:
+            return [(i, 0) for i in range(1, len(self.groups))]
+        return [(0, 1)]
 
 
 Runner = Callable[[str], ExecutionResult]
@@ -354,8 +386,84 @@ def _check(metric: Metric, comparison: Comparison) -> Source:
     return source
 
 
+#: Output columns of both metric tools. One row compares one item between
+#: side_a (the reference) and side_b (what is explained); a shared schema lets
+#: several analyses be stacked into one final table.
+COLUMNS = ("side_a", "side_b", "analysis", "item", "value_a", "value_b", "change",
+           "pct_change", "share_of_change_pct", "comparison", "largest_contributor")
+
+#: An item that differs by at most this many percent between the two sides is
+#: labelled "about the same": it cannot explain a gap much larger than that.
+#: Labelling it here means the answer step reports it instead of judging
+#: closeness (or skipping the item) itself.
+SIMILAR_PCT = 5.0
+
+
 def _pct(a: float, b: float) -> float | None:
     return (b - a) / abs(a) * 100 if a else None
+
+
+def _label(a: float, b: float) -> str:
+    pct = _pct(a, b)
+    close = abs(pct) <= SIMILAR_PCT if pct is not None else a == b
+    if close:
+        return "about the same"
+    return "higher" if b > a else "lower"
+
+
+def _record(labels: tuple[str, str], analysis: str, item: object, a: float,
+            b: float, share: float | None) -> dict[str, object]:
+    return {"side_a": labels[0], "side_b": labels[1], "analysis": analysis,
+            "item": item, "value_a": a, "value_b": b, "change": b - a,
+            "pct_change": _pct(a, b), "share_of_change_pct": share,
+            "comparison": _label(a, b), "largest_contributor": False}
+
+
+def _with_largest(records: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Mark the item with the largest share of the change (if any is known)."""
+    known = [i for i, r in enumerate(records) if r["share_of_change_pct"] is not None]
+    top = max(known, key=lambda i: records[i]["share_of_change_pct"]) if known else None
+    return [{**r, "largest_contributor": i == top} for i, r in enumerate(records)]
+
+
+def _reconcile(metric: Metric, side: Mapping[str, float]) -> None:
+    """The components of every decomposition must rebuild the metric."""
+    target = side[metric.factor]
+    tolerance = RECONCILE_TOLERANCE * max(1.0, abs(target))
+    for label, parts in metric.products.items():
+        if abs(math.prod(side[f] ** e for f, e in parts) - target) > tolerance:
+            raise ComputeError(f"components of {label!r} do not reconcile")
+    for label, parts in metric.sums.items():
+        if abs(sum(s * side[f] for f, s in parts) - target) > tolerance:
+            raise ComputeError(f"components of {label!r} do not reconcile")
+
+
+def _decomposition_rows(metric: Metric, labels: tuple[str, str],
+                        a: Mapping[str, float], b: Mapping[str, float]
+                        ) -> list[dict[str, object]]:
+    total_log = _log_ratio(a[metric.factor], b[metric.factor])
+    total_change = b[metric.factor] - a[metric.factor]
+    records = [_record(labels, "metric", metric.name, a[metric.factor],
+                       b[metric.factor], None)]
+    for analysis, parts in metric.products.items():
+        group = []
+        for f, e in parts:
+            # Log contributions: exponent x ln(b/a) over ln(metric_b/metric_a);
+            # they add up to 100% across one decomposition's components.
+            ratio = _log_ratio(a[f], b[f])
+            share = (e * ratio / total_log * 100
+                     if ratio is not None and total_log else None)
+            item = f if e == 1 else f"{f} (divides)"
+            group.append(_record(labels, analysis, item, a[f], b[f], share))
+        records += _with_largest(group)
+    for analysis, parts in metric.sums.items():
+        group = [
+            _record(labels, analysis, f if s == 1 else f"{f} (subtracted)", a[f], b[f],
+                    s * (b[f] - a[f]) / total_change * 100 if total_change else None)
+            for f, s in parts
+        ]
+        records += _with_largest(group)
+    return records
 
 
 def decompose_change(
@@ -378,57 +486,35 @@ def decompose_change(
         (row,) = _run(run, sql) or [{}]
         if not any(row.get(k) for k in aggregates):
             raise ComputeError(f"no data for {label!r}")
-        sides.append((label, {f: _value(f, row) for f in factors}))
-    (label_a, a), (label_b, b) = sides
+        side = {f: _value(f, row) for f in factors}
+        _reconcile(metric, side)
+        sides.append((label, side))
 
-    rows = [["metric", metric.name, a[metric.factor], b[metric.factor]]]
-    for label, parts in metric.products.items():
-        for side in (a, b):
-            product = math.prod(side[f] ** e for f, e in parts)
-            if abs(product - side[metric.factor]) > RECONCILE_TOLERANCE * max(
-                    1.0, abs(side[metric.factor])):
-                raise ComputeError(f"components of {label!r} do not reconcile")
-        rows += [[label, f if e == 1 else f"{f} (divides)", a[f], b[f]]
-                 for f, e in parts]
-    for label, parts in metric.sums.items():
-        for side in (a, b):
-            total = sum(s * side[f] for f, s in parts)
-            if abs(total - side[metric.factor]) > RECONCILE_TOLERANCE * max(
-                    1.0, abs(side[metric.factor])):
-                raise ComputeError(f"components of {label!r} do not reconcile")
-        rows += [[label, f if s == 1 else f"minus {f}", s * a[f], s * b[f]]
-                 for f, s in parts]
-
-    out = pd.DataFrame(
-        rows, columns=["decomposition", "component", "value_a", "value_b"])
-    out["change"] = out["value_b"] - out["value_a"]
-    out["pct_change"] = [_pct(x, y) for x, y in zip(out["value_a"], out["value_b"],
-                                                    strict=True)]
-    total_log = _log_ratio(a[metric.factor], b[metric.factor])
-    total_change = b[metric.factor] - a[metric.factor]
-    shares = []
-    for deco, comp, x, y, change in zip(out["decomposition"], out["component"],
-                                        out["value_a"], out["value_b"],
-                                        out["change"], strict=True):
-        if deco in metric.products:
-            # Log contributions: exponent x ln(b/a) over ln(metric_b/metric_a);
-            # they add up to 100% across one decomposition's components.
-            sign = -1 if comp.endswith("(divides)") else 1
-            ratio = _log_ratio(x, y)
-            shares.append(sign * ratio / total_log * 100
-                          if ratio is not None and total_log else None)
-        elif deco in metric.sums:
-            shares.append(change / total_change * 100 if total_change else None)
-        else:
-            shares.append(None)
-    out["share_of_change_pct"] = shares
-    out.insert(0, "side_b", label_b)
-    out.insert(0, "side_a", label_a)
-    return out, queries
+    records = []
+    for i, j in comparison.pairs():
+        (label_a, a), (label_b, b) = sides[i], sides[j]
+        records += _decomposition_rows(metric, (label_a, label_b), a, b)
+    return pd.DataFrame(records, columns=list(COLUMNS)), queries
 
 
 def _log_ratio(a: float, b: float) -> float | None:
     return math.log(b / a) if a > 0 and b > 0 else None
+
+
+def _contribution_rows(analysis: str, side_a: tuple[str, dict], side_b: tuple[str, dict]
+                       ) -> list[dict[str, object]]:
+    (label_a, a), (label_b, b) = side_a, side_b
+    keys = sorted(set(a) | set(b), key=str)
+    total = sum(b.get(k, 0.0) - a.get(k, 0.0) for k in keys)
+    records = [
+        _record((label_a, label_b), analysis, k, a.get(k, 0.0), b.get(k, 0.0),
+                (b.get(k, 0.0) - a.get(k, 0.0)) / total * 100 if total else None)
+        for k in keys
+    ]
+    # Largest contributor: the largest change in the direction of the total.
+    direction = 1.0 if total >= 0 else -1.0
+    ordered = sorted(records, key=lambda r: -direction * r["change"])
+    return [{**r, "largest_contributor": i == 0} for i, r in enumerate(ordered)]
 
 
 def contribution_by_dimension(
@@ -449,24 +535,17 @@ def contribution_by_dimension(
         if not values:
             raise ComputeError(f"no data for {label!r}")
         tables.append((label, values))
-    (label_a, a), (label_b, b) = tables
-    keys = sorted(set(a) | set(b), key=str)
-    out = pd.DataFrame({
-        dimension: keys,
-        "value_a": [a.get(k, 0.0) for k in keys],
-        "value_b": [b.get(k, 0.0) for k in keys],
-    })
-    out["change"] = out["value_b"] - out["value_a"]
-    out["pct_change"] = [_pct(x, y) for x, y in zip(out["value_a"], out["value_b"],
-                                                    strict=True)]
-    total = float(out["change"].sum())
-    out["share_of_change_pct"] = out["change"] / total * 100 if total else None
-    direction = 1.0 if total >= 0 else -1.0
-    out = out.sort_values("change", ascending=direction < 0).reset_index(drop=True)
-    out["largest_contributor"] = [i == 0 for i in range(len(out))]
-    out.insert(0, "side_b", label_b)
-    out.insert(0, "side_a", label_a)
-    return out, queries
+    analysis = f"{metric.name} by {dimension}"
+    records = []
+    for i, j in comparison.pairs():
+        records += _contribution_rows(analysis, tables[i], tables[j])
+    return pd.DataFrame(records, columns=list(COLUMNS)), queries
+
+
+def has_components(metric_name: str) -> bool:
+    """True if decompose_change can split the metric into components."""
+    metric = _metric(metric_name)
+    return bool(metric.products or metric.sums)
 
 
 def catalog() -> str:

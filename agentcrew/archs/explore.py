@@ -29,9 +29,11 @@ from sqlalchemy import Engine, text
 
 from agentcrew.compute.functions import FUNCTIONS, ComputeError
 from agentcrew.compute.metrics import (
+    METRICS,
     Comparison,
     contribution_by_dimension,
     decompose_change,
+    has_components,
 )
 from agentcrew.db.introspect import Catalog
 from agentcrew.schemas import ExecutionResult
@@ -69,6 +71,49 @@ class NextAction(BaseModel):
         if missing:
             raise ValueError(f"action {self.action} needs {', '.join(missing)}")
         return self
+
+
+class MetricPlan(BaseModel):
+    """The metric analysis that opens a why-question's exploration (D).
+
+    The metric name is checked against the metric allowlist (METRICS, which
+    mirrors the data dictionary's metric definitions) when the model's JSON
+    is validated, before any SQL exists; the comparison's dimension names are
+    checked against each source's dimension allowlist when the SQL is built.
+    """
+
+    metric: str = Field(description="One of the listed metrics.")
+    comparison: Comparison
+    dimension: str | None = Field(
+        default=None,
+        description="Only for a metric without components: the dimension whose "
+                    "values may explain the difference.")
+    reason: str = Field(default="", description="One sentence.")
+
+    @model_validator(mode="after")
+    def _allowed(self) -> MetricPlan:
+        if self.metric not in METRICS:
+            raise ValueError(f"unknown metric {self.metric!r}; "
+                             f"choose from {sorted(METRICS)}")
+        if not has_components(self.metric) and not self.dimension:
+            raise ValueError(f"{self.metric} has no components; give the dimension "
+                             "whose values may explain the difference")
+        return self
+
+    def to_action(self) -> NextAction:
+        """decompose_change when the metric has components, otherwise
+        contribution_by_dimension over the given dimension."""
+        params: dict[str, Any] = {
+            "metric": self.metric,
+            "comparison": self.comparison.model_dump(mode="json", exclude_none=True),
+        }
+        if has_components(self.metric):
+            function = "decompose_change"
+        else:
+            function = "contribution_by_dimension"
+            params["dimension"] = self.dimension
+        return NextAction(action="compute", function=function, params=params,
+                          reason=self.reason)
 
 
 def _result(columns: list[str], rows: list[list[Any]], sql: str) -> ExecutionResult:

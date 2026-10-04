@@ -40,12 +40,13 @@ from evalkit.judge import (
     judge_passes,
     quote_in_answer,
 )
-from evalkit.questions import GOLD_FILES, ROOT, load_set
+from evalkit.questions import ROOT
 from evalkit.scoring import result_verdict, score_question
 from evalkit.stats import wilson_interval
 from evalrun.backoff import DailyLimitReached
 from evalrun.cache import CacheMiss, CachingClient
 from evalrun.redact import redact, redact_text, secrets_of
+from evalrun.sets import ALL_GOLD_FILES, load_questions
 
 RUN_CONFIG = ROOT / "eval" / "run_config.yaml"
 RESULT_ROWS = 20
@@ -246,6 +247,12 @@ class Runner:
                                   path="error", stop_reason="error", error=message)
         latency = (time.perf_counter() - started
                    - sum(c.slept_seconds for _, c in clients))
+        # As if every call were live: replayed calls (including C's and D's
+        # shared step 0 from A's cache) count with their original latency.
+        replayed = [r for _, c in clients for r in c.records if r.cache_hit]
+        latency_live = latency + sum(r.original_latency_ms or 0.0
+                                     for r in replayed) / 1000
+        unmeasured = sum(1 for r in replayed if r.original_latency_ms is None)
 
         ok = outcome.selected is not None and outcome.selected.ok
         selected = outcome.selected if ok else None
@@ -290,6 +297,8 @@ class Runner:
                 [asdict(r) for r in judge_client.records] if judge_client else []
             ),
             "latency_s": round(latency, 3),
+            "latency_live_s": round(latency_live, 3),
+            "latency_unmeasured_calls": unmeasured,
             "score": asdict(score),
         }, self.secrets)
         path = trace_dir / arch / f"{q['id']}.json"
@@ -309,6 +318,8 @@ class Runner:
             "cache_hits": sum(c.cache_hits for _, c in clients),
             "judge_calls": judge_client.calls if judge_client else 0,
             "latency_s": round(latency, 3),
+            "latency_live_s": round(latency_live, 3),
+            "latency_unmeasured_calls": unmeasured,
             "repairs": len(repairs),
             "repair_fixes": sum(1 for r in repairs if r["effect"] == "fix"),
             "repair_breaks": sum(1 for r in repairs if r["effect"] == "break"),
@@ -321,8 +332,8 @@ class Runner:
 
         No architecture is re-run: answers come from the run's traces.
         """
-        questions = {q["id"]: q for q in load_set(set_name)}
-        gold = load_gold(GOLD_FILES[set_name])["gold"]
+        questions = {q["id"]: q for q in load_questions(set_name)}
+        gold = load_gold(ALL_GOLD_FILES[set_name])["gold"]
         results_path = run_dir / "results.json"
         payload = json.loads(results_path.read_text("utf-8"))
         targets = [i for i in payload["items"] if i["state"] == "evaluated"
@@ -362,13 +373,14 @@ class Runner:
         payload["rejudged_utc"] = datetime.now(UTC).isoformat(timespec="seconds")
         payload["summary"] = summarise(payload["items"], payload["archs"])
         payload["escalation"] = escalation_effects(payload["items"])
+        payload["missed_escalations"] = missed_escalations(payload["items"])
         results_path.write_text(json.dumps(redact(payload, self.secrets), indent=1,
                                            default=str) + "\n", "utf-8", newline="\n")
         return payload
 
     def run(self, set_name: str, archs: list[str], run_dir: Path) -> dict[str, Any]:
-        questions = load_set(set_name)
-        gold_file = load_gold(GOLD_FILES[set_name])
+        questions = load_questions(set_name)
+        gold_file = load_gold(ALL_GOLD_FILES[set_name])
         if gold_file["db_fingerprint"] != self.db_fingerprint:
             raise RuntimeError("database differs from the one the gold was built on")
         gold = gold_file["gold"]
@@ -431,6 +443,7 @@ class Runner:
             "stopped_reason": stopped,
             "summary": summarise(items, archs),
             "escalation": escalation_effects(items),
+            "missed_escalations": missed_escalations(items),
             "items": items,
         }
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -514,6 +527,34 @@ def escalation_effects(items: list[dict[str, Any]]) -> dict[str, Any]:
     return out
 
 
+def missed_escalations(items: list[dict[str, Any]]) -> dict[str, Any]:
+    """For each question A failed: did C and D escalate, and did they pass?
+
+    A direct C or D run is A's run, so an A failure that C or D did not
+    escalate is one they could not fix: a missed escalation.
+    """
+    evaluated = {(i["id"], i["arch"]): i for i in items if i["state"] == "evaluated"}
+    failed = [qid for (qid, arch), i in evaluated.items()
+              if arch == "baseline" and i.get("primary") is False]
+    out: dict[str, Any] = {"baseline_failed": len(failed)}
+    rows: list[dict[str, str]] = [{"id": qid} for qid in failed]
+    for arch in SHARES_STEP0:
+        counts = {"escalated": 0, "not_escalated": 0, "not_run": 0}
+        for row in rows:
+            item = evaluated.get((row["id"], arch))
+            if item is None or item.get("primary") is None:
+                counts["not_run"] += 1
+                row[arch] = "not run"
+                continue
+            escalated = item.get("path") == "escalated"
+            counts["escalated" if escalated else "not_escalated"] += 1
+            row[arch] = (f"{'escalated' if escalated else 'direct'} "
+                         f"({'pass' if item['primary'] else 'fail'})")
+        out[arch] = counts
+    out["questions"] = rows
+    return out
+
+
 def summarise(items: list[dict[str, Any]], archs: list[str]) -> dict[str, Any]:
     out = {}
     for arch in archs:
@@ -534,6 +575,9 @@ def summarise(items: list[dict[str, Any]], archs: list[str]) -> dict[str, Any]:
             if mine else 0,
             "avg_latency_s": round(sum(i["latency_s"] for i in mine) / len(mine), 2)
             if mine else 0,
+            "avg_latency_live_s": round(
+                sum(i.get("latency_live_s", i["latency_s"]) for i in mine) / len(mine),
+                2) if mine else 0,
             "by_type": {t: f"{p}/{c}" for t, (p, c) in sorted(by_type.items())},
         }
     return out

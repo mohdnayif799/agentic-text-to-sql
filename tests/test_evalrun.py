@@ -33,6 +33,17 @@ class TestCache:
         other = CachingClient(lambda: live, **{**base, field: "other"})
         assert other.complete(system="s", user="u").text == "two"
 
+    def test_hit_reports_the_original_latency(self, tmp_path):
+        live = FakeClient(["first"])
+        base = dict(cache_dir=tmp_path, arch="baseline", qid="q1", model="m")
+        first = CachingClient(lambda: live, **base)
+        first.complete(system="s", user="u")
+        again = CachingClient(None, **base)
+        again.complete(system="s", user="u")
+        (miss,), (hit,) = first.records, again.records
+        assert hit.cache_hit and hit.latency_ms == 0.0
+        assert hit.original_latency_ms == miss.latency_ms
+
     def test_offline_miss_raises(self, tmp_path):
         client = CachingClient(None, cache_dir=tmp_path, arch="a", qid="q", model="m")
         with pytest.raises(CacheMiss):
@@ -235,3 +246,58 @@ def test_escalation_effects():
     effects = escalation_effects(items)["router"]
     assert (effects["helped"], effects["harmed"], effects["no change"]) == (1, 1, 1)
     assert [q["id"] for q in effects["questions"]] == ["q1", "q2", "q3"]
+
+
+def test_missed_escalations():
+    from evalrun.runner import missed_escalations
+
+    def item(qid, arch, primary, path):
+        return {"id": qid, "arch": arch, "state": "evaluated", "primary": primary,
+                "path": path}
+
+    items = [
+        item("q1", "baseline", False, "direct"), item("q1", "router", False, "direct"),
+        item("q1", "full", True, "escalated"),
+        item("q2", "baseline", True, "direct"), item("q2", "full", True, "direct"),
+        item("q3", "baseline", False, "direct"),
+    ]
+    missed = missed_escalations(items)
+    assert missed["baseline_failed"] == 2
+    assert missed["router"] == {"escalated": 0, "not_escalated": 1, "not_run": 1}
+    assert missed["full"] == {"escalated": 1, "not_escalated": 0, "not_run": 1}
+    assert missed["questions"] == [
+        {"id": "q1", "router": "direct (fail)", "full": "escalated (pass)"},
+        {"id": "q3", "router": "not run", "full": "not run"},
+    ]
+
+
+def test_results_carry_missed_escalations_and_live_latency(cfg, tmp_path):
+    runner = Runner(cfg, live_factory=lambda s: FakeClient(responder=responder),
+                    log=lambda *_: None)
+    payload = runner.run("showcase", ["baseline"], tmp_path / "run")
+    assert payload["missed_escalations"]["baseline_failed"] >= 1
+    replay = Runner(cfg, live_factory=None, log=lambda *_: None).run(
+        "showcase", ["baseline"], tmp_path / "replay")
+    item = replay["items"][0]
+    assert item["live_calls"] == 0
+    assert item["latency_live_s"] >= item["latency_s"]
+    assert "avg_latency_live_s" in replay["summary"]["baseline"]
+
+
+def test_report_has_every_section(cfg, tmp_path):
+    import importlib.util
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location(
+        "report_v2", root / "scripts" / "report_v2.py")
+    report = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(report)
+    run_dir = tmp_path / "run"
+    payload = Runner(cfg, live_factory=lambda s: FakeClient(responder=responder),
+                     log=lambda *_: None).run("showcase", ["baseline"], run_dir)
+    text = report.render(payload, run_dir, cfg.cache_dir)
+    for heading in ("## Summary", "## Per question", "## Escalation against A",
+                    "## Missed escalations (questions A failed)"):
+        assert heading in text
+    assert "| sc03 | why | A baseline | FAIL |" in text

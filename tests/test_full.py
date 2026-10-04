@@ -9,6 +9,9 @@ from datetime import date
 import pytest
 
 from agentcrew.archs import run_architecture
+from agentcrew.archs.explore import MetricPlan
+from agentcrew.archs.full import METRIC_GUIDANCE, is_why_question
+from agentcrew.compute.metrics import COLUMNS
 from agentcrew.context import ContextBuilder
 from agentcrew.llm import FakeClient
 from agentcrew.tools import ToolContext
@@ -33,12 +36,18 @@ DECOMPOSE = {
 }
 
 
+METRIC_PLAN = {"metric": "revenue", "reason": "split revenue", "comparison": {
+    "group_dimension": "channel", "groups": ["Direct", "Partner"],
+    "period": {"start": "2024-01-01", "end": "2024-12-31"}}}
+
+
 class Script:
     def __init__(self, *, step0=COUNT, needs_followup=False, actions=(),
-                 repairs=(), plan=None):
+                 repairs=(), plan=None, metric_plans=(METRIC_PLAN,)):
         self.step0, self.needs_followup = step0, needs_followup
         self.actions, self.repairs = list(actions), list(repairs)
         self.plan = plan or {"base_step": 1, "columns": []}
+        self.metric_plans = list(metric_plans)
         self.calls: list[str] = []
         self.prompts: dict[str, str] = {}
 
@@ -50,6 +59,9 @@ class Script:
         if "You check whether one query result" in system:
             note("decision")
             return {"needs_followup": self.needs_followup, "reason": "needs a breakdown"}
+        if "You start the analysis of a question that asks why" in system:
+            note("metric_plan")
+            return self.metric_plans.pop(0) if self.metric_plans else {}
         if "You plan the next step" in system:
             note("decide")
             return self.actions.pop(0) if self.actions else {"action": "answer"}
@@ -79,7 +91,8 @@ def builder(engine):
     return ContextBuilder.from_database(engine, tools.catalog, today=date(2026, 10, 4))
 
 
-QUESTION = "Why does Direct bring in more revenue than Partner in 2024?"
+QUESTION = "How did Direct revenue compare with Partner revenue in 2024?"
+WHY = "Why does Direct bring in more revenue than Partner in 2024?"
 
 
 def run_d(script, pinned, engine, builder, question=QUESTION, **overrides):
@@ -128,7 +141,7 @@ class TestEscalation:
                                 "answer"]
         assert [s["tools"] for s in out.steps] == [
             ["run_sql"], ["compute:decompose_change"], ["assemble"]]
-        assert "component" in out.selected.columns
+        assert "item" in out.selected.columns
         assert out.selected_step == 2
 
     def test_decide_sees_the_full_context_question_and_history(
@@ -176,6 +189,118 @@ class TestEscalation:
         assert out.status == "done" and out.selected.rows == [[1400]]
 
 
+COMPONENTS = ("order_count", "average_order_value", "units_sold",
+              "average_unit_price", "one_minus_average_discount")
+
+
+class TestWhyQuestions:
+    """A why-question's escalated path starts with a metric decomposition, and
+    the answer is written from the stacked metric tables."""
+
+    @pytest.mark.parametrize("question", [
+        WHY, "What explains the drop in tickets?", "what drove Q2 sales",
+        "Reasons for the lower refund rate?", "How come APAC fell?",
+        "What caused churn to rise in 2025?",
+    ])
+    def test_why_questions_are_recognised(self, question):
+        assert is_why_question(question)
+
+    @pytest.mark.parametrize("question", [
+        QUESTION, "Which region had the most orders?",
+        "What is the difference between Direct and Partner revenue?",
+    ])
+    def test_other_questions_are_not(self, question):
+        assert not is_why_question(question)
+
+    def test_why_starts_with_a_decomposition_and_stacks(self, pinned, engine, builder):
+        script = Script(needs_followup=True)
+        out, _ = run_d(script, pinned, engine, builder, question=WHY)
+        assert script.calls == ["step0", "decision", "metric_plan", "decide", "answer"]
+        assert [s["tools"] for s in out.steps] == [
+            ["run_sql"], ["compute:decompose_change"], ["stack"]]
+        assert tuple(out.selected.columns) == COLUMNS
+        assert out.selected_step == 2
+
+    def test_answer_reports_every_component(self, pinned, engine, builder):
+        script = Script(needs_followup=True)
+        run_d(script, pinned, engine, builder, question=WHY)
+        prompt = script.prompts["answer"]
+        assert METRIC_GUIDANCE in prompt
+        for item in COMPONENTS:
+            assert item in prompt
+
+    def test_metric_and_contribution_tables_are_stacked(self, pinned, engine, builder):
+        contribution = {
+            "action": "compute", "function": "contribution_by_dimension",
+            "params": {"metric": "revenue", "dimension": "segment",
+                       "comparison": METRIC_PLAN["comparison"]}}
+        script = Script(needs_followup=True, actions=[contribution])
+        out, _ = run_d(script, pinned, engine, builder, question=WHY)
+        assert "assemble" not in script.calls
+        assert [s["tools"] for s in out.steps][-1] == ["stack"]
+        analyses = {row[COLUMNS.index("analysis")] for row in out.selected.rows}
+        assert "revenue by segment" in analyses
+        assert "orders x average order value" in analyses
+
+    def test_failed_metric_plan_falls_back_to_the_loop(self, pinned, engine, builder):
+        script = Script(needs_followup=True, actions=[DECOMPOSE],
+                        metric_plans=[{"metric": "profit"}, {"metric": "profit"}],
+                        plan={"base_step": 2, "columns": []})
+        out, _ = run_d(script, pinned, engine, builder, question=WHY)
+        assert out.status == "done"
+        assert script.calls.count("metric_plan") == 2  # one schema repair
+        assert [s["tools"] for s in out.steps][1] == ["compute:decompose_change"]
+
+    def test_failed_metric_step_uses_ordinary_selection(self, pinned, engine, builder):
+        bad = {**METRIC_PLAN, "comparison": {
+            "group_dimension": "channel", "groups": ["Nowhere", "Direct"]}}
+        script = Script(needs_followup=True, metric_plans=[bad])
+        out, _ = run_d(script, pinned, engine, builder, question=WHY)
+        assert out.status == "done" and out.selected.rows == [[1400]]
+        assert METRIC_GUIDANCE not in script.prompts["answer"]
+
+    def test_metric_sql_goes_through_the_read_only_guard(
+        self, pinned, engine, builder, monkeypatch
+    ):
+        import agentcrew.tools as tools_module
+
+        seen: list[str] = []
+        real = tools_module.guard_sql
+
+        def spy(sql, **kwargs):
+            seen.append(sql)
+            return real(sql, **kwargs)
+
+        monkeypatch.setattr(tools_module, "guard_sql", spy)
+        out, _ = run_d(Script(needs_followup=True), pinned, engine, builder,
+                       question=WHY)
+        metric_sql = [line for line in out.selected.sql.splitlines()
+                      if line.startswith("SELECT")]
+        assert metric_sql and all(sql in seen for sql in metric_sql)
+
+
+class TestMetricPlan:
+    def test_metric_names_are_allowlisted(self):
+        with pytest.raises(ValueError, match="unknown metric"):
+            MetricPlan(metric="profit", comparison=METRIC_PLAN["comparison"])
+        with pytest.raises(ValueError, match="unknown metric"):
+            MetricPlan(metric="revenue); DROP TABLE orders; --",
+                       comparison=METRIC_PLAN["comparison"])
+
+    def test_decomposable_metrics_use_decompose_change(self):
+        action = MetricPlan(**METRIC_PLAN).to_action()
+        assert (action.action, action.function) == ("compute", "decompose_change")
+        assert action.params["comparison"]["groups"] == ["Direct", "Partner"]
+
+    def test_metrics_without_components_need_a_dimension(self):
+        with pytest.raises(ValueError, match="dimension"):
+            MetricPlan(metric="tickets", comparison=METRIC_PLAN["comparison"])
+        action = MetricPlan(metric="tickets", dimension="severity",
+                            comparison=METRIC_PLAN["comparison"]).to_action()
+        assert action.function == "contribution_by_dimension"
+        assert action.params["dimension"] == "severity"
+
+
 def test_runner_reports_tools_and_counts_all_clients(tmp_path, db_path):
     from dataclasses import replace
 
@@ -192,3 +317,19 @@ def test_runner_reports_tools_and_counts_all_clients(tmp_path, db_path):
     names = {c["cache_namespace"] for c in trace["llm_calls"]}
     assert names == {"full", "baseline (step 0)", "router (shared with C)"}
     assert item["llm_calls"] == len(trace["llm_calls"])
+
+
+def test_answer_prompt_without_guidance_is_unchanged():
+    """A's and C's answer prompts (and so their cached responses) must not
+    change because D can append reading guidance."""
+    from agentcrew.archs.answer import ANSWER_ROWS, ANSWER_USER, write_answer
+    from agentcrew.schemas import ExecutionResult
+
+    client = FakeClient(responses=[{"answer": "x", "key_numbers": [], "caveats": []}])
+    result = ExecutionResult(ok=True, sql="SELECT 1", columns=["n"], rows=[[1]],
+                             row_count=1)
+    write_answer(client, "Q?", result, max_tokens=100, temperature=0.0)
+    ((_, user),) = client.prompts
+    assert user == ANSWER_USER.format(question="Q?", sql="SELECT 1", row_count=1,
+                                      truncated="",
+                                      preview=result.preview(limit=ANSWER_ROWS))

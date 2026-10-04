@@ -1,0 +1,114 @@
+{
+ "db_fingerprint": {
+  "customers": "b8ac4f7505071b6275e6de1fa0574b3047fb08804827d6a36ae8457e941647cc",
+  "marketing_spend": "a360482b8faedadabc5029f6b66d1f4fd37d436629097fdb8ed3871bd6e0add2",
+  "order_items": "d9c77f6f8b8e70e3533ac938e725c5f413554d02066bcc879807f53b84e42c3d",
+  "orders": "613026a6a3a624b6322a1effa564e78f9c1dd6fc78baadff3fd16779a7908b6c",
+  "products": "997086da819a7dac61df2ba16ee8e7ba78d03007f9290560711924ffb8c937cc",
+  "regions": "9d9ae6353a3bb09ae16f0809013479ed4be678998b074dde275794ba0f7dfe6a",
+  "support_tickets": "33a3fb46464f4f3cd2e28e56c566bc7cc9a9cb327d12ee00cce10d37593690c4"
+ },
+ "gold": {
+  "dv01": {
+   "columns": [
+    "customer_id",
+    "customer_name",
+    "revenue_2024"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     1133,
+     "Idris Rossi",
+     33475.845
+    ]
+   ],
+   "type": "term_matching"
+  },
+  "dv02": {
+   "columns": [
+    "orders"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     1269
+    ]
+   ],
+   "type": "term_matching"
+  },
+  "dv03": {
+   "columns": [
+    "month",
+    "forecast_signups"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     "2025-01",
+     46.03623188405797
+    ],
+    [
+     "2025-02",
+     46.155797101449274
+    ],
+    [
+     "2025-03",
+     46.27536231884058
+    ]
+   ],
+   "type": "statistics"
+  },
+  "dv04": {
+   "columns": [
+    "month",
+    "mean_days"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     "2024-08",
+     9.150943396226415
+    ]
+   ],
+   "type": "statistics"
+  },
+  "dv05": {
+   "columns": [
+    "segment",
+    "revenue_2025"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     "Enterprise",
+     664599.477
+    ],
+    [
+     "Mid-Market",
+     1197621.4425
+    ],
+    [
+     "SMB",
+     1417119.7035
+    ]
+   ],
+   "type": "segment_comparison"
+  },
+  "dv06": {
+   "columns": [
+    "churned_customers"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     20
+    ]
+   ],
+   "type": "recovery"
+  }
+ },
+ "questions_file": "eval/dev2.yaml",
+ "questions_sha256": "81aed17bfb05236ca53af0232e1a28d7b52ca14c50bd052dde56909fe74b4b57",
+ "set": "dev2"
+}

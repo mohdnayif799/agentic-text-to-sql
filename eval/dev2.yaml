@@ -1,0 +1,229 @@
+# Development set 2 (eval protocol v2): 6 questions that exercise the paths of
+# architecture D not yet run live (fuzzy value search on a misspelled name, a
+# label that is not a stored value, a trend forecast, z-score anomalies, a
+# conditional branch, and a date-format pitfall).
+#
+# Development set: tuning on these is allowed; NOT frozen; never used for the
+# final comparison. Gold results: eval/gold/dev2.json, built and verified by
+# scripts/build_dev_gold.py (hand-written SQL, executed; statistics answers
+# re-computed independently with pandas; products and customers by ID).
+#
+# Screened against every showcase and holdout question with the rules used
+# for the showcase and the example pool (scripts/build_dev_gold.py --check):
+#   similarity  TF-IDF cosine < 0.5 to every v2 question
+#   answer      no gold table contained in, and no distinctive value shared
+#               with, any showcase or holdout gold or evidence table
+#   manual      not the same template (only literals changed or one filter
+#               added), event or fact as a holdout question; see `screening`
+#
+# Canonical definitions: as in the holdout files and the data dictionary
+# (revenue = SUM(quantity * unit_price * (1 - discount)) over completed
+# orders; churned in P = churn_date falls in P; dates 'YYYY-MM-DD' except
+# marketing_spend.month 'YYYY-MM').
+
+- id: dv01
+  type: term_matching
+  question: >-
+    What was the 2024 completed revenue of our customer Idirs Rosis? Give
+    the customer's ID and name with the revenue.
+  notes: >-
+    Misspelled on purpose (transposed letters in both names): the customer is
+    1133 Idris Rossi, the only customer with that name. Substring matching
+    fails on both name parts (and 'Rossi' is shared by several customers);
+    fuzzy search ranks Idris Rossi first (0.82, next 0.70).
+  screening: >-
+    ha06 also misspells a name, but a product's (units sold in 2025, a
+    listed value); this is a customer name (not in the shared context's value
+    lists), a different metric and year.
+  gold:
+    sql: |
+      SELECT c.customer_id, c.customer_name,
+             SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue_2024
+      FROM customers c
+      JOIN orders o ON o.customer_id = c.customer_id
+      JOIN order_items oi ON oi.order_id = o.order_id
+      WHERE c.customer_id = 1133 AND o.status = 'completed'
+        AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31'
+      GROUP BY c.customer_id, c.customer_name
+  answer_checks:
+    - text: Idris Rossi
+    - text: "1133"
+    - gold_number: [0, 2]
+
+- id: dv02
+  type: term_matching
+  question: >-
+    How many completed orders placed in 2024 included at least one
+    Professional Services item?
+  notes: >-
+    "Professional Services" is not a stored value: it is the product category
+    'Services' (no product name contains it). An exact match on the user's
+    label returns no rows.
+  screening: >-
+    ha04 and ha05 map user words for severity, region, channel and segment;
+    this maps a category label and counts orders, a different template.
+  gold:
+    sql: |
+      SELECT COUNT(DISTINCT o.order_id) AS orders
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN products p ON p.product_id = oi.product_id
+      WHERE o.status = 'completed' AND p.category = 'Services'
+        AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31'
+  answer_checks:
+    - gold_number: [0, 0]
+      rel: 0
+      abs: 0
+
+- id: dv03
+  type: statistics
+  question: >-
+    Project new customer signups for January, February and March 2025 from a
+    least-squares linear trend over the 24 monthly signup counts of 2023 and
+    2024, with x = 1 for January 2023 through x = 24 for December 2024. Label
+    months as YYYY-MM.
+  notes: >-
+    Signup counts per month of signup_date, 2023-01..2024-12 (every month has
+    signups; 2025-09 is a partial month, so the window ends in 2024). Forecast
+    at x = 25, 26, 27. Re-computed with numpy.polyfit.
+  screening: >-
+    ha12 forecasts monthly completed revenue (2024-2025) for January 2026;
+    this is a different series (signups), window (2023-2024) and horizon
+    (three labelled months).
+  gold:
+    sql: |
+      WITH monthly AS (
+        SELECT (CAST(substr(signup_date, 1, 4) AS INTEGER) - 2023) * 12
+               + CAST(substr(signup_date, 6, 2) AS INTEGER) AS x,
+               COUNT(*) AS y
+        FROM customers
+        WHERE signup_date BETWEEN '2023-01-01' AND '2024-12-31'
+        GROUP BY x
+      ),
+      fit AS (
+        SELECT (COUNT(*) * SUM(x * y) - SUM(x) * SUM(y)) * 1.0
+               / (COUNT(*) * SUM(x * x) - SUM(x) * SUM(x)) AS slope,
+               AVG(y) AS ybar, AVG(x) AS xbar
+        FROM monthly
+      ),
+      ahead(x, month) AS (VALUES (25, '2025-01'), (26, '2025-02'), (27, '2025-03'))
+      SELECT a.month, f.ybar + f.slope * (a.x - f.xbar) AS forecast_signups
+      FROM ahead a, fit f
+      ORDER BY a.month
+  answer_checks:
+    - gold_number: [0, 1]
+    - gold_number: [1, 1]
+    - gold_number: [2, 1]
+
+- id: dv04
+  type: statistics
+  question: >-
+    Which months stand out in how quickly we closed support tickets? Take
+    tickets opened in 2024 and 2025 that have a resolved date, compute the
+    mean days to close for each opening month, and flag months whose mean is
+    more than 2 standard deviations from the average of those 24 monthly
+    means. Give each flagged month (YYYY-MM) and its mean days to close.
+  notes: >-
+    Days to close = julianday(resolved_date) - julianday(created_date). The
+    same month is flagged with SD ddof 0, 1 or 2 (z about -2.5; the next
+    largest |z| is about 1.5), so no convention is stated. The flagged
+    month's mean does not depend on the convention.
+  screening: >-
+    he04 asks for one 2025 average resolution time; ha11 flags months against
+    a revenue trend. This flags months against the mean of a different series
+    (2024-2025 monthly resolution times); the flagged month is in 2024.
+  gold:
+    sql: |
+      WITH monthly AS (
+        SELECT substr(created_date, 1, 7) AS month,
+               AVG(julianday(resolved_date) - julianday(created_date)) AS mean_days
+        FROM support_tickets
+        WHERE resolved_date IS NOT NULL
+          AND created_date BETWEEN '2024-01-01' AND '2025-12-31'
+        GROUP BY month
+      ),
+      stats AS (
+        SELECT AVG(mean_days) AS mu,
+               sqrt(SUM(mean_days * mean_days) / (COUNT(*) - 1)
+                    - AVG(mean_days) * AVG(mean_days) * COUNT(*) / (COUNT(*) - 1)) AS sd
+        FROM monthly
+      )
+      SELECT m.month, m.mean_days
+      FROM monthly m, stats s
+      WHERE abs(m.mean_days - s.mu) > 2 * s.sd
+      ORDER BY m.month
+  answer_checks:
+    - any_of:
+        - text: 2024-08
+        - pattern: aug(ust)?\.?\s+2024
+    - gold_number: [0, 1]
+
+- id: dv05
+  type: segment_comparison
+  question: >-
+    Between 2024 and 2025, did completed revenue grow faster in the Partner
+    channel than in the Online channel? If yes, break Partner's 2025 completed
+    revenue down by customer segment; if not, break Online's 2025 completed
+    revenue down by customer segment.
+  notes: >-
+    Partner grew 28.5% and Online 25.4% (Direct 42.5%, not asked), so the
+    Partner branch applies. The gold query evaluates the condition.
+  screening: >-
+    ha19-ha21 branch on AOV (segments), refund rate (channels) and ticket
+    counts (regions); this branches on revenue growth between two years.
+    he11 is 2025 revenue by segment over all channels; this is one channel's.
+  gold:
+    sql: |
+      WITH growth AS (
+        SELECT o.channel,
+               SUM(CASE WHEN o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+                        THEN oi.quantity * oi.unit_price * (1 - oi.discount) END)
+               / SUM(CASE WHEN o.order_date BETWEEN '2024-01-01' AND '2024-12-31'
+                          THEN oi.quantity * oi.unit_price * (1 - oi.discount) END)
+                 AS ratio
+        FROM orders o
+        JOIN order_items oi ON oi.order_id = o.order_id
+        WHERE o.status = 'completed' AND o.channel IN ('Partner', 'Online')
+        GROUP BY o.channel
+      ),
+      pick AS (
+        SELECT CASE WHEN (SELECT ratio FROM growth WHERE channel = 'Partner')
+                       > (SELECT ratio FROM growth WHERE channel = 'Online')
+                    THEN 'Partner' ELSE 'Online' END AS channel
+      )
+      SELECT c.segment,
+             SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue_2025
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN customers c ON c.customer_id = o.customer_id
+      WHERE o.status = 'completed'
+        AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+        AND o.channel = (SELECT channel FROM pick)
+      GROUP BY c.segment
+  answer_checks:
+    - text: Partner
+    - gold_number: [0, 1]
+    - gold_number: [1, 1]
+    - gold_number: [2, 1]
+
+- id: dv06
+  type: recovery
+  question: >-
+    Between 2024-11 and 2025-02 inclusive, how many customers churned?
+  notes: >-
+    churn_date is 'YYYY-MM-DD'. Comparing it with the month literals
+    (churn_date BETWEEN '2024-11' AND '2025-02') silently drops all of
+    February 2025 (14 instead of 20); a date-format check catches it.
+  screening: >-
+    ha13 is the opposite pitfall (a 'YYYY-MM' column filtered with day
+    dates, marketing spend, Q3 2025); ha01 and ha08 count churn in 2025 and
+    Q3 2025. This counts churn over a window ending in February 2025.
+  gold:
+    sql: |
+      SELECT COUNT(*) AS churned_customers
+      FROM customers
+      WHERE churn_date BETWEEN '2024-11-01' AND '2025-02-28'
+  answer_checks:
+    - gold_number: [0, 0]
+      rel: 0
+      abs: 0

@@ -100,3 +100,20 @@ def assemble(
         ok=True, sql=f"{note}\n{base.sql}", columns=columns, rows=rows,
         row_count=len(rows), truncated=base.truncated,
     )
+
+
+def stack(results: Sequence[ExecutionResult], steps: Sequence[int]) -> ExecutionResult:
+    """One table from results with identical columns: their rows, in step order.
+
+    Used for D's metric analyses (decompose_change, contribution_by_dimension),
+    which share one schema, so a why-question's answer sees every analysis.
+    """
+    columns = list(results[0].columns)
+    if any(list(r.columns) != columns for r in results):
+        raise ValueError("only results with the same columns can be stacked")
+    rows = [list(row) for r in results for row in r.rows]
+    note = f"-- stacked: rows from step(s) {', '.join(map(str, steps))}"
+    return ExecutionResult(
+        ok=True, sql="\n".join([note, *(r.sql for r in results)]), columns=columns,
+        rows=rows, row_count=len(rows),
+    )

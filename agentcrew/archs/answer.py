@@ -45,19 +45,26 @@ def write_answer(
     *,
     max_tokens: int,
     temperature: float,
+    guidance: str = "",
 ) -> tuple[FinalAnswer, Usage]:
+    """`guidance` explains how to read a tool-built table (D's metric
+    analyses). It is appended only when given, so every other answer prompt,
+    A's included, is byte-identical to one without it."""
     truncated = (
         "; only the first rows are shown" if result.row_count > ANSWER_ROWS else ""
     )
+    user = ANSWER_USER.format(
+        question=question,
+        sql=result.sql,
+        row_count=result.row_count,
+        truncated=truncated,
+        preview=result.preview(limit=ANSWER_ROWS),
+    )
+    if guidance:
+        user += "\n" + guidance
     return llm.complete_structured(
         system=ANSWER_SYSTEM,
-        user=ANSWER_USER.format(
-            question=question,
-            sql=result.sql,
-            row_count=result.row_count,
-            truncated=truncated,
-            preview=result.preview(limit=ANSWER_ROWS),
-        ),
+        user=user,
         schema=FinalAnswer,
         max_tokens=max_tokens,
         temperature=temperature,

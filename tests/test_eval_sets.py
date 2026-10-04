@@ -16,6 +16,7 @@ from evalkit.questions import (
     question_problems,
     set_problems,
 )
+from evalrun.sets import ALL_SET_FILES, DEV_GOLD_FILES, DEV_SET_FILES, load_questions
 
 ROOT = Path(__file__).resolve().parents[1]
 SETS = list(SET_FILES)
@@ -120,3 +121,38 @@ def test_every_why_rubric_lists_facts_and_disqualifiers():
             if q["type"] == "why":
                 assert len(q["judge_rubric"]["required_facts"]) >= 2, q["id"]
                 assert q["judge_rubric"]["disqualifying"], q["id"]
+
+
+class TestDevelopmentSets:
+    """Development sets (evalrun/sets.py): not frozen, but built, verified
+    and screened against the protocol's sets like the showcase."""
+
+    @staticmethod
+    def _dev_builder():
+        spec = importlib.util.spec_from_file_location(
+            "build_dev_gold", ROOT / "scripts" / "build_dev_gold.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    @pytest.mark.parametrize("name", list(DEV_SET_FILES))
+    def test_questions_are_well_formed_and_ids_unique(self, name):
+        questions = load_questions(name)
+        assert [p for q in questions for p in question_problems(q)] == []
+        ids = [q["id"] for n in ALL_SET_FILES for q in load_questions(n)]
+        assert len(ids) == len(set(ids))
+
+    @pytest.mark.parametrize("name", list(DEV_SET_FILES))
+    def test_gold_is_reproducible_verified_and_screened(self, name, db_path):
+        from evalkit.gold import connect_read_only
+
+        builder, frozen = self._dev_builder(), _load_builder()
+        conn = connect_read_only(db_path)
+        rebuilt = builder.build(conn, name)  # raises if SQL and pandas disagree
+        stored = load_gold(DEV_GOLD_FILES[name])
+        assert stored["questions_sha256"] == file_sha256(DEV_SET_FILES[name])
+        assert frozen.canonical(rebuilt) == frozen.canonical(stored)
+        assert builder.screen(conn, name, rebuilt) == []
+
+    def test_dev_sets_are_not_protocol_sets(self):
+        assert set(DEV_SET_FILES).isdisjoint(SET_FILES)

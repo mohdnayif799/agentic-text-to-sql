@@ -5,7 +5,7 @@
 Candidates are the legacy questions that have a verified reference query.
 A candidate is excluded if ANY rule fires (eval/PROTOCOL.md, protocol v2,
 plus the stricter Phase 2 rule that no example may paraphrase or share an
-answer with any showcase or holdout question):
+answer with any showcase, development or holdout question):
 
   similarity  TF-IDF cosine >= 0.5 to any v2 question (pre-registered)
   answer      its result contains a v2 gold table, or shares a distinctive
@@ -36,7 +36,7 @@ from agentcrew.config import Settings  # noqa: E402
 from agentcrew.context.examples import EXAMPLES_PATH, pairwise_similarity  # noqa: E402
 from evalkit.gold import connect_read_only  # noqa: E402
 from evalkit.grader import Gold, contains_gold  # noqa: E402
-from evalkit.questions import GOLD_FILES, SET_FILES, load_set  # noqa: E402
+from evalrun.sets import ALL_GOLD_FILES, ALL_SET_FILES, load_questions  # noqa: E402
 
 SOURCES = {
     "orig": "eval/questions.yaml",
@@ -123,10 +123,12 @@ def candidates() -> list[dict[str, Any]]:
     return out
 
 
-def gold_tables() -> dict[str, list[list[list[Any]]]]:
+def gold_tables(sets: list[str] | None = None) -> dict[str, list[list[list[Any]]]]:
+    """Gold, interpretation and evidence rows by question id (default: every
+    set, development sets included)."""
     tables: dict[str, list[list[list[Any]]]] = {}
-    for name in SET_FILES:
-        gold = json.loads(GOLD_FILES[name].read_text("utf-8"))["gold"]
+    for name in sets or ALL_SET_FILES:
+        gold = json.loads(ALL_GOLD_FILES[name].read_text("utf-8"))["gold"]
         for qid, entry in gold.items():
             found = ([entry] if "rows" in entry else [])
             found += list(entry.get("interpretations", {}).values())
@@ -162,7 +164,7 @@ def answer_overlap(rows, tables, names) -> list[str]:
 
 def build(conn: sqlite3.Connection) -> dict[str, Any]:
     cands = candidates()
-    v2 = [q for name in SET_FILES for q in load_set(name)]
+    v2 = [q for name in ALL_SET_FILES for q in load_questions(name)]
     sims = pairwise_similarity([c["question"] for c in cands],
                                [q["question"] for q in v2])
     names = {r[0] for r in conn.execute(
