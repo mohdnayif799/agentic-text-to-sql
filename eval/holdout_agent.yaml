@@ -325,15 +325,17 @@
   type: statistics
   question: >-
     Fit a straight-line trend to monthly completed revenue from January 2024
-    to December 2025. Which months fell more than 1.5 standard deviations
-    below the trend line, using the standard deviation of the residuals, and
-    what was each month's residual (actual minus trend, in dollars)? Label
-    months as YYYY-MM.
+    to December 2025, using month number 1 to 24 as x. Which months fell more
+    than 1.5 standard deviations below the trend line, using the standard
+    deviation of the residuals, and what was each month's residual (actual
+    minus trend, in dollars)? Label months as YYYY-MM.
   notes: >-
     Least-squares line over the 24 months; residual z-scores. The same three
     months result with residual SD ddof 0, 1 or 2 (weakest pick -1.78 at
     ddof 2; next lowest month -0.85 at ddof 0), so no convention is stated.
     The residuals in dollars do not depend on the SD convention.
+    Pre-run amendment (2026-10-04): x fixed to month number 1-24, because a
+    day-based x moves the July residual by $556 (tolerance $349).
   gold:
     pandas: months_below_trend_2024_2025
   answer_checks:

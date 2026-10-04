@@ -349,7 +349,18 @@ and reason, never made silently.
 
 ### Changes after pre-registration
 
-None yet.
+- **2026-10-04, pre-run amendment (no architecture had been run on either
+  holdout).** The trend questions were checked with a day-based x, measured
+  in days since 2024-01-01 from the 1st or the 15th of each month, instead
+  of the month number:
+  - **ha11 changed beyond tolerance:** the July 2025 residual moved by
+    $556.48, against a tolerance of $348.55 (the set of months was
+    unchanged). Its text now says "using month number 1 to 24 as x". The
+    gold values are unchanged, because a month index 0-23 gives the same fit
+    and residuals. The gold file was rebuilt for the new question hash, and
+    `FREEZE_v2.sha256` was regenerated.
+  - **ha12 did not:** the January 2026 forecast moved by $331.52, within its
+    $1,220.73 tolerance, so its text is unchanged.
 
 ## Archive: protocol v1 - expanded evaluation (52 questions)
 
