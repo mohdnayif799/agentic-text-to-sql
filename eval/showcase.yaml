@@ -1,0 +1,143 @@
+# Showcase set (eval protocol v2): 5 hard questions, one per agent type.
+#
+# Development set. Tuning on these is allowed; they are NOT frozen and are
+# never used for the final comparison. Gold results are produced by
+# scripts/build_gold.py into eval/gold/showcase.json.
+#
+# Canonical definitions used by every gold query (and to be stated in the
+# shared data dictionary):
+#   revenue  = SUM(quantity * unit_price * (1 - discount)) over order_items of
+#              orders with status = 'completed', dated by orders.order_date
+#   quarters = calendar quarters; data covers 2024-01-01 .. 2025-12-31
+
+- id: sc01
+  type: multi_hop
+  question: >-
+    Who was our top customer by completed revenue in 2024, and what was that
+    customer's completed revenue in 2025? Give the customer's ID and name.
+  notes: >-
+    Hop 1: customer 1052 Elena Dubois (48,833 in 2024, ahead of 1027 Aarav
+    Kim at 41,734). Hop 2: that customer's 2025 completed revenue (a single
+    completed order), which cannot be reached without hop 1. Replaces an
+    earlier sc01 that overlapped the holdout's Q3 2025 facts.
+  gold:
+    sql: |
+      WITH top_customer AS (
+        SELECT o.customer_id
+        FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+        WHERE o.status = 'completed'
+          AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31'
+        GROUP BY o.customer_id
+        ORDER BY SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) DESC
+        LIMIT 1
+      )
+      SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue_2025
+      FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+      WHERE o.status = 'completed'
+        AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+        AND o.customer_id = (SELECT customer_id FROM top_customer)
+  answer_checks:
+    - text: Elena Dubois
+    - text: "1052"
+    - gold_number: [0, 0]
+
+- id: sc02
+  type: term_matching
+  question: >-
+    How much completed revenue did our reseller partners bring in from small
+    businesses in Asia-Pacific during 2025?
+  notes: >-
+    "reseller partners" -> orders.channel = 'Partner'; "small businesses" ->
+    customers.segment = 'SMB'; "Asia-Pacific" -> regions.region_name = 'APAC'.
+  gold:
+    sql: |
+      SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN customers c ON c.customer_id = o.customer_id
+      JOIN regions r ON r.region_id = c.region_id
+      WHERE o.status = 'completed' AND o.channel = 'Partner'
+        AND c.segment = 'SMB' AND r.region_name = 'APAC'
+        AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+  answer_checks:
+    - gold_number: [0, 0]
+
+- id: sc03
+  type: why
+  question: >-
+    Why does the Online channel bring in so much more completed revenue than
+    the Direct and Partner channels over 2024 and 2025?
+  notes: >-
+    Verified: Online has 3,458 completed orders (45%) vs Direct 2,366 and
+    Partner 1,922, while average completed order value is about the same in
+    every channel (Online 2,948, Direct 3,003, Partner 3,034). Replaces an
+    earlier sc03 that overlapped the holdout's Q3 2025 facts.
+  driver_checks:
+    - any_of:
+        - pattern: 'more\s+(completed\s+)?orders'
+        - pattern: 'order\s+(volume|count|counts|numbers)'
+        - pattern: '(number|count|volume|share)\s+of\s+(completed\s+)?orders'
+  judge_rubric: |
+    Required facts (each must be stated or clearly implied; rounded figures
+    are fine):
+      1. Online has far more completed orders than the other channels: about
+         3,458 versus about 2,366 (Direct) and 1,922 (Partner), roughly 45% of
+         all completed orders.
+      2. The average completed order value is about the same in every channel
+         (roughly 2,950 to 3,030; Online's is in fact slightly the lowest), so
+         order size does not explain the gap.
+    FAIL if a required fact is missing or contradicted, if the gap is
+    attributed mainly to larger orders, higher prices or smaller discounts,
+    or if any stated figure contradicts the evidence. Judge facts only;
+    ignore style and length.
+  evidence:
+    by_channel: |
+      SELECT o.channel,
+             COUNT(DISTINCT o.order_id) AS completed_orders,
+             SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue,
+             SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / COUNT(DISTINCT o.order_id) AS avg_order_value
+      FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+      WHERE o.status = 'completed'
+      GROUP BY o.channel ORDER BY o.channel
+
+- id: sc04
+  type: statistics
+  question: >-
+    Across the 24 months of 2024 and 2025, what is the Pearson correlation
+    between total monthly marketing spend and monthly completed revenue?
+  notes: >-
+    SQLite has no correlation function. Gold is computed with pandas over the
+    24 (month, spend, revenue) pairs; the correlation is weak (about 0.14).
+  gold:
+    pandas: corr_monthly_spend_vs_revenue
+  answer_checks:
+    - gold_number: [0, 0]
+      rel: 0
+      abs: 0.01
+
+- id: sc05
+  type: recovery
+  question: >-
+    What were LATAM's total completed revenue and total marketing spend in
+    2025?
+  notes: >-
+    The obvious single query joins orders to marketing_spend on region and
+    month, which fans out both sides (revenue x3, spend x128). A sanity
+    check against the per-table totals is needed.
+  gold:
+    sql: |
+      SELECT
+        (SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount))
+         FROM orders o
+         JOIN order_items oi ON oi.order_id = o.order_id
+         JOIN customers c ON c.customer_id = o.customer_id
+         JOIN regions r ON r.region_id = c.region_id
+         WHERE o.status = 'completed' AND r.region_name = 'LATAM'
+           AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31') AS revenue,
+        (SELECT SUM(m.amount)
+         FROM marketing_spend m
+         JOIN regions r ON r.region_id = m.region_id
+         WHERE r.region_name = 'LATAM' AND m.month BETWEEN '2025-01' AND '2025-12') AS marketing_spend
+  answer_checks:
+    - gold_number: [0, 0]
+    - gold_number: [0, 1]

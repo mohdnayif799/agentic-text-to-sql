@@ -1,0 +1,235 @@
+{
+ "db_fingerprint": {
+  "customers": "b8ac4f7505071b6275e6de1fa0574b3047fb08804827d6a36ae8457e941647cc",
+  "marketing_spend": "a360482b8faedadabc5029f6b66d1f4fd37d436629097fdb8ed3871bd6e0add2",
+  "order_items": "d9c77f6f8b8e70e3533ac938e725c5f413554d02066bcc879807f53b84e42c3d",
+  "orders": "613026a6a3a624b6322a1effa564e78f9c1dd6fc78baadff3fd16779a7908b6c",
+  "products": "997086da819a7dac61df2ba16ee8e7ba78d03007f9290560711924ffb8c937cc",
+  "regions": "9d9ae6353a3bb09ae16f0809013479ed4be678998b074dde275794ba0f7dfe6a",
+  "support_tickets": "33a3fb46464f4f3cd2e28e56c566bc7cc9a9cb327d12ee00cce10d37593690c4"
+ },
+ "gold": {
+  "he01": {
+   "columns": [
+    "customers"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     193
+    ]
+   ],
+   "type": "easy"
+  },
+  "he02": {
+   "columns": [
+    "revenue"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     10005894.382
+    ]
+   ],
+   "type": "easy"
+  },
+  "he03": {
+   "columns": [
+    "tickets"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     211
+    ]
+   ],
+   "type": "easy"
+  },
+  "he04": {
+   "columns": [
+    "avg_days"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     11.290634441087613
+    ]
+   ],
+   "type": "easy"
+  },
+  "he05": {
+   "columns": [
+    "product_id",
+    "product_name",
+    "revenue"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     9,
+     "Lattice Ridge",
+     1308261.591
+    ],
+    [
+     1,
+     "Cascade Beacon",
+     1168417.415
+    ],
+    [
+     6,
+     "Nimbus Quartz",
+     902459.8325
+    ]
+   ],
+   "top_n": 3,
+   "type": "easy"
+  },
+  "he06": {
+   "columns": [
+    "channel",
+    "spend"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     "Direct",
+     729168.99
+    ],
+    [
+     "Online",
+     816555.42
+    ],
+    [
+     "Partner",
+     726690.14
+    ]
+   ],
+   "type": "easy"
+  },
+  "he07": {
+   "columns": [
+    "status",
+    "orders"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     "cancelled",
+     1163
+    ],
+    [
+     "completed",
+     4569
+    ],
+    [
+     "refunded",
+     1084
+    ]
+   ],
+   "type": "easy"
+  },
+  "he08": {
+   "columns": [
+    "region_name",
+    "customers"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     "North America",
+     545
+    ]
+   ],
+   "top_n": 1,
+   "type": "easy"
+  },
+  "he09": {
+   "columns": [
+    "month",
+    "orders"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     "2025-01",
+     387
+    ],
+    [
+     "2025-02",
+     305
+    ],
+    [
+     "2025-03",
+     385
+    ],
+    [
+     "2025-04",
+     383
+    ],
+    [
+     "2025-05",
+     406
+    ],
+    [
+     "2025-06",
+     417
+    ]
+   ],
+   "type": "easy"
+  },
+  "he10": {
+   "columns": [
+    "customers"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     331
+    ]
+   ],
+   "type": "easy"
+  },
+  "he11": {
+   "columns": [
+    "segment",
+    "revenue"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     "Enterprise",
+     2934346.347
+    ],
+    [
+     "Mid-Market",
+     5037253.4835
+    ],
+    [
+     "SMB",
+     5155426.9815
+    ]
+   ],
+   "type": "easy"
+  },
+  "he12": {
+   "columns": [
+    "product_id",
+    "product_name",
+    "list_price"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     9,
+     "Lattice Ridge",
+     1586.06
+    ]
+   ],
+   "top_n": 1,
+   "type": "easy"
+  }
+ },
+ "questions_file": "eval/holdout_easy.yaml",
+ "questions_sha256": "28000bf1ccead0f5e0b5427fabaf7b91c594f13ef5cf3dca4a900e5e9e15beba",
+ "set": "holdout_easy"
+}

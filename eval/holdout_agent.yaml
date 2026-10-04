@@ -1,0 +1,744 @@
+# Holdout: questions that need an agent (eval protocol v2). 21 questions,
+# 3 per type. Written and validated against the data only (no architecture
+# was run on them). Frozen by eval/FREEZE_v2.sha256 once approved; never used
+# for tuning. Gold results: eval/gold/holdout_agent.json (scripts/build_gold.py).
+#
+# Canonical definitions (also stated in the shared data dictionary):
+#   revenue        = SUM(quantity * unit_price * (1 - discount)) over completed orders
+#   order value    = revenue of one completed order (sum of its line items)
+#   units sold     = SUM(quantity) over completed orders
+#   gross margin % = SUM(quantity * (unit_price * (1 - discount) - unit_cost)) / revenue
+#   churned in P   = customers.churn_date falls in period P
+#   refund rate    = refunded orders / all orders (any status), as a percentage
+#   marketing_spend.month is TEXT 'YYYY-MM'; all other dates are 'YYYY-MM-DD'
+
+# --- multi-hop: the second step depends on the first result ----------------
+- id: ha01
+  type: multi_hop
+  question: >-
+    Which customer segment had the most customers churn in 2025, and who was
+    that segment's top customer by completed revenue in 2025? Give the
+    customer's ID, name and 2025 completed revenue.
+  notes: >-
+    Hop 1: Mid-Market (61 churned vs SMB 48, Enterprise 27). Hop 2: customer
+    84 Jonas Duarte (34,461) ahead of 791 Ines Sharma (33,953). Names are not
+    unique, hence the ID.
+  top_n: 1
+  gold:
+    sql: |
+      WITH seg AS (
+        SELECT segment FROM customers
+        WHERE churn_date BETWEEN '2025-01-01' AND '2025-12-31'
+        GROUP BY segment ORDER BY COUNT(*) DESC LIMIT 1
+      )
+      SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue_2025
+      FROM customers c
+      JOIN orders o ON o.customer_id = c.customer_id
+      JOIN order_items oi ON oi.order_id = o.order_id
+      WHERE o.status = 'completed'
+        AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+        AND c.segment = (SELECT segment FROM seg)
+      GROUP BY c.customer_id, c.customer_name
+      ORDER BY revenue_2025 DESC
+      LIMIT 1
+  answer_checks:
+    - text: Mid-Market
+    - text: Jonas Duarte
+    - gold_number: [0, 2]
+
+- id: ha02
+  type: multi_hop
+  question: >-
+    In the 2025 month with the lowest total marketing spend, what was our
+    completed revenue?
+  notes: >-
+    Hop 1: 2025-07 (145,145 vs next lowest 158,938). Hop 2: completed revenue
+    in July 2025.
+  gold:
+    sql: |
+      WITH low AS (
+        SELECT month FROM marketing_spend
+        WHERE month BETWEEN '2025-01' AND '2025-12'
+        GROUP BY month ORDER BY SUM(amount) LIMIT 1
+      )
+      SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      WHERE o.status = 'completed'
+        AND substr(o.order_date, 1, 7) = (SELECT month FROM low)
+  answer_checks:
+    - gold_number: [0, 0]
+    - any_of:
+        - text: "2025-07"
+        - pattern: "jul(y)?\\.?\\s+2025"
+
+- id: ha03
+  type: multi_hop
+  question: >-
+    Which product category had the lowest gross margin percentage in 2025,
+    and which product in that category sold the most units in 2025? Give the
+    product's ID, name and units sold in 2025.
+  notes: >-
+    Hop 1: Accessories (31.2% vs Services 35.0%). Hop 2: Anchor Prism (1,075
+    units vs Delta Pivot 999). Anchor Prism is not the top unit seller
+    overall, so skipping hop 1 gives a different answer. Gold is by
+    product_id (names are unique in this category).
+  top_n: 1
+  gold:
+    sql: |
+      WITH margin AS (
+        SELECT p.category,
+               SUM(oi.quantity * (oi.unit_price * (1 - oi.discount) - p.unit_cost))
+                 / SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS gm
+        FROM orders o
+        JOIN order_items oi ON oi.order_id = o.order_id
+        JOIN products p ON p.product_id = oi.product_id
+        WHERE o.status = 'completed'
+          AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+        GROUP BY p.category
+      )
+      SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN products p ON p.product_id = oi.product_id
+      WHERE o.status = 'completed'
+        AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+        AND p.category = (SELECT category FROM margin ORDER BY gm LIMIT 1)
+      GROUP BY p.product_id, p.product_name
+      ORDER BY units DESC
+      LIMIT 1
+  answer_checks:
+    - text: Accessories
+    - text: Anchor Prism
+    - gold_number: [0, 2]
+      rel: 0
+      abs: 0
+
+# --- term matching: user words must be mapped to real values ---------------
+- id: ha04
+  type: term_matching
+  question: How many sev-1 support tickets did our European customers open in 2025?
+  notes: >-
+    "sev-1" -> severity 'critical' (the most severe of low/medium/high/
+    critical); "European" -> regions.region_name = 'EMEA'.
+  gold:
+    sql: |
+      SELECT COUNT(*) AS tickets
+      FROM support_tickets t
+      JOIN customers c ON c.customer_id = t.customer_id
+      JOIN regions r ON r.region_id = c.region_id
+      WHERE r.region_name = 'EMEA' AND t.severity = 'critical'
+        AND t.created_date BETWEEN '2025-01-01' AND '2025-12-31'
+  answer_checks:
+    - gold_number: [0, 0]
+      rel: 0
+      abs: 0
+
+- id: ha05
+  type: term_matching
+  question: >-
+    How much completed revenue did we make through the web store from
+    mid-sized companies in 2024?
+  notes: '"web store" -> channel ''Online''; "mid-sized companies" -> segment ''Mid-Market''.'
+  gold:
+    sql: |
+      SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN customers c ON c.customer_id = o.customer_id
+      WHERE o.status = 'completed' AND o.channel = 'Online'
+        AND c.segment = 'Mid-Market'
+        AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31'
+  answer_checks:
+    - gold_number: [0, 0]
+
+- id: ha06
+  type: term_matching
+  question: >-
+    How many units of the 'Cobolt Nimbus' did we sell in completed orders in
+    2025? Give the product's ID and name with the unit count.
+  notes: >-
+    Misspelled on purpose: the product is 'Cobalt Nimbus' (product_id 7). An
+    exact match on the user's spelling returns no rows.
+  gold:
+    sql: |
+      SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN products p ON p.product_id = oi.product_id
+      WHERE o.status = 'completed' AND p.product_name = 'Cobalt Nimbus'
+        AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+      GROUP BY p.product_id, p.product_name
+  answer_checks:
+    - text: Cobalt Nimbus
+    - gold_number: [0, 2]
+      rel: 0
+      abs: 0
+
+# --- why / drill-down: graded by driver check + rubric judge ----------------
+- id: ha07
+  type: why
+  question: >-
+    Why did APAC's completed revenue fall so much more than other regions'
+    from Q2 to Q3 2025?
+  notes: >-
+    Verified: completed orders fell 28.6% in APAC vs 2.1-12.1% elsewhere,
+    while average order value fell by a similar 32-39% in every region (the
+    Hardware mix shift hit all regions). APAC's extra drop is order volume.
+  driver_checks:
+    - any_of:
+        - pattern: "fewer\\s+(completed\\s+)?orders"
+        - pattern: "order\\s+(volume|count|counts|numbers)"
+        - pattern: "(number|count|volume)\\s+of\\s+(completed\\s+)?orders"
+        - pattern: "orders\\s+(fell|dropped|declined|decreased|shrank)"
+  judge_rubric: |
+    Required facts (each must be stated or clearly implied; rounded figures
+    are fine):
+      1. APAC's number of completed orders fell by about 29% from Q2 to Q3
+         2025 (about 280 to 200).
+      2. Completed orders in the other regions fell far less (about 2% to
+         12%).
+      3. Average order value fell by a similar amount in every region (about
+         32% to 39%), so order size does not explain why APAC fell more.
+    Churn, fewer active customers or lower marketing spend may be added as
+    context. FAIL if a required fact is missing or contradicted, if APAC's
+    extra decline is attributed mainly to order size, the Hardware mix,
+    prices or discounts, or if any stated figure contradicts the evidence.
+    Judge facts only; ignore style and length.
+  evidence:
+    orders_and_aov_by_region: |
+      WITH t AS (
+        SELECT r.region_name,
+               COUNT(DISTINCT CASE WHEN o.order_date <= '2025-06-30' THEN o.order_id END) AS q2_orders,
+               COUNT(DISTINCT CASE WHEN o.order_date >= '2025-07-01' THEN o.order_id END) AS q3_orders,
+               SUM(CASE WHEN o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue,
+               SUM(CASE WHEN o.order_date >= '2025-07-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue
+        FROM orders o
+        JOIN order_items oi ON oi.order_id = o.order_id
+        JOIN customers c ON c.customer_id = o.customer_id
+        JOIN regions r ON r.region_id = c.region_id
+        WHERE o.status = 'completed'
+          AND o.order_date BETWEEN '2025-04-01' AND '2025-09-30'
+        GROUP BY r.region_name
+      )
+      SELECT region_name, q2_orders, q3_orders,
+             100.0 * (q3_orders - q2_orders) / q2_orders AS orders_change_pct,
+             q2_revenue / q2_orders AS q2_avg_order_value,
+             q3_revenue / q3_orders AS q3_avg_order_value,
+             100.0 * (q3_revenue / q3_orders - q2_revenue / q2_orders)
+                   / (q2_revenue / q2_orders) AS avg_order_value_change_pct,
+             100.0 * (q3_revenue - q2_revenue) / q2_revenue AS revenue_change_pct
+      FROM t ORDER BY region_name
+
+- id: ha08
+  type: why
+  question: Why did customer churn spike in Q3 2025?
+  notes: >-
+    Verified: 44 of the 67 customers who churned in Q3 2025 were in APAC;
+    APAC normally sees 1-5 churns a quarter. (APAC support tickets also
+    surged Jun-Sep 2025, but Q3 churners did not file more tickets than other
+    APAC customers, so tickets are not gold.)
+  driver_checks:
+    - text: APAC
+  judge_rubric: |
+    Required facts (each must be stated or clearly implied; rounded figures
+    are fine):
+      1. The Q3 2025 churn spike is concentrated in APAC: 44 of the 67
+         customers who churned in Q3 2025 were APAC customers (about two
+         thirds).
+      2. This is unusual: APAC had about 1 to 5 churns in each earlier quarter
+         shown, and no other region had a comparable jump in Q3 2025 (3 to 11
+         churns each).
+    Mentioning the APAC support-ticket surge as a possible contributing
+    factor is acceptable but not required. FAIL if a required fact is missing
+    or contradicted, if the main driver given is a segment, channel, product
+    or another region, or if any stated figure contradicts the evidence.
+    Judge facts only; ignore style and length.
+  evidence:
+    churn_by_region_quarter: |
+      SELECT r.region_name,
+             substr(c.churn_date, 1, 4) || '-Q' || ((CAST(substr(c.churn_date, 6, 2) AS INTEGER) + 2) / 3) AS quarter,
+             COUNT(*) AS churned
+      FROM customers c JOIN regions r ON r.region_id = c.region_id
+      WHERE c.churn_date BETWEEN '2024-07-01' AND '2025-12-31'
+      GROUP BY r.region_name, quarter ORDER BY r.region_name, quarter
+
+- id: ha09
+  type: why
+  question: Why did Hardware revenue drop so sharply from Q2 to Q3 2025?
+  notes: >-
+    Verified: Hardware units sold fell from 2,741 to 778 (-72%) while the
+    average unit price (~1,000) and average discount (~5%) were essentially
+    unchanged; Hardware's share of units fell from ~30% to ~10%.
+  driver_checks:
+    - pattern: "\\b(units?|volume|quantit(y|ies))\\b|fewer\\s+(hardware\\s+)?(items|products|sales)"
+  judge_rubric: |
+    Required facts (each must be stated or clearly implied; rounded figures
+    are fine):
+      1. Far fewer Hardware units were sold: about 2,741 in Q2 versus about
+         778 in Q3 2025 (about -72%).
+      2. The average Hardware unit price (about 1,000) and the average
+         discount (about 5%) were essentially unchanged, so price and
+         discounts do not explain the drop.
+    Mentioning that Hardware's share of units sold fell (from about 30% to
+    about 10%) is fine but not required. FAIL if a required fact is missing
+    or contradicted, if the drop is attributed mainly to price cuts,
+    discounts, refunds or cancellations, or if any stated figure contradicts
+    the evidence. Judge facts only; ignore style and length.
+  evidence:
+    hardware_volume_price_discount: |
+      SELECT CASE WHEN o.order_date <= '2025-06-30' THEN 'Q2' ELSE 'Q3' END AS quarter,
+             SUM(oi.quantity) AS units,
+             AVG(oi.unit_price) AS avg_unit_price,
+             AVG(oi.discount) AS avg_discount,
+             SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN products p ON p.product_id = oi.product_id
+      WHERE o.status = 'completed' AND p.category = 'Hardware'
+        AND o.order_date BETWEEN '2025-04-01' AND '2025-09-30'
+      GROUP BY quarter ORDER BY quarter
+    hardware_status_mix: |
+      SELECT CASE WHEN o.order_date <= '2025-06-30' THEN 'Q2' ELSE 'Q3' END AS quarter,
+             o.status, SUM(oi.quantity) AS units
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN products p ON p.product_id = oi.product_id
+      WHERE p.category = 'Hardware'
+        AND o.order_date BETWEEN '2025-04-01' AND '2025-09-30'
+      GROUP BY quarter, o.status ORDER BY quarter, o.status
+
+# --- statistics SQLite has no built-in for ---------------------------------
+- id: ha10
+  type: statistics
+  question: What was the median completed order value in 2025?
+  notes: >-
+    Order value = revenue of one completed order. SQLite has no MEDIAN.
+    4,569 orders (odd), so the median is a single order's value and no
+    even-count convention is involved.
+  gold:
+    pandas: median_completed_order_value_2025
+  answer_checks:
+    - gold_number: [0, 0]
+
+- id: ha11
+  type: statistics
+  question: >-
+    Fit a straight-line trend to monthly completed revenue from January 2024
+    to December 2025. Which months fell more than 1.5 standard deviations
+    below the trend line, using the standard deviation of the residuals, and
+    what was each month's residual (actual minus trend, in dollars)? Label
+    months as YYYY-MM.
+  notes: >-
+    Least-squares line over the 24 months; residual z-scores. The same three
+    months result with residual SD ddof 0, 1 or 2 (weakest pick -1.78 at
+    ddof 2; next lowest month -0.85 at ddof 0), so no convention is stated.
+    The residuals in dollars do not depend on the SD convention.
+  gold:
+    pandas: months_below_trend_2024_2025
+  answer_checks:
+    - any_of: [{text: "2025-07"}, {pattern: "jul(y)?\\.?\\s+2025"}]
+    - any_of: [{text: "2025-08"}, {pattern: "aug(ust)?\\.?\\s+2025"}]
+    - any_of: [{text: "2025-09"}, {pattern: "sep(t|tember)?\\.?\\s+2025"}]
+
+- id: ha12
+  type: statistics
+  question: >-
+    Using a straight-line trend fitted to monthly completed revenue from
+    January 2024 to December 2025, what is the forecast for January 2026?
+  notes: Least-squares line over 24 monthly points, evaluated one month ahead.
+  gold:
+    pandas: trend_forecast_2026_01
+  answer_checks:
+    - gold_number: [0, 0]
+
+# --- recovery: the obvious first query is empty or silently wrong ----------
+- id: ha13
+  type: recovery
+  question: How much did we spend on marketing in Q3 2025?
+  notes: >-
+    marketing_spend.month is 'YYYY-MM'. Filtering it with day-level dates
+    ('2025-07-01'..'2025-09-30') silently drops July (386,920 instead of
+    532,066); a date-range sanity check catches it.
+  gold:
+    sql: |
+      SELECT SUM(amount) AS spend
+      FROM marketing_spend
+      WHERE month BETWEEN '2025-07' AND '2025-09'
+  answer_checks:
+    - gold_number: [0, 0]
+
+- id: ha14
+  type: recovery
+  question: How many customers have never placed an order?
+  notes: >-
+    An inner join to orders returns zero rows for these customers; the
+    answer needs an anti-join (NOT EXISTS / LEFT JOIN ... IS NULL).
+  gold:
+    sql: |
+      SELECT COUNT(*) AS customers
+      FROM customers c
+      WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id)
+  answer_checks:
+    - gold_number: [0, 0]
+      rel: 0
+      abs: 0
+
+- id: ha15
+  type: recovery
+  question: >-
+    Which product sold the most units in completed orders during 2025? Give
+    the product's ID, name and units sold.
+  notes: >-
+    Two product names are shared by two products each. Grouping by name
+    merges 'Vertex Nimbus' (Software + Services, 1,952 units) and crowns it;
+    by product the answer is Beacon Beacon (1,180) ahead of Vertex Nimbus
+    (Software, 1,148). Gold is by product_id.
+  top_n: 1
+  gold:
+    sql: |
+      SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN products p ON p.product_id = oi.product_id
+      WHERE o.status = 'completed'
+        AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+      GROUP BY p.product_id, p.product_name
+      ORDER BY units DESC
+      LIMIT 1
+  answer_checks:
+    - text: Beacon Beacon
+    - gold_number: [0, 2]
+      rel: 0
+      abs: 0
+
+# --- ambiguous: accepted interpretations written in advance ----------------
+# Pass = the result matches one accepted interpretation's gold AND the answer
+# names that interpretation's metric AND states an assumption.
+- id: ha16
+  type: ambiguous
+  question: >-
+    What was our best month in 2025? Give the month (as YYYY-MM) and the
+    figure that makes it the best.
+  notes: >-
+    "Best" is undefined; the three readings give three different months. The
+    figure is graded with the month.
+  top_n: 1
+  interpretations:
+    - name: completed_revenue
+      gold:
+        sql: |
+          SELECT substr(o.order_date, 1, 7) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+          GROUP BY month
+          ORDER BY revenue DESC LIMIT 1
+      answer_checks:
+        - pattern: "revenue|sales"
+    - name: completed_order_count
+      gold:
+        sql: |
+          SELECT substr(order_date, 1, 7) AS month, COUNT(*) AS completed_orders
+          FROM orders
+          WHERE status = 'completed' AND order_date BETWEEN '2025-01-01' AND '2025-12-31'
+          GROUP BY month ORDER BY completed_orders DESC LIMIT 1
+      answer_checks:
+        - pattern: "orders"
+    - name: all_order_count
+      gold:
+        sql: |
+          SELECT substr(order_date, 1, 7) AS month, COUNT(*) AS orders
+          FROM orders
+          WHERE order_date BETWEEN '2025-01-01' AND '2025-12-31'
+          GROUP BY month ORDER BY orders DESC LIMIT 1
+      answer_checks:
+        - pattern: "orders"
+
+- id: ha17
+  type: ambiguous
+  question: >-
+    Which customer segment is our most valuable? Give the segment and the
+    figure that makes it the most valuable.
+  notes: >-
+    "Most valuable" could mean total revenue, revenue per customer (all
+    customers in the segment, or only those who bought) or average order
+    value, over all time or 2025. Answers differ (SMB vs Mid-Market); the
+    figure is graded with the segment.
+  top_n: 1
+  interpretations:
+    - name: total_revenue_all_time
+      gold:
+        sql: |
+          SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN customers c ON c.customer_id = o.customer_id
+          WHERE o.status = 'completed'
+          GROUP BY c.segment
+          ORDER BY revenue DESC LIMIT 1
+      answer_checks:
+        - pattern: "revenue|sales"
+    - name: total_revenue_2025
+      gold:
+        sql: |
+          SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN customers c ON c.customer_id = o.customer_id
+          WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+          GROUP BY c.segment
+          ORDER BY revenue DESC LIMIT 1
+      answer_checks:
+        - pattern: "revenue|sales"
+    - name: revenue_per_customer_all_time
+      gold:
+        sql: |
+          SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / (SELECT COUNT(*) FROM customers c2 WHERE c2.segment = c.segment) AS revenue_per_customer
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN customers c ON c.customer_id = o.customer_id
+          WHERE o.status = 'completed'
+          GROUP BY c.segment
+          ORDER BY revenue_per_customer DESC LIMIT 1
+      answer_checks:
+        - pattern: "per (customer|account|client|buyer|buying customer)"
+    - name: revenue_per_customer_2025
+      gold:
+        sql: |
+          SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / (SELECT COUNT(*) FROM customers c2 WHERE c2.segment = c.segment) AS revenue_per_customer
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN customers c ON c.customer_id = o.customer_id
+          WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+          GROUP BY c.segment
+          ORDER BY revenue_per_customer DESC LIMIT 1
+      answer_checks:
+        - pattern: "per (customer|account|client|buyer|buying customer)"
+    - name: revenue_per_buying_customer_all_time
+      gold:
+        sql: |
+          SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / COUNT(DISTINCT c.customer_id) AS revenue_per_buyer
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN customers c ON c.customer_id = o.customer_id
+          WHERE o.status = 'completed'
+          GROUP BY c.segment
+          ORDER BY revenue_per_buyer DESC LIMIT 1
+      answer_checks:
+        - pattern: "per (customer|account|client|buyer|buying customer)"
+    - name: revenue_per_buying_customer_2025
+      gold:
+        sql: |
+          SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / COUNT(DISTINCT c.customer_id) AS revenue_per_buyer
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN customers c ON c.customer_id = o.customer_id
+          WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+          GROUP BY c.segment
+          ORDER BY revenue_per_buyer DESC LIMIT 1
+      answer_checks:
+        - pattern: "per (customer|account|client|buyer|buying customer)"
+    - name: average_order_value_all_time
+      gold:
+        sql: |
+          SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / COUNT(DISTINCT o.order_id) AS avg_order_value
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN customers c ON c.customer_id = o.customer_id
+          WHERE o.status = 'completed'
+          GROUP BY c.segment
+          ORDER BY avg_order_value DESC LIMIT 1
+      answer_checks:
+        - pattern: 'order value|\baov\b|per order'
+    - name: average_order_value_2025
+      gold:
+        sql: |
+          SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / COUNT(DISTINCT o.order_id) AS avg_order_value
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN customers c ON c.customer_id = o.customer_id
+          WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+          GROUP BY c.segment
+          ORDER BY avg_order_value DESC LIMIT 1
+      answer_checks:
+        - pattern: 'order value|\baov\b|per order'
+
+- id: ha18
+  type: ambiguous
+  question: >-
+    What is our most popular product? Give its product ID, name and the
+    figure that makes it the most popular.
+  notes: >-
+    "Popular" = units sold or number of orders, over all time or 2025
+    (completed orders), by product_id. All-time: product 14 Vertex Nimbus
+    (Software; 1,926 units and 613 orders, ahead of the next product without
+    merging the Services product that shares its name); 2025: product 10
+    Beacon Beacon. Revenue is not an accepted reading of "popular". The
+    figure is graded with the product.
+  top_n: 1
+  interpretations:
+    - name: units_all_time
+      gold:
+        sql: |
+          SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN products p ON p.product_id = oi.product_id
+          WHERE o.status = 'completed'
+          GROUP BY p.product_id, p.product_name
+          ORDER BY units DESC LIMIT 1
+      answer_checks:
+        - pattern: "units?|quantit|volume|sold"
+    - name: orders_all_time
+      gold:
+        sql: |
+          SELECT p.product_id, p.product_name, COUNT(DISTINCT o.order_id) AS orders
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN products p ON p.product_id = oi.product_id
+          WHERE o.status = 'completed'
+          GROUP BY p.product_id, p.product_name
+          ORDER BY orders DESC LIMIT 1
+      answer_checks:
+        - pattern: "orders"
+    - name: units_2025
+      gold:
+        sql: |
+          SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN products p ON p.product_id = oi.product_id
+          WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+          GROUP BY p.product_id, p.product_name
+          ORDER BY units DESC LIMIT 1
+      answer_checks:
+        - pattern: "units?|quantit|volume|sold"
+    - name: orders_2025
+      gold:
+        sql: |
+          SELECT p.product_id, p.product_name, COUNT(DISTINCT o.order_id) AS orders
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN products p ON p.product_id = oi.product_id
+          WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+          GROUP BY p.product_id, p.product_name
+          ORDER BY orders DESC LIMIT 1
+      answer_checks:
+        - pattern: "orders"
+
+# --- segment comparison with a conditional follow-up ------------------------
+# Gold encodes the condition, so the expected branch is computed, not typed.
+- id: ha19
+  type: segment_comparison
+  question: >-
+    Compare the 2025 average completed order value of Enterprise and SMB
+    customers. If Enterprise's is more than 20% higher than SMB's, break down
+    Enterprise's 2025 completed revenue by product category; otherwise, break
+    down SMB's 2025 completed revenue by product category.
+  notes: Enterprise 2,854 vs SMB 2,839 (+0.5%), so the SMB branch applies.
+  gold:
+    sql: |
+      WITH aov AS (
+        SELECT c.segment,
+               SUM(oi.quantity * oi.unit_price * (1 - oi.discount))
+                 / COUNT(DISTINCT o.order_id) AS v
+        FROM orders o
+        JOIN order_items oi ON oi.order_id = o.order_id
+        JOIN customers c ON c.customer_id = o.customer_id
+        WHERE o.status = 'completed'
+          AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+          AND c.segment IN ('Enterprise', 'SMB')
+        GROUP BY c.segment
+      ),
+      pick AS (
+        SELECT CASE WHEN (SELECT v FROM aov WHERE segment = 'Enterprise')
+                         > 1.2 * (SELECT v FROM aov WHERE segment = 'SMB')
+                    THEN 'Enterprise' ELSE 'SMB' END AS segment
+      )
+      SELECT p.category, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN products p ON p.product_id = oi.product_id
+      JOIN customers c ON c.customer_id = o.customer_id
+      WHERE o.status = 'completed'
+        AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+        AND c.segment = (SELECT segment FROM pick)
+      GROUP BY p.category
+  answer_checks:
+    - text: SMB
+  evidence:
+    aov_2025: |
+      SELECT c.segment,
+             SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / COUNT(DISTINCT o.order_id) AS aov
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN customers c ON c.customer_id = o.customer_id
+      WHERE o.status = 'completed'
+        AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+      GROUP BY c.segment ORDER BY c.segment
+
+- id: ha20
+  type: segment_comparison
+  question: >-
+    Compare the 2025 refund rate (refunded orders as a percentage of all
+    orders) of the Online and Direct channels. If the gap is more than 1.5
+    percentage points, show the 2025 refund rate by region for whichever of
+    the two channels is higher; otherwise, give the overall 2025 refund rate
+    across all channels.
+  notes: Online 17.0% vs Direct 15.0% (gap 2.0 pp), so Online by region applies.
+  gold:
+    sql: |
+      WITH rate AS (
+        SELECT channel, 100.0 * SUM(status = 'refunded') / COUNT(*) AS pct
+        FROM orders
+        WHERE order_date BETWEEN '2025-01-01' AND '2025-12-31'
+          AND channel IN ('Online', 'Direct')
+        GROUP BY channel
+      ),
+      pick AS (
+        SELECT CASE WHEN ABS((SELECT pct FROM rate WHERE channel = 'Online')
+                           - (SELECT pct FROM rate WHERE channel = 'Direct')) > 1.5
+                    THEN (SELECT channel FROM rate ORDER BY pct DESC LIMIT 1)
+               END AS channel
+      )
+      SELECT r.region_name, 100.0 * SUM(o.status = 'refunded') / COUNT(*) AS refund_rate_pct
+      FROM orders o
+      JOIN customers c ON c.customer_id = o.customer_id
+      JOIN regions r ON r.region_id = c.region_id
+      WHERE o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+        AND o.channel = (SELECT channel FROM pick)
+      GROUP BY r.region_name
+  answer_checks:
+    - text: Online
+  evidence:
+    refund_rate_by_channel_2025: |
+      SELECT channel, 100.0 * SUM(status = 'refunded') / COUNT(*) AS refund_rate_pct
+      FROM orders WHERE order_date BETWEEN '2025-01-01' AND '2025-12-31'
+      GROUP BY channel ORDER BY channel
+
+- id: ha21
+  type: segment_comparison
+  question: >-
+    Compare how many support tickets APAC and EMEA customers opened in 2025.
+    If APAC opened more than 1.5 times as many as EMEA, break APAC's 2025
+    tickets down by month (label months as YYYY-MM); otherwise, break both
+    regions' 2025 tickets down by severity.
+  notes: APAC 741 vs EMEA 397 (1.87x), so APAC by month applies.
+  gold:
+    sql: |
+      WITH counts AS (
+        SELECT r.region_name, COUNT(*) AS n
+        FROM support_tickets t
+        JOIN customers c ON c.customer_id = t.customer_id
+        JOIN regions r ON r.region_id = c.region_id
+        WHERE t.created_date BETWEEN '2025-01-01' AND '2025-12-31'
+          AND r.region_name IN ('APAC', 'EMEA')
+        GROUP BY r.region_name
+      )
+      SELECT substr(t.created_date, 1, 7) AS month, COUNT(*) AS tickets
+      FROM support_tickets t
+      JOIN customers c ON c.customer_id = t.customer_id
+      JOIN regions r ON r.region_id = c.region_id
+      WHERE t.created_date BETWEEN '2025-01-01' AND '2025-12-31'
+        AND r.region_name = 'APAC'
+        AND (SELECT n FROM counts WHERE region_name = 'APAC')
+            > 1.5 * (SELECT n FROM counts WHERE region_name = 'EMEA')
+      GROUP BY month
+  answer_checks:
+    - text: APAC
+  evidence:
+    tickets_2025_by_region: |
+      SELECT r.region_name, COUNT(*) AS tickets
+      FROM support_tickets t
+      JOIN customers c ON c.customer_id = t.customer_id
+      JOIN regions r ON r.region_id = c.region_id
+      WHERE t.created_date BETWEEN '2025-01-01' AND '2025-12-31'
+      GROUP BY r.region_name ORDER BY r.region_name

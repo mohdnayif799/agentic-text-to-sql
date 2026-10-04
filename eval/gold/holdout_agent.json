@@ -1,0 +1,849 @@
+{
+ "db_fingerprint": {
+  "customers": "b8ac4f7505071b6275e6de1fa0574b3047fb08804827d6a36ae8457e941647cc",
+  "marketing_spend": "a360482b8faedadabc5029f6b66d1f4fd37d436629097fdb8ed3871bd6e0add2",
+  "order_items": "d9c77f6f8b8e70e3533ac938e725c5f413554d02066bcc879807f53b84e42c3d",
+  "orders": "613026a6a3a624b6322a1effa564e78f9c1dd6fc78baadff3fd16779a7908b6c",
+  "products": "997086da819a7dac61df2ba16ee8e7ba78d03007f9290560711924ffb8c937cc",
+  "regions": "9d9ae6353a3bb09ae16f0809013479ed4be678998b074dde275794ba0f7dfe6a",
+  "support_tickets": "33a3fb46464f4f3cd2e28e56c566bc7cc9a9cb327d12ee00cce10d37593690c4"
+ },
+ "gold": {
+  "ha01": {
+   "columns": [
+    "customer_id",
+    "customer_name",
+    "revenue_2025"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     84,
+     "Jonas Duarte",
+     34461.23
+    ]
+   ],
+   "top_n": 1,
+   "type": "multi_hop"
+  },
+  "ha02": {
+   "columns": [
+    "revenue"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     748889.067
+    ]
+   ],
+   "type": "multi_hop"
+  },
+  "ha03": {
+   "columns": [
+    "product_id",
+    "product_name",
+    "units"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     25,
+     "Anchor Prism",
+     1075
+    ]
+   ],
+   "top_n": 1,
+   "type": "multi_hop"
+  },
+  "ha04": {
+   "columns": [
+    "tickets"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     24
+    ]
+   ],
+   "type": "term_matching"
+  },
+  "ha05": {
+   "columns": [
+    "revenue"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     1653258.412
+    ]
+   ],
+   "type": "term_matching"
+  },
+  "ha06": {
+   "columns": [
+    "product_id",
+    "product_name",
+    "units"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     7,
+     "Cobalt Nimbus",
+     913
+    ]
+   ],
+   "type": "term_matching"
+  },
+  "ha07": {
+   "evidence": {
+    "orders_and_aov_by_region": {
+     "columns": [
+      "region_name",
+      "q2_orders",
+      "q3_orders",
+      "orders_change_pct",
+      "q2_avg_order_value",
+      "q3_avg_order_value",
+      "avg_order_value_change_pct",
+      "revenue_change_pct"
+     ],
+     "rows": [
+      [
+       "APAC",
+       280,
+       200,
+       -28.571428571428573,
+       3045.38875,
+       1971.5549275,
+       -35.26097686214937,
+       -53.757840615820975
+      ],
+      [
+       "EMEA",
+       287,
+       281,
+       -2.0905923344947737,
+       3262.113205574913,
+       2053.8879519572956,
+       -37.038115401782335,
+       -38.354391734846125
+      ],
+      [
+       "LATAM",
+       173,
+       152,
+       -12.138728323699421,
+       3015.1148757225433,
+       2041.230697368421,
+       -32.30006877004115,
+       -40.5179794973772
+      ],
+      [
+       "North America",
+       466,
+       418,
+       -10.300429184549357,
+       3332.8774581545067,
+       2024.0664880382776,
+       -39.269699727902655,
+       -45.52518130099423
+      ]
+     ]
+    }
+   },
+   "type": "why"
+  },
+  "ha08": {
+   "evidence": {
+    "churn_by_region_quarter": {
+     "columns": [
+      "region_name",
+      "quarter",
+      "churned"
+     ],
+     "rows": [
+      [
+       "APAC",
+       "2024-Q3",
+       4
+      ],
+      [
+       "APAC",
+       "2024-Q4",
+       1
+      ],
+      [
+       "APAC",
+       "2025-Q1",
+       2
+      ],
+      [
+       "APAC",
+       "2025-Q2",
+       5
+      ],
+      [
+       "APAC",
+       "2025-Q3",
+       44
+      ],
+      [
+       "APAC",
+       "2025-Q4",
+       5
+      ],
+      [
+       "EMEA",
+       "2024-Q3",
+       4
+      ],
+      [
+       "EMEA",
+       "2024-Q4",
+       3
+      ],
+      [
+       "EMEA",
+       "2025-Q1",
+       3
+      ],
+      [
+       "EMEA",
+       "2025-Q2",
+       5
+      ],
+      [
+       "EMEA",
+       "2025-Q3",
+       11
+      ],
+      [
+       "EMEA",
+       "2025-Q4",
+       5
+      ],
+      [
+       "LATAM",
+       "2024-Q3",
+       3
+      ],
+      [
+       "LATAM",
+       "2024-Q4",
+       2
+      ],
+      [
+       "LATAM",
+       "2025-Q1",
+       1
+      ],
+      [
+       "LATAM",
+       "2025-Q2",
+       2
+      ],
+      [
+       "LATAM",
+       "2025-Q3",
+       3
+      ],
+      [
+       "LATAM",
+       "2025-Q4",
+       9
+      ],
+      [
+       "North America",
+       "2024-Q3",
+       4
+      ],
+      [
+       "North America",
+       "2024-Q4",
+       8
+      ],
+      [
+       "North America",
+       "2025-Q1",
+       13
+      ],
+      [
+       "North America",
+       "2025-Q2",
+       7
+      ],
+      [
+       "North America",
+       "2025-Q3",
+       9
+      ],
+      [
+       "North America",
+       "2025-Q4",
+       12
+      ]
+     ]
+    }
+   },
+   "type": "why"
+  },
+  "ha09": {
+   "evidence": {
+    "hardware_status_mix": {
+     "columns": [
+      "quarter",
+      "status",
+      "units"
+     ],
+     "rows": [
+      [
+       "Q2",
+       "cancelled",
+       789
+      ],
+      [
+       "Q2",
+       "completed",
+       2741
+      ],
+      [
+       "Q2",
+       "refunded",
+       641
+      ],
+      [
+       "Q3",
+       "cancelled",
+       223
+      ],
+      [
+       "Q3",
+       "completed",
+       778
+      ],
+      [
+       "Q3",
+       "refunded",
+       174
+      ]
+     ]
+    },
+    "hardware_volume_price_discount": {
+     "columns": [
+      "quarter",
+      "units",
+      "avg_unit_price",
+      "avg_discount",
+      "revenue"
+     ],
+     "rows": [
+      [
+       "Q2",
+       2741,
+       999.6571261930011,
+       0.04989395546129374,
+       2615311.9245
+      ],
+      [
+       "Q3",
+       778,
+       1008.831954887218,
+       0.05169172932330827,
+       744611.1085
+      ]
+     ]
+    }
+   },
+   "type": "why"
+  },
+  "ha10": {
+   "columns": [
+    "median_order_value"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     2096.64
+    ]
+   ],
+   "type": "statistics"
+  },
+  "ha11": {
+   "columns": [
+    "month",
+    "residual"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     "2025-07",
+     -348547.3194584062
+    ],
+    [
+     "2025-08",
+     -425181.9997340584
+    ],
+    [
+     "2025-09",
+     -452444.71450971055
+    ]
+   ],
+   "type": "statistics"
+  },
+  "ha12": {
+   "columns": [
+    "forecast_revenue"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     1220726.8511123192
+    ]
+   ],
+   "type": "statistics"
+  },
+  "ha13": {
+   "columns": [
+    "spend"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     532065.66
+    ]
+   ],
+   "type": "recovery"
+  },
+  "ha14": {
+   "columns": [
+    "customers"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     67
+    ]
+   ],
+   "type": "recovery"
+  },
+  "ha15": {
+   "columns": [
+    "product_id",
+    "product_name",
+    "units"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     10,
+     "Beacon Beacon",
+     1180
+    ]
+   ],
+   "top_n": 1,
+   "type": "recovery"
+  },
+  "ha16": {
+   "interpretations": {
+    "all_order_count": {
+     "columns": [
+      "month",
+      "orders"
+     ],
+     "rows": [
+      [
+       "2025-12",
+       625
+      ]
+     ],
+     "top_n": 1
+    },
+    "completed_order_count": {
+     "columns": [
+      "month",
+      "completed_orders"
+     ],
+     "rows": [
+      [
+       "2025-11",
+       421
+      ]
+     ],
+     "top_n": 1
+    },
+    "completed_revenue": {
+     "columns": [
+      "month",
+      "revenue"
+     ],
+     "rows": [
+      [
+       "2025-05",
+       1358256.722
+      ]
+     ],
+     "top_n": 1
+    }
+   },
+   "type": "ambiguous"
+  },
+  "ha17": {
+   "interpretations": {
+    "average_order_value_2025": {
+     "columns": [
+      "segment",
+      "avg_order_value"
+     ],
+     "rows": [
+      [
+       "Mid-Market",
+       2920.146946956522
+      ]
+     ],
+     "top_n": 1
+    },
+    "average_order_value_all_time": {
+     "columns": [
+      "segment",
+      "avg_order_value"
+     ],
+     "rows": [
+      [
+       "Mid-Market",
+       3020.6781332875303
+      ]
+     ],
+     "top_n": 1
+    },
+    "revenue_per_buying_customer_2025": {
+     "columns": [
+      "segment",
+      "revenue_per_buyer"
+     ],
+     "rows": [
+      [
+       "Mid-Market",
+       10763.362144230769
+      ]
+     ],
+     "top_n": 1
+    },
+    "revenue_per_buying_customer_all_time": {
+     "columns": [
+      "segment",
+      "revenue_per_buyer"
+     ],
+     "rows": [
+      [
+       "SMB",
+       17883.63324853801
+      ]
+     ],
+     "top_n": 1
+    },
+    "revenue_per_customer_2025": {
+     "columns": [
+      "segment",
+      "revenue_per_customer"
+     ],
+     "rows": [
+      [
+       "Mid-Market",
+       9433.058957865169
+      ]
+     ],
+     "top_n": 1
+    },
+    "revenue_per_customer_all_time": {
+     "columns": [
+      "segment",
+      "revenue_per_customer"
+     ],
+     "rows": [
+      [
+       "SMB",
+       16650.27923139746
+      ]
+     ],
+     "top_n": 1
+    },
+    "total_revenue_2025": {
+     "columns": [
+      "segment",
+      "revenue"
+     ],
+     "rows": [
+      [
+       "SMB",
+       5155426.9815
+      ]
+     ],
+     "top_n": 1
+    },
+    "total_revenue_all_time": {
+     "columns": [
+      "segment",
+      "revenue"
+     ],
+     "rows": [
+      [
+       "SMB",
+       9174303.8565
+      ]
+     ],
+     "top_n": 1
+    }
+   },
+   "type": "ambiguous"
+  },
+  "ha18": {
+   "interpretations": {
+    "orders_2025": {
+     "columns": [
+      "product_id",
+      "product_name",
+      "orders"
+     ],
+     "rows": [
+      [
+       10,
+       "Beacon Beacon",
+       375
+      ]
+     ],
+     "top_n": 1
+    },
+    "orders_all_time": {
+     "columns": [
+      "product_id",
+      "product_name",
+      "orders"
+     ],
+     "rows": [
+      [
+       14,
+       "Vertex Nimbus",
+       613
+      ]
+     ],
+     "top_n": 1
+    },
+    "units_2025": {
+     "columns": [
+      "product_id",
+      "product_name",
+      "units"
+     ],
+     "rows": [
+      [
+       10,
+       "Beacon Beacon",
+       1180
+      ]
+     ],
+     "top_n": 1
+    },
+    "units_all_time": {
+     "columns": [
+      "product_id",
+      "product_name",
+      "units"
+     ],
+     "rows": [
+      [
+       14,
+       "Vertex Nimbus",
+       1926
+      ]
+     ],
+     "top_n": 1
+    }
+   },
+   "type": "ambiguous"
+  },
+  "ha19": {
+   "columns": [
+    "category",
+    "revenue"
+   ],
+   "evidence": {
+    "aov_2025": {
+     "columns": [
+      "segment",
+      "aov"
+     ],
+     "rows": [
+      [
+       "Enterprise",
+       2854.422516536965
+      ],
+      [
+       "Mid-Market",
+       2920.146946956522
+      ],
+      [
+       "SMB",
+       2838.8915096365636
+      ]
+     ]
+    }
+   },
+   "ordered": false,
+   "rows": [
+    [
+     "Accessories",
+     134633.953
+    ],
+    [
+     "Hardware",
+     3171929.6655
+    ],
+    [
+     "Services",
+     979587.305
+    ],
+    [
+     "Software",
+     869276.058
+    ]
+   ],
+   "type": "segment_comparison"
+  },
+  "ha20": {
+   "columns": [
+    "region_name",
+    "refund_rate_pct"
+   ],
+   "evidence": {
+    "refund_rate_by_channel_2025": {
+     "columns": [
+      "channel",
+      "refund_rate_pct"
+     ],
+     "rows": [
+      [
+       "Direct",
+       14.990512333965844
+      ],
+      [
+       "Online",
+       16.99475065616798
+      ],
+      [
+       "Partner",
+       15.060240963855422
+      ]
+     ]
+    }
+   },
+   "ordered": false,
+   "rows": [
+    [
+     "APAC",
+     16.286644951140065
+    ],
+    [
+     "EMEA",
+     17.639429312581065
+    ],
+    [
+     "LATAM",
+     19.221411192214113
+    ],
+    [
+     "North America",
+     16.21405750798722
+    ]
+   ],
+   "type": "segment_comparison"
+  },
+  "ha21": {
+   "columns": [
+    "month",
+    "tickets"
+   ],
+   "evidence": {
+    "tickets_2025_by_region": {
+     "columns": [
+      "region_name",
+      "tickets"
+     ],
+     "rows": [
+      [
+       "APAC",
+       741
+      ],
+      [
+       "EMEA",
+       397
+      ],
+      [
+       "LATAM",
+       233
+      ],
+      [
+       "North America",
+       662
+      ]
+     ]
+    }
+   },
+   "ordered": false,
+   "rows": [
+    [
+     "2025-01",
+     15
+    ],
+    [
+     "2025-02",
+     16
+    ],
+    [
+     "2025-03",
+     17
+    ],
+    [
+     "2025-04",
+     31
+    ],
+    [
+     "2025-05",
+     26
+    ],
+    [
+     "2025-06",
+     146
+    ],
+    [
+     "2025-07",
+     156
+    ],
+    [
+     "2025-08",
+     143
+    ],
+    [
+     "2025-09",
+     92
+    ],
+    [
+     "2025-10",
+     35
+    ],
+    [
+     "2025-11",
+     23
+    ],
+    [
+     "2025-12",
+     41
+    ]
+   ],
+   "type": "segment_comparison"
+  }
+ },
+ "questions_file": "eval/holdout_agent.yaml",
+ "questions_sha256": "acee2bcf8e3bef3e7b48002ddc857f074ccde542f4841135a418fb2e999c0010",
+ "set": "holdout_agent"
+}

@@ -1,0 +1,179 @@
+# Holdout: easy questions (eval protocol v2). 12 questions answerable with a
+# single SQL query. Architecture D must not do worse than A here. Frozen by
+# eval/FREEZE_v2.sha256 once approved; never used for tuning. Gold results:
+# eval/gold/holdout_easy.json. Definitions as in holdout_agent.yaml.
+
+- id: he01
+  type: easy
+  question: How many customers does the LATAM region have?
+  gold:
+    sql: |
+      SELECT COUNT(*) AS customers
+      FROM customers c JOIN regions r ON r.region_id = c.region_id
+      WHERE r.region_name = 'LATAM'
+  answer_checks:
+    - gold_number: [0, 0]
+      rel: 0
+      abs: 0
+
+- id: he02
+  type: easy
+  question: What was total completed revenue in 2024?
+  gold:
+    sql: |
+      SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue
+      FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+      WHERE o.status = 'completed'
+        AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31'
+  answer_checks:
+    - gold_number: [0, 0]
+
+- id: he03
+  type: easy
+  question: How many critical-severity support tickets were created in 2025?
+  gold:
+    sql: |
+      SELECT COUNT(*) AS tickets FROM support_tickets
+      WHERE severity = 'critical'
+        AND created_date BETWEEN '2025-01-01' AND '2025-12-31'
+  answer_checks:
+    - gold_number: [0, 0]
+      rel: 0
+      abs: 0
+
+- id: he04
+  type: easy
+  question: >-
+    What is the average resolution time, in days, of support tickets created
+    in 2025 that have been resolved?
+  gold:
+    sql: |
+      SELECT AVG(julianday(resolved_date) - julianday(created_date)) AS avg_days
+      FROM support_tickets
+      WHERE resolved_date IS NOT NULL
+        AND created_date BETWEEN '2025-01-01' AND '2025-12-31'
+  answer_checks:
+    - gold_number: [0, 0]
+
+- id: he05
+  type: easy
+  question: >-
+    What were the top 3 products by completed revenue in 2024? Give each
+    product's ID, name and revenue.
+  top_n: 3
+  gold:
+    sql: |
+      SELECT p.product_id, p.product_name,
+             SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN products p ON p.product_id = oi.product_id
+      WHERE o.status = 'completed'
+        AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31'
+      GROUP BY p.product_id, p.product_name
+      ORDER BY revenue DESC LIMIT 3
+  answer_checks:
+    - gold_text: [0, 1]
+    - gold_text: [1, 1]
+    - gold_text: [2, 1]
+
+- id: he06
+  type: easy
+  question: How much did we spend on marketing in each channel in 2025?
+  gold:
+    sql: |
+      SELECT channel, SUM(amount) AS spend
+      FROM marketing_spend
+      WHERE month BETWEEN '2025-01' AND '2025-12'
+      GROUP BY channel
+  answer_checks:
+    - text: Direct
+    - text: Online
+    - text: Partner
+
+- id: he07
+  type: easy
+  question: How many orders of each status were placed in 2025?
+  gold:
+    sql: |
+      SELECT status, COUNT(*) AS orders FROM orders
+      WHERE order_date BETWEEN '2025-01-01' AND '2025-12-31'
+      GROUP BY status
+  answer_checks:
+    - text: completed
+    - text: refunded
+    - text: cancelled
+
+- id: he08
+  type: easy
+  question: Which region has the most customers, and how many customers does it have?
+  top_n: 1
+  gold:
+    sql: |
+      SELECT r.region_name, COUNT(*) AS customers
+      FROM customers c JOIN regions r ON r.region_id = c.region_id
+      GROUP BY r.region_name ORDER BY customers DESC LIMIT 1
+  answer_checks:
+    - text: North America
+    - gold_number: [0, 1]
+      rel: 0
+      abs: 0
+
+- id: he09
+  type: easy
+  question: >-
+    How many completed orders were placed in each month of the first half of
+    2025? Label months as YYYY-MM.
+  gold:
+    sql: |
+      SELECT substr(order_date, 1, 7) AS month, COUNT(*) AS orders
+      FROM orders
+      WHERE status = 'completed'
+        AND order_date BETWEEN '2025-01-01' AND '2025-06-30'
+      GROUP BY month
+  answer_checks: []
+
+- id: he10
+  type: easy
+  question: How many customers signed up in 2025?
+  gold:
+    sql: |
+      SELECT COUNT(*) AS customers FROM customers
+      WHERE signup_date BETWEEN '2025-01-01' AND '2025-12-31'
+  answer_checks:
+    - gold_number: [0, 0]
+      rel: 0
+      abs: 0
+
+- id: he11
+  type: easy
+  question: What was completed revenue by customer segment in 2025?
+  gold:
+    sql: |
+      SELECT c.segment,
+             SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN customers c ON c.customer_id = o.customer_id
+      WHERE o.status = 'completed'
+        AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+      GROUP BY c.segment
+  answer_checks:
+    - text: Enterprise
+    - text: Mid-Market
+    - text: SMB
+
+- id: he12
+  type: easy
+  question: >-
+    Which Hardware product has the highest list price? Give its product ID,
+    name and list price.
+  top_n: 1
+  gold:
+    sql: |
+      SELECT product_id, product_name, list_price FROM products
+      WHERE category = 'Hardware'
+      ORDER BY list_price DESC LIMIT 1
+  answer_checks:
+    - gold_text: [0, 1]
+    - gold_number: [0, 2]

@@ -1,0 +1,99 @@
+{
+ "db_fingerprint": {
+  "customers": "b8ac4f7505071b6275e6de1fa0574b3047fb08804827d6a36ae8457e941647cc",
+  "marketing_spend": "a360482b8faedadabc5029f6b66d1f4fd37d436629097fdb8ed3871bd6e0add2",
+  "order_items": "d9c77f6f8b8e70e3533ac938e725c5f413554d02066bcc879807f53b84e42c3d",
+  "orders": "613026a6a3a624b6322a1effa564e78f9c1dd6fc78baadff3fd16779a7908b6c",
+  "products": "997086da819a7dac61df2ba16ee8e7ba78d03007f9290560711924ffb8c937cc",
+  "regions": "9d9ae6353a3bb09ae16f0809013479ed4be678998b074dde275794ba0f7dfe6a",
+  "support_tickets": "33a3fb46464f4f3cd2e28e56c566bc7cc9a9cb327d12ee00cce10d37593690c4"
+ },
+ "gold": {
+  "sc01": {
+   "columns": [
+    "revenue_2025"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     587.808
+    ]
+   ],
+   "type": "multi_hop"
+  },
+  "sc02": {
+   "columns": [
+    "revenue"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     342941.7275
+    ]
+   ],
+   "type": "term_matching"
+  },
+  "sc03": {
+   "evidence": {
+    "by_channel": {
+     "columns": [
+      "channel",
+      "completed_orders",
+      "revenue",
+      "avg_order_value"
+     ],
+     "rows": [
+      [
+       "Direct",
+       2366,
+       7106104.9285,
+       3003.4255826289095
+      ],
+      [
+       "Online",
+       3458,
+       10195563.464,
+       2948.398919606709
+      ],
+      [
+       "Partner",
+       1922,
+       5831252.8015,
+       3033.950469042664
+      ]
+     ]
+    }
+   },
+   "type": "why"
+  },
+  "sc04": {
+   "columns": [
+    "pearson_r"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     0.1400200523481476
+    ]
+   ],
+   "type": "statistics"
+  },
+  "sc05": {
+   "columns": [
+    "revenue",
+    "marketing_spend"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     1736364.8625,
+     583742.2
+    ]
+   ],
+   "type": "recovery"
+  }
+ },
+ "questions_file": "eval/showcase.yaml",
+ "questions_sha256": "11b0f4f7c330808926b8e8b6cb2fd834634c243229e98c45f620b8d8e19bdbeb",
+ "set": "showcase"
+}
