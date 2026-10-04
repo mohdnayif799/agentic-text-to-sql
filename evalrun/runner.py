@@ -51,10 +51,13 @@ RUN_CONFIG = ROOT / "eval" / "run_config.yaml"
 RESULT_ROWS = 20
 
 #: (typical, maximum) LLM calls per question, used for the pre-run estimate.
-#: v1's maximum follows its budgets at 3 steps x 3 attempts; the router's
-#: maximum is step 0 + 2 repairs + 2 follow-ups with 2 repairs each + assembly
-#: + answer.
-CALL_ESTIMATE = {"baseline": (2, 3), "v1": (5, 20), "router": (3, 11), "full": (5, 14)}
+#: v1's maximum follows its budgets at 3 steps x 3 attempts. The router's
+#: maximum is step 0 + 2 repairs + decision + 2 follow-ups with 2 repairs each
+#: + assembly + answer; its step 0 (and direct answer) are A's cached calls.
+CALL_ESTIMATE = {"baseline": (2, 3), "v1": (5, 20), "router": (3, 12), "full": (5, 14)}
+
+#: Architectures whose step 0 is A's first call, served from A's cache.
+SHARES_STEP0 = ("router", "full")
 
 
 def judge_calls_per_answer(q: dict[str, Any]) -> int:
@@ -118,7 +121,8 @@ def _git(*args: str) -> str:
 def _git_commit() -> str:
     try:
         head = _git("rev-parse", "--short", "HEAD")
-        dirty = _git("status", "--porcelain")
+        # Untracked scratch files do not make the code dirty.
+        dirty = _git("status", "--porcelain", "--untracked-files=no")
     except (OSError, subprocess.CalledProcessError):
         return "unknown"
     return head + ("-dirty" if dirty else "")
@@ -217,19 +221,24 @@ class Runner:
     def run_one(self, q: dict[str, Any], arch: str, gold_entry: dict[str, Any],
                 trace_dir: Path) -> dict[str, Any]:
         client = self._client(arch, q["id"])
+        # Step 0 of C and D is A's first call: same cache entry as A.
+        step0 = self._client("baseline", q["id"]) if arch in SHARES_STEP0 else None
+        clients = [(arch, client)] + ([("baseline (step 0)", step0)] if step0 else [])
         tracer = Tracer(f"{arch}-{q['id']}", trace_dir=None)
         started = time.perf_counter()
         try:
             outcome = run_architecture(
                 arch, q["question"], settings=self.settings, llm=client,
                 tools=self.tools, context_builder=self.builder, tracer=tracer,
+                step0_llm=step0,
             )
         except LLMError as exc:  # provider error (not quota): a failed run
             message = redact_text(f"{type(exc).__name__}: {exc}", self.secrets)
             outcome = ArchOutcome(arch=arch, question=q["question"],
                                   status="failed", answer="", selected=None,
                                   path="error", stop_reason="error", error=message)
-        latency = time.perf_counter() - started - client.slept_seconds
+        latency = (time.perf_counter() - started
+                   - sum(c.slept_seconds for _, c in clients))
 
         ok = outcome.selected is not None and outcome.selected.ok
         selected = outcome.selected if ok else None
@@ -268,7 +277,8 @@ class Runner:
             "selected_result": _result_dict(outcome),
             "answer": outcome.answer, "key_numbers": list(outcome.key_numbers),
             "caveats": list(outcome.caveats), "judge": judge,
-            "llm_calls": [asdict(r) for r in client.records],
+            "llm_calls": [{**asdict(r), "cache_namespace": name}
+                          for name, c in clients for r in c.records],
             "judge_calls": (
                 [asdict(r) for r in judge_client.records] if judge_client else []
             ),
@@ -287,8 +297,9 @@ class Runner:
             "first_failing_check": "" if score.primary else score.detail,
             "detail": score.detail, "status": outcome.status, "path": outcome.path,
             "judge": judge,
-            "llm_calls": client.calls, "live_calls": client.live_calls,
-            "cache_hits": client.cache_hits,
+            "llm_calls": sum(c.calls for _, c in clients),
+            "live_calls": sum(c.live_calls for _, c in clients),
+            "cache_hits": sum(c.cache_hits for _, c in clients),
             "judge_calls": judge_client.calls if judge_client else 0,
             "latency_s": round(latency, 3),
             "repairs": len(repairs),

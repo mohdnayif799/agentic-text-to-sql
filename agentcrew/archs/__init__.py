@@ -35,7 +35,10 @@ def run_architecture(
     tools: ToolContext,
     context_builder: ContextBuilder,
     tracer: Tracer | None = None,
+    step0_llm: LLMClient | None = None,
 ) -> ArchOutcome:
+    """`step0_llm` serves the router's step 0 (A's first call) and its direct
+    answer; the eval runner points it at A's response cache."""
     if arch == "baseline":
         return run_baseline(
             question, llm=llm, tools=tools,
@@ -45,6 +48,7 @@ def run_architecture(
         return run_router(
             question, llm=llm, tools=tools,
             context=context_builder.build(question), settings=settings,
+            step0_llm=step0_llm,
         )
     if arch == "v1":
         return run_v1(question, llm=llm, settings=settings,

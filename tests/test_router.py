@@ -38,9 +38,9 @@ class Script:
         self.answer_prompt = ""
 
     def __call__(self, system: str, user: str):
-        if "needs_followup" in system:
-            self.calls.append("step0")
-            return {"sql": self.step0, "needs_followup": self.needs_followup,
+        if "You check whether one query result" in system:
+            self.calls.append("decision")
+            return {"needs_followup": self.needs_followup,
                     "reason": "needs the customer first"}
         if "You fix one SQLite query" in system:
             self.calls.append("repair")
@@ -58,6 +58,9 @@ class Script:
             self.calls.append("answer")
             self.answer_prompt = user
             return {"answer": "Scripted answer.", "key_numbers": [], "caveats": []}
+        if "SQL analyst" in system:  # step 0 is A's own call
+            self.calls.append("step0")
+            return {"sql": self.step0, "rationale": "scripted", "expected_shape": ""}
         raise AssertionError(system[:80])
 
 
@@ -86,7 +89,7 @@ class TestDirectPath:
         script = Script(step0="SELECT COUNT(*) AS n FROM customers")
         out = run_c(script, pinned, engine, builder)
         assert out.path == "direct" and out.status == "done"
-        assert script.calls == ["step0", "answer"]
+        assert script.calls == ["step0", "decision", "answer"]
         assert out.selected.rows == [[1400]] and out.selected_step == 1
         assert out.repairs == ()
 
@@ -152,7 +155,8 @@ class TestFollowupsAndAssembly:
         script = Script(step0=TOP_2024, needs_followup=True,
                         followups=[REVENUE_2025], plan=plan)
         out = run_c(script, pinned, engine, builder)
-        assert script.calls == ["step0", "followup", "followup", "assemble", "answer"]
+        assert script.calls == ["step0", "decision", "followup", "followup", "assemble",
+                                "answer"]
         assert out.path == "escalated" and out.selected_step == 2
         assert out.selected.columns == ["revenue_2025", "customer_id", "customer_name"]
         assert out.selected.rows[0][1:] == [1052, "Elena Dubois"]
@@ -222,3 +226,47 @@ class TestChecks:
         assert classify(capped, None, 5).kind == "sanity"
         failed = ExecutionResult(ok=False, sql="", error_message="boom")
         assert classify(failed, "bad column", 500).kind == "error"
+
+
+class TestStep0IsA:
+    QUESTION = "How many customers do we have?"
+
+    def test_step0_and_direct_answer_are_byte_identical_to_a(
+        self, pinned, engine, builder
+    ):
+        from test_archs import Scripted
+
+        a_client = FakeClient(responder=Scripted("SELECT COUNT(*) AS n FROM customers"))
+        run_architecture("baseline", self.QUESTION, settings=pinned, llm=a_client,
+                         tools=ToolContext.create(engine), context_builder=builder)
+        step0 = FakeClient(responder=Script(step0="SELECT COUNT(*) AS n FROM customers"))
+        main = FakeClient(responder=Script(step0="unused"))
+        out = run_architecture("router", self.QUESTION, settings=pinned, llm=main,
+                               tools=ToolContext.create(engine),
+                               context_builder=builder, step0_llm=step0)
+        assert out.path == "direct"
+        # The step-0 client saw exactly A's two prompts (SQL, then answer).
+        assert step0.prompts == a_client.prompts
+        # The main client only made the follow-up decision.
+        assert len(main.prompts) == 1
+        assert "You check whether one query result" in main.prompts[0][0]
+
+    def test_fanout_escalates_instead_of_answering_directly(
+        self, pinned, engine, builder
+    ):
+        naive = ("SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev, "
+                 "SUM(m.amount) AS spend FROM regions r "
+                 "JOIN customers c ON c.region_id = r.region_id "
+                 "JOIN orders o ON o.customer_id = c.customer_id "
+                 "JOIN order_items oi ON oi.order_id = o.order_id "
+                 "JOIN marketing_spend m ON m.region_id = r.region_id "
+                 "WHERE r.region_name = 'LATAM'")
+        fixed = ("SELECT (SELECT SUM(amount) FROM marketing_spend m "
+                 "JOIN regions r ON r.region_id = m.region_id "
+                 "WHERE r.region_name = 'LATAM') AS spend")
+        script = Script(step0=naive, repairs=[fixed])
+        out = run_c(script, pinned, engine, builder)
+        (repair,) = out.repairs
+        assert repair.signal == "fanout" and repair.accepted
+        assert "not unique on either side" in repair.detail
+        assert out.path == "escalated"

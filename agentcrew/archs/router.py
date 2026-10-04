@@ -1,19 +1,24 @@
 """Architecture C: router.
 
-Step 0 is the baseline's query (same shared context and SQL rules), returned
-as {sql, needs_followup, reason}. The run escalates only on a signal:
+Step 0 IS architecture A's first call: the same prompt, schema and settings
+(through `step0_llm`, which the eval runner points at A's response cache,
+so it is byte-identical to A). The run then escalates only on a signal:
 
-* a concrete problem with a query (checks.classify: error, schema, empty,
-  sanity) -> disciplined repair of that query;
-* needs_followup -> follow-up queries, each seeing the original question
-  verbatim, the reason, and capped previews of earlier results.
+1. Deterministic signals on the executed query (checks.classify: SQL error,
+   schema check, join fan-out, empty result, all-NULL or row-cap sanity)
+   -> disciplined repair of that query. No LLM call is needed to decide.
+2. If step 0 produced a usable result, one small structured call decides
+   {needs_followup, reason} from the question, the SQL and a result preview.
+   needs_followup -> follow-up queries, each seeing the original question
+   verbatim, the reason and capped previews of earlier results.
 
-Otherwise it answers directly from step 0, exactly like A.
+With no signal and no follow-up, C answers directly with A's answer call on
+A's result, so the direct path is exactly A.
 
-Disciplined repair: the schema check runs before executing (no LLM call);
-a repair gets the exact signal text; the original query and result are kept,
-and a fix is accepted only if it removes that signal and the query runs.
-Budgets: at most `max_steps` queries in total and `max_attempts_per_step`
+Disciplined repair: schema and fan-out checks run before executing (no LLM
+call); a repair gets the exact signal text; the original query and result
+are kept, and a fix is accepted only if it removes that signal and the query
+runs. Budgets: at most `max_steps` queries and `max_attempts_per_step`
 executions per step.
 
 When the answer draws on more than one step, one final table holding every
@@ -29,8 +34,9 @@ from pydantic import BaseModel, Field
 
 from agentcrew.archs.answer import write_answer
 from agentcrew.archs.assemble import AssemblyPlan, assemble, default_plan
-from agentcrew.archs.baseline import SQL_SYSTEM
+from agentcrew.archs.baseline import SQL_SYSTEM, SQL_USER
 from agentcrew.archs.checks import Schema, Signal, classify, schema_error, schema_of
+from agentcrew.archs.fanout import KeyIndex, fanout_problem
 from agentcrew.archs.outcome import ArchOutcome, RepairEvent, SqlAttempt
 from agentcrew.config import Settings
 from agentcrew.context import SharedContext
@@ -40,22 +46,27 @@ from agentcrew.tools import ToolContext, execute_readonly_sql
 
 PREVIEW_ROWS = 8
 
-ROUTER_SYSTEM = SQL_SYSTEM + """
-Also decide whether this one query fully answers the question. Set \
-needs_followup to true only if it does not, because:
-- a later query depends on this query's result (a multi-step question);
-- the question asks why, or for a drill-down, and explaining it needs further \
-breakdowns;
-- the answer needs a statistic computed from this query's rows;
-- the question can be read more than one way and the reading needs checking.
+DECISION_SYSTEM = """\
+You check whether one query result fully answers a user's question about a \
+database. Set needs_followup to true only if it does not, because:
+- the question has several steps and a further query depends on this result;
+- the question asks why, or for a drill-down, and this result does not yet \
+explain the cause;
+- the answer needs a statistic or a comparison that is not in this result;
+- the question can be read in more than one way and this result does not \
+show which reading it uses.
 Otherwise set needs_followup to false. Give the reason in one sentence.
 """
 
-ROUTER_USER = """\
-{context}
-
+DECISION_USER = """\
 ## Question
 {question}
+
+## Query that was run
+{sql}
+
+## Result ({row_count} row(s))
+{preview}
 """
 
 FOLLOWUP_SYSTEM = """\
@@ -132,8 +143,7 @@ ASSEMBLY_USER = """\
 """
 
 
-class RouterDraft(BaseModel):
-    sql: str
+class FollowupDecision(BaseModel):
     needs_followup: bool = False
     reason: str = Field(default="", description="One sentence.")
 
@@ -162,6 +172,17 @@ def _normalise(sql: str) -> str:
     return " ".join(sql.split()).rstrip(";").lower()
 
 
+_KEY_INDEXES: dict[str, KeyIndex] = {}
+
+
+def _key_index(tools: ToolContext) -> KeyIndex:
+    """One uniqueness cache per database, shared across questions."""
+    url = str(tools.engine.url)
+    if url not in _KEY_INDEXES:
+        _KEY_INDEXES[url] = KeyIndex(tools.engine, tools.catalog)
+    return _KEY_INDEXES[url]
+
+
 class Router:
     def __init__(
         self,
@@ -171,16 +192,20 @@ class Router:
         tools: ToolContext,
         context: SharedContext,
         settings: Settings,
+        step0_llm: LLMClient | None = None,
     ) -> None:
         self.question = question
         self.llm = llm
+        self.step0_llm = step0_llm or llm
         self.tools = tools
         self.context_text = context.render()
         self.settings = settings
         self.schema: Schema = schema_of(tools.catalog)
+        self.keys = _key_index(tools)
 
-    def _structured(self, schema: type, system: str, user: str):
-        obj, _ = self.llm.complete_structured(
+    def _structured(self, schema: type, system: str, user: str,
+                    llm: LLMClient | None = None):
+        obj, _ = (llm or self.llm).complete_structured(
             system=system, user=user, schema=schema,
             max_tokens=self.settings.max_output_tokens,
             temperature=self.settings.temperature,
@@ -188,9 +213,10 @@ class Router:
         return obj
 
     def _execute(self, sql: str) -> tuple[ExecutionResult, Signal | None]:
-        problem = schema_error(sql, self.schema)  # before executing, no LLM
+        problem = schema_error(sql, self.schema)    # before executing, no LLM
+        fanout = fanout_problem(sql, self.keys)     # before executing, no LLM
         result = execute_readonly_sql(self.tools, sql)
-        return result, classify(result, problem, self.tools.max_rows)
+        return result, classify(result, problem, self.tools.max_rows, fanout)
 
     def run_step(self, number: int, sql: str, reason: str = "") -> StepRun:
         result, signal = self._execute(sql)
@@ -228,19 +254,35 @@ class Router:
             for s in steps
         )
 
+    def _decide(self, step: StepRun) -> FollowupDecision:
+        """Follow-up decision: only reached when step 0 gave a usable result."""
+        return self._structured(FollowupDecision, DECISION_SYSTEM, DECISION_USER.format(
+            question=self.question, sql=step.sql,
+            row_count=step.result.row_count,
+            preview=step.result.preview(limit=PREVIEW_ROWS),
+        ))
+
     def run(self) -> ArchOutcome:
+        decision = FollowupDecision()
+        steps: list[StepRun] = []
         try:
-            draft: RouterDraft = self._structured(
-                RouterDraft, ROUTER_SYSTEM,
-                ROUTER_USER.format(context=self.context_text, question=self.question),
+            # Step 0 = A's first call, byte for byte.
+            draft: SqlDraft = self._structured(
+                SqlDraft, SQL_SYSTEM,
+                SQL_USER.format(context=self.context_text, question=self.question,
+                                retry_block=""),
+                llm=self.step0_llm,
             )
-            steps = [self.run_step(1, draft.sql, draft.reason)]
-            if draft.needs_followup and steps[0].result.ok:
+            steps.append(self.run_step(1, draft.sql))
+            first = steps[0]
+            if first.result.ok and first.result.rows:
+                decision = self._decide(first)
+            if decision.needs_followup:
                 while len(steps) < self.settings.max_steps:
                     nxt: FollowupDraft = self._structured(
                         FollowupDraft, FOLLOWUP_SYSTEM, FOLLOWUP_USER.format(
                             context=self.context_text, question=self.question,
-                            reason=draft.reason or "(not given)",
+                            reason=decision.reason or "(not given)",
                             history=self._history(steps),
                         ))
                     if nxt.done or not nxt.sql.strip():
@@ -248,9 +290,10 @@ class Router:
                     steps.append(self.run_step(len(steps) + 1, nxt.sql, nxt.reason))
             selected, selected_step, plan_used = self._select(steps)
             if selected is None:
-                return self._failed(steps, draft, "every query failed")
+                return self._failed(steps, decision, "every query failed")
+            direct = not decision.needs_followup and not first.repairs
             final, _ = write_answer(
-                self.llm, self.question, selected,
+                self.step0_llm if direct else self.llm, self.question, selected,
                 max_tokens=self.settings.max_output_tokens,
                 temperature=self.settings.temperature,
             )
@@ -258,15 +301,17 @@ class Router:
             return ArchOutcome(
                 arch="router", question=self.question, status="failed",
                 answer=f"Could not complete the analysis: {exc}", selected=None,
-                path="escalated", stop_reason="error", error=str(exc),
+                path="escalated" if steps else "direct", stop_reason="error",
+                error=str(exc),
+                attempts=tuple(a for s in steps for a in s.attempts),
+                repairs=tuple(r for s in steps for r in s.repairs),
             )
 
-        escalated = draft.needs_followup or any(s.repairs for s in steps)
         step_records = [
             {"step": s.number,
              "tools": ["run_sql"] + (["repair"] if s.repairs else []),
              "sql": s.sql, "reason": s.reason,
-             "signal": s.signal.kind if s.signal else None}
+             "signal": s.repairs[0].signal if s.repairs else None}
             for s in steps
         ]
         if plan_used:
@@ -275,8 +320,8 @@ class Router:
         return ArchOutcome(
             arch="router", question=self.question, status="done",
             answer=final.answer, selected=selected,
-            path="escalated" if escalated else "direct",
-            plan=tuple([draft.reason] if draft.needs_followup else []),
+            path="direct" if direct else "escalated",
+            plan=tuple([decision.reason] if decision.needs_followup else []),
             attempts=tuple(a for s in steps for a in s.attempts),
             steps=tuple(step_records),
             key_numbers=tuple(final.key_numbers), caveats=tuple(final.caveats),
@@ -309,14 +354,14 @@ class Router:
         return assemble(plan, usable), plan.base_step, plan.model_dump()
 
     def _failed(
-        self, steps: list[StepRun], draft: RouterDraft, why: str
+        self, steps: list[StepRun], decision: FollowupDecision, why: str
     ) -> ArchOutcome:
         last = steps[-1]
         message = f"I could not answer: {why} ({last.result.error_message})."
+        escalated = decision.needs_followup or any(s.repairs for s in steps)
         return ArchOutcome(
             arch="router", question=self.question, status="failed", answer=message,
-            selected=None,
-            path="escalated" if (draft.needs_followup or last.repairs) else "direct",
+            selected=None, path="escalated" if escalated else "direct",
             attempts=tuple(a for s in steps for a in s.attempts),
             repairs=tuple(r for s in steps for r in s.repairs),
             stop_reason="error", error=message,
@@ -330,6 +375,7 @@ def run_router(
     tools: ToolContext,
     context: SharedContext,
     settings: Settings,
+    step0_llm: LLMClient | None = None,
 ) -> ArchOutcome:
     return Router(question, llm=llm, tools=tools, context=context,
-                  settings=settings).run()
+                  settings=settings, step0_llm=step0_llm).run()
