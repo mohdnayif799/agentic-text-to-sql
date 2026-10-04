@@ -1,0 +1,4 @@
+eval/** text eol=lf
+eval/questions.yaml text eol=crlf
+scripts/run_eval.py text eol=lf
+scripts/score_eval.py text eol=lf
