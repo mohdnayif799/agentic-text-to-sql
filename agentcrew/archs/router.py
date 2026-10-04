@@ -28,6 +28,7 @@ shown, and the answer is written from it.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from pydantic import BaseModel, Field
@@ -45,6 +46,9 @@ from agentcrew.schemas import ExecutionResult, SqlDraft
 from agentcrew.tools import ToolContext, execute_readonly_sql
 
 PREVIEW_ROWS = 8
+
+#: (executed sql, result) -> a verification Signal or None (architecture D).
+Verifier = Callable[[str, ExecutionResult], "Signal | None"]
 
 DECISION_SYSTEM = """\
 You check whether one query result fully answers a user's question about a \
@@ -166,6 +170,9 @@ class StepRun:
     """The SQL as the model wrote it; repairs work on this."""
     repairs: list[RepairEvent] = field(default_factory=list)
     attempts: list[SqlAttempt] = field(default_factory=list)
+    kind: str = "sql"
+    """sql | compute | lookup. Only sql and compute results can be selected."""
+    tool: str = "run_sql"
 
 
 def _normalise(sql: str) -> str:
@@ -218,29 +225,56 @@ class Router:
         result = execute_readonly_sql(self.tools, sql)
         return result, classify(result, problem, self.tools.max_rows, fanout)
 
-    def run_step(self, number: int, sql: str, reason: str = "") -> StepRun:
+    def _check(self, sql: str, verify: Verifier | None
+               ) -> tuple[ExecutionResult, Signal | None]:
         result, signal = self._execute(sql)
+        if signal is None and verify is not None:
+            signal = verify(result.sql or sql, result)
+        return result, signal
+
+    def run_step(
+        self,
+        number: int,
+        sql: str,
+        reason: str = "",
+        *,
+        repair_llm: LLMClient | None = None,
+        verify: Verifier | None = None,
+    ) -> StepRun:
+        """Execute, then repair on a signal. `verify` (architecture D's
+        escalated path) adds verification checks to the signals."""
+        result, signal = self._check(sql, verify)
         step = StepRun(number, result.sql or sql, result, signal, reason, sql)
         step.attempts.append(SqlAttempt.from_result(result, sql))
-        tries = 1
+        return self.repair(step, llm=repair_llm, verify=verify)
+
+    def repair(
+        self,
+        step: StepRun,
+        *,
+        llm: LLMClient | None = None,
+        verify: Verifier | None = None,
+    ) -> StepRun:
+        """Disciplined repair of `step` while it has a signal and attempts remain."""
+        tries = len(step.attempts)
         while step.signal and tries < self.settings.max_attempts_per_step:
             tries += 1
             prompt = REPAIR_USER.format(
                 context=self.context_text, question=self.question,
                 sql=step.model_sql, kind=step.signal.kind, detail=step.signal.detail,
             )
-            draft: SqlDraft = self._structured(SqlDraft, REPAIR_SYSTEM, prompt)
+            draft: SqlDraft = self._structured(SqlDraft, REPAIR_SYSTEM, prompt, llm=llm)
             if _normalise(draft.sql) == _normalise(step.model_sql):
                 step.repairs.append(RepairEvent(
-                    number, step.signal.kind, step.signal.detail, step.result, None,
-                    accepted=False))
+                    step.number, step.signal.kind, step.signal.detail, step.result,
+                    None, accepted=False))
                 continue
-            new, new_signal = self._execute(draft.sql)
+            new, new_signal = self._check(draft.sql, verify)
             step.attempts.append(SqlAttempt.from_result(new, draft.sql))
             resolved = new.ok and (new_signal is None
                                    or new_signal.kind != step.signal.kind)
             step.repairs.append(RepairEvent(
-                number, step.signal.kind, step.signal.detail, step.result, new,
+                step.number, step.signal.kind, step.signal.detail, step.result, new,
                 accepted=resolved))
             if resolved:
                 step.sql, step.result = new.sql or draft.sql, new
@@ -254,13 +288,14 @@ class Router:
             for s in steps
         )
 
-    def _decide(self, step: StepRun) -> FollowupDecision:
+    def _decide(self, step: StepRun, llm: LLMClient | None = None) -> FollowupDecision:
         """Follow-up decision: only reached when step 0 gave a usable result."""
-        return self._structured(FollowupDecision, DECISION_SYSTEM, DECISION_USER.format(
+        prompt = DECISION_USER.format(
             question=self.question, sql=step.sql,
             row_count=step.result.row_count,
             preview=step.result.preview(limit=PREVIEW_ROWS),
-        ))
+        )
+        return self._structured(FollowupDecision, DECISION_SYSTEM, prompt, llm=llm)
 
     def run(self) -> ArchOutcome:
         decision = FollowupDecision()
@@ -332,9 +367,11 @@ class Router:
     def _select(
         self, steps: list[StepRun]
     ) -> tuple[ExecutionResult | None, int | None, dict | None]:
-        usable = {s.number: s.result for s in steps if s.result.ok and s.result.rows}
+        selectable = [s for s in steps if s.kind in ("sql", "compute")]
+        usable = {s.number: s.result for s in selectable
+                  if s.result.ok and s.result.rows}
         if not usable:
-            ran = [s for s in steps if s.result.ok]
+            ran = [s for s in selectable if s.result.ok]
             if not ran:
                 return None, None, None
             return ran[-1].result, ran[-1].number, None
@@ -345,7 +382,8 @@ class Router:
             plan: AssemblyPlan = self._structured(
                 AssemblyPlan, ASSEMBLY_SYSTEM, ASSEMBLY_USER.format(
                     question=self.question,
-                    history=self._history([s for s in steps if s.number in usable]),
+                    history=self._history([s for s in selectable
+                                           if s.number in usable]),
                 ))
         except StructuredOutputError:
             plan = default_plan(usable)

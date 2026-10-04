@@ -54,7 +54,10 @@ RESULT_ROWS = 20
 #: v1's maximum follows its budgets at 3 steps x 3 attempts. The router's
 #: maximum is step 0 + 2 repairs + decision + 2 follow-ups with 2 repairs each
 #: + assembly + answer; its step 0 (and direct answer) are A's cached calls.
-CALL_ESTIMATE = {"baseline": (2, 3), "v1": (5, 20), "router": (3, 12), "full": (5, 14)}
+CALL_ESTIMATE = {"baseline": (2, 3), "v1": (5, 20), "router": (3, 12), "full": (3, 13)}
+#: D's maximum: step 0 + 2 repairs + decision (C's) + 2 more step-0 repairs on a
+#: verification signal + 2 decide_next_action + 2 x 2 run_sql repairs is capped
+#: by max_steps=3 and max_attempts=3; with assembly and answer it is 13.
 
 #: Architectures whose step 0 is A's first call, served from A's cache.
 SHARES_STEP0 = ("router", "full")
@@ -223,14 +226,18 @@ class Runner:
         client = self._client(arch, q["id"])
         # Step 0 of C and D is A's first call: same cache entry as A.
         step0 = self._client("baseline", q["id"]) if arch in SHARES_STEP0 else None
-        clients = [(arch, client)] + ([("baseline (step 0)", step0)] if step0 else [])
+        # D's C-identical calls (step-0 repairs, follow-up decision) are C's.
+        shared = self._client("router", q["id"]) if arch == "full" else None
+        clients = ([(arch, client)]
+                   + ([("baseline (step 0)", step0)] if step0 else [])
+                   + ([("router (shared with C)", shared)] if shared else []))
         tracer = Tracer(f"{arch}-{q['id']}", trace_dir=None)
         started = time.perf_counter()
         try:
             outcome = run_architecture(
                 arch, q["question"], settings=self.settings, llm=client,
                 tools=self.tools, context_builder=self.builder, tracer=tracer,
-                step0_llm=step0,
+                step0_llm=step0, shared_llm=shared,
             )
         except LLMError as exc:  # provider error (not quota): a failed run
             message = redact_text(f"{type(exc).__name__}: {exc}", self.secrets)

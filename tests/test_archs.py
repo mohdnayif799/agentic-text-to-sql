@@ -115,10 +115,8 @@ class TestV1Adapter:
         assert "2026-10-04" in client.prompts[0][1]
 
 
-def test_unbuilt_and_unknown_architectures(pinned, engine, builder):
+def test_unknown_architecture_is_rejected(pinned, engine, builder):
     kwargs = dict(settings=pinned, llm=FakeClient(), tools=ToolContext.create(engine),
                   context_builder=builder)
-    with pytest.raises(NotImplementedError):
-        run_architecture("full", "q", **kwargs)
     with pytest.raises(ValueError):
         run_architecture("nope", "q", **kwargs)
