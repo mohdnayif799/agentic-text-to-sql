@@ -11,7 +11,9 @@ triggers a disciplined repair, which is accepted only if the signal is gone.
                a 'YYYY-MM' column against '2025-07-01', which silently drops
                rows in SQLite's text comparison
   date_range   the query's date literals must overlap the periods the
-               question names (only checked when the question names some)
+               question names (only checked when the question names some,
+               and not for a forecast question, whose fit window lies before
+               the period it forecasts)
 """
 
 from __future__ import annotations
@@ -229,15 +231,22 @@ def verify(
     question: str,
     schema: Schema,
     formats: Mapping[tuple[str, str], str],
+    *,
+    forecast: bool = False,
 ) -> Signal | None:
-    """First failed verification check for an executed query, or None."""
+    """First failed verification check for an executed query, or None.
+
+    `forecast` (the question asks for a forecast or trend fit) skips the
+    date-range check: the series a forecast is fitted on precedes the
+    period the question asks about, so the two need not overlap.
+    """
     if not result.ok or not result.rows:
         return None
     for kind, problem in (
         ("reconcile", reconcile_problem(result)),
         ("percent", percent_problem(result)),
         ("date_format", date_format_problem(sql, schema, formats)),
-        ("date_range", date_range_problem(sql, question)),
+        ("date_range", None if forecast else date_range_problem(sql, question)),
     ):
         if problem:
             return Signal(kind, problem)

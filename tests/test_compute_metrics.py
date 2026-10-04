@@ -14,6 +14,8 @@ from agentcrew.compute.functions import ComputeError
 from agentcrew.compute.metrics import (
     AGGREGATES,
     COLUMNS,
+    FACTORS,
+    LABELS,
     METRICS,
     SIMILAR_PCT,
     Comparison,
@@ -86,7 +88,8 @@ class TestDictionaryFormulas:
 class TestDecompose:
     def test_revenue_components_reconcile(self, run):
         df, queries = decompose_change(run, "revenue", H1_VS_H2)
-        revenue = df[df["item"] == "revenue"].iloc[0]
+        revenue = df[df["analysis"] == "metric"].iloc[0]
+        assert revenue["item"] == "revenue"
         for analysis in ("orders x average order value",
                          "units x average price x (1 - average discount)"):
             parts = _rows(df, analysis)
@@ -100,16 +103,16 @@ class TestDecompose:
 
     def test_group_comparison_and_ratio_metric(self, run):
         df, _ = decompose_change(run, "refund_rate", CHANNELS)
-        rate = df[df["item"] == "refund_rate"].iloc[0]
+        rate = df[df["item"] == "refund rate"].iloc[0]
         parts = _rows(df, "refunded orders / all orders")
-        assert parts.loc["refunded_orders", "value_a"] / \
-            parts.loc["all_orders (divides)", "value_a"] == pytest.approx(rate["value_a"])
+        assert parts.loc["refunded orders", "value_a"] / \
+            parts.loc["all orders (divides)", "value_a"] == pytest.approx(rate["value_a"])
         assert parts["share_of_change_pct"].sum() == pytest.approx(100.0)
 
     def test_additive_decomposition(self, run):
         df, _ = decompose_change(run, "gross_margin", H1_VS_H2)
         parts = _rows(df, "revenue - cost")
-        margin = df[df["item"] == "gross_margin"].iloc[0]
+        margin = df[df["item"] == "gross margin"].iloc[0]
         # raw values; the subtracted part is named as such
         assert parts.loc["revenue", "value_b"] - parts.loc["cost (subtracted)", "value_b"] \
             == pytest.approx(margin["value_b"])
@@ -184,11 +187,11 @@ class TestComparisonLabels:
 
     def test_about_the_same_within_the_threshold(self):
         parts = _rows(self._df(), "orders x average order value")
-        aov = parts.loc["average_order_value"]
+        aov = parts.loc["average order value"]
         assert abs(aov["pct_change"]) <= SIMILAR_PCT
         assert aov["comparison"] == "about the same"
-        assert parts.loc["order_count", "comparison"] == "higher"
-        assert parts.loc["order_count", "largest_contributor"]
+        assert parts.loc["number of orders", "comparison"] == "higher"
+        assert parts.loc["number of orders", "largest_contributor"]
         assert not aov["largest_contributor"]
 
     def test_metric_row_is_labelled_but_never_a_contributor(self):
@@ -311,3 +314,8 @@ class TestSafety:
             for name, sql in source.dimensions.items():
                 for col in sqlglot.parse_one(sql, read="sqlite").find_all(exp.Column):
                     assert col.name in tables[alias[col.table]], (source.name, name)
+
+
+def test_every_factor_has_a_plain_label():
+    assert set(LABELS) == set(FACTORS)
+    assert all("_" not in label for label in LABELS.values())

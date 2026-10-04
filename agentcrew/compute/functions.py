@@ -10,13 +10,16 @@ raises ComputeError with a message the agent can act on.
   share_of_total         each row's share of the column total, in percent
   zscore_anomalies       rows whose z-score passes a threshold, measured
                          against the mean or against a fitted linear trend
-  linear_trend_forecast  least-squares line over row order, extended ahead
+  linear_trend_forecast  least-squares line over row order, extended ahead,
+                         each forecast labelled with its period
   correlation            Pearson correlation of two columns
 """
 
 from __future__ import annotations
 
 import re
+from datetime import date, timedelta
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -176,23 +179,75 @@ def zscore_anomalies(
     return out[keep].reset_index(drop=True)
 
 
+_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def _add_months(year: int, month: int, k: int) -> tuple[int, int]:
+    index = year * 12 + month - 1 + k
+    return index // 12, index % 12 + 1
+
+
+def next_periods(labels: pd.Series, k: int) -> list[Any] | None:
+    """The k period labels after the last of `labels` (sorted ascending), or
+    None when they are not periods: 'YYYY-MM', 'YYYY-Qn', 'YYYY-MM-DD' (step
+    taken from the last two dates: whole months or days) or integers/years."""
+    last, prev = labels.iloc[-1], labels.iloc[-2]
+    text, before = str(last), str(prev)
+    steps = range(1, k + 1)
+    if m := _YEAR_MONTH.fullmatch(text):
+        y, mo = int(m[1]), int(m[2])
+        return ["{:04d}-{:02d}".format(*_add_months(y, mo, i)) for i in steps]
+    if m := _YEAR_QUARTER.fullmatch(text):
+        index = int(m[1]) * 4 + int(m[2]) - 1
+        return [f"{(index + i) // 4:04d}-Q{(index + i) % 4 + 1}" for i in steps]
+    if _DAY.fullmatch(text) and _DAY.fullmatch(before):
+        a, b = date.fromisoformat(before), date.fromisoformat(text)
+        months = (b.year - a.year) * 12 + b.month - a.month
+        if a.day == b.day <= 28 and months > 0:
+            return [date(*_add_months(b.year, b.month, months * i), b.day).isoformat()
+                    for i in steps]
+        days = (b - a).days
+        if days <= 0:
+            return None
+        return [(b + timedelta(days=days * i)).isoformat() for i in steps]
+    if text.isdigit() and before.isdigit():
+        step = int(text) - int(before)
+        if step <= 0:
+            return None
+        values = [int(text) + step * i for i in steps]
+        return [str(v) for v in values] if isinstance(last, str) else values
+    return None
+
+
 def linear_trend_forecast(
     df: pd.DataFrame, value: str, order: str, periods_ahead: int = 1
 ) -> pd.DataFrame:
-    """Least-squares line with x = 1..n over rows sorted by `order`."""
+    """Least-squares line with x = 1..n over rows sorted by `order`.
+
+    Each forecast row carries the period it forecasts (next_periods) in a
+    column named after `order`, so the table can be read, shown and graded
+    without counting steps ahead.
+    """
     _require_rows(df, 3)
     if not 1 <= int(periods_ahead) <= 24:
         raise ComputeError("periods_ahead must be between 1 and 24")
-    data = df.sort_values(_column(df, order)).reset_index(drop=True)
+    order_col = _column(df, order)
+    data = df.sort_values(order_col).reset_index(drop=True)
     values = _numbers(data, value)
     _, slope, intercept = _trend(values)
     n = len(values)
     steps = np.arange(1, int(periods_ahead) + 1)
-    return pd.DataFrame({
+    out = pd.DataFrame({
         "steps_ahead": steps, "x": n + steps,
         "forecast": intercept + slope * (n + steps),
         "slope": slope, "intercept": intercept, "points": n,
     })
+    labels = next_periods(data[order_col], int(periods_ahead))
+    if labels is None:
+        return out
+    name = order_col if order_col not in out.columns else f"{order_col}_period"
+    out.insert(0, name, labels)
+    return out
 
 
 def correlation(df: pd.DataFrame, a: str, b: str) -> pd.DataFrame:

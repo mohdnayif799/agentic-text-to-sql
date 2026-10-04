@@ -13,7 +13,9 @@ so it is byte-identical to A). The run then escalates only on a signal:
    verbatim, the reason and capped previews of earlier results.
 
 With no signal and no follow-up, C answers directly with A's answer call on
-A's result, so the direct path is exactly A.
+A's result, so the direct path is exactly A. A question that asks for a
+forecast or a fitted trend (checks.forecast_signal, zero LLM calls) skips the
+decision and escalates to follow-ups directly.
 
 Disciplined repair: schema and fan-out checks run before executing (no LLM
 call); a repair gets the exact signal text; the original query and result
@@ -36,7 +38,14 @@ from pydantic import BaseModel, Field
 from agentcrew.archs.answer import write_answer
 from agentcrew.archs.assemble import AssemblyPlan, assemble, default_plan
 from agentcrew.archs.baseline import SQL_SYSTEM, SQL_USER
-from agentcrew.archs.checks import Schema, Signal, classify, schema_error, schema_of
+from agentcrew.archs.checks import (
+    Schema,
+    Signal,
+    classify,
+    forecast_signal,
+    schema_error,
+    schema_of,
+)
 from agentcrew.archs.fanout import KeyIndex, fanout_problem
 from agentcrew.archs.outcome import ArchOutcome, RepairEvent, SqlAttempt
 from agentcrew.config import Settings
@@ -209,6 +218,24 @@ class Router:
         self.settings = settings
         self.schema: Schema = schema_of(tools.catalog)
         self.keys = _key_index(tools)
+        # Read from the question before any call; C and D share it, so they
+        # stay identical up to escalation.
+        self.question_signal = forecast_signal(question)
+
+    def _followup_decision(self, first: StepRun,
+                           llm: LLMClient | None = None) -> FollowupDecision:
+        """The question signal escalates without a call; otherwise the
+        decision call runs when step 0 gave a usable result."""
+        if self.question_signal is not None:
+            return FollowupDecision(needs_followup=True,
+                                    reason=self.question_signal.detail)
+        if first.result.ok and first.result.rows:
+            return self._decide(first, llm=llm)
+        return FollowupDecision()
+
+    def _signal_record(self, number: int) -> dict:
+        return ({"escalation_signal": self.question_signal.kind}
+                if self.question_signal is not None and number == 1 else {})
 
     def _structured(self, schema: type, system: str, user: str,
                     llm: LLMClient | None = None):
@@ -310,8 +337,7 @@ class Router:
             )
             steps.append(self.run_step(1, draft.sql))
             first = steps[0]
-            if first.result.ok and first.result.rows:
-                decision = self._decide(first)
+            decision = self._followup_decision(first)
             if decision.needs_followup:
                 while len(steps) < self.settings.max_steps:
                     nxt: FollowupDraft = self._structured(
@@ -346,7 +372,8 @@ class Router:
             {"step": s.number,
              "tools": ["run_sql"] + (["repair"] if s.repairs else []),
              "sql": s.sql, "reason": s.reason,
-             "signal": s.repairs[0].signal if s.repairs else None}
+             "signal": s.repairs[0].signal if s.repairs else None,
+             **self._signal_record(s.number)}
             for s in steps
         ]
         if plan_used:

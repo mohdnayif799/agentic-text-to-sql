@@ -11,10 +11,24 @@ Checked in this order, and only the first one is acted on:
   empty   the query ran but returned no rows
   sanity  every value is NULL, or the result hit the row cap (the query
           probably lacks an aggregation or filter)
+
+One more deterministic signal is read from the question, not the result:
+
+  forecast  the question asks for a forecast, a projection, a trend line or
+            a regression fit. It escalates directly to follow-up work (no
+            follow-up decision call, nothing to repair): one SQL query that
+            fits a line can be silently wrong (an x offset between the fit and
+            the forecast), and the fit belongs in a deterministic tool.
+            Added on 2026-10-05 after a development failure (dev2 dv03: A's
+            one-query fit was wrong with no error and C's follow-up decision
+            accepted it, so neither C nor D reached the compute tools). Kept
+            narrow: z-scores and correlations, which one query computes
+            correctly (dev2 dv04, showcase sc04), do not trigger it.
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 import sqlglot
@@ -80,3 +94,21 @@ def classify(
             "an aggregation or a filter.",
         )
     return None
+
+
+_FORECAST = re.compile(
+    r"\b(forecast\w*|project|projects|projected|projecting|projections?"
+    r"|extrapolat\w*|trend\s*line|(linear|straight[-\s]line)\s+trend|regression"
+    r"|least[-\s]squares|line\s+of\s+best\s+fit|best[-\s]fit\s+line)\b",
+    re.IGNORECASE,
+)
+FORECAST_DETAIL = (
+    "The question asks for a forecast, a projection or a fitted trend line: "
+    "get the series it is fitted on (one row per period), fit it from that "
+    "series, and report each forecast with its period."
+)
+
+
+def forecast_signal(question: str) -> Signal | None:
+    """The question-level "forecast" signal (see the module docstring)."""
+    return Signal("forecast", FORECAST_DETAIL) if _FORECAST.search(question) else None

@@ -100,3 +100,40 @@ def test_unknown_or_non_numeric_columns_are_explained():
         share_of_total(MONTHLY, "nope", "month")
     with pytest.raises(ComputeError, match="non-numeric"):
         share_of_total(pd.DataFrame({"c": ["x"], "v": ["n/a"]}), "v", "c")
+
+
+class TestForecastLabels:
+    """Each forecast row carries the period it forecasts."""
+
+    @staticmethod
+    def _series(labels):
+        return pd.DataFrame({"period": labels, "v": range(1, len(labels) + 1)})
+
+    @pytest.mark.parametrize(("labels", "expected"), [
+        (["2024-10", "2024-11", "2024-12"], ["2025-01", "2025-02"]),
+        (["2024-Q3", "2024-Q4", "2025-Q1"], ["2025-Q2", "2025-Q3"]),
+        (["2024-11-01", "2024-12-01", "2025-01-01"], ["2025-02-01", "2025-03-01"]),
+        (["2025-01-30", "2025-01-31", "2025-02-01"], ["2025-02-02", "2025-02-03"]),
+        ([2021, 2022, 2023], [2024, 2025]),
+        (["2021", "2022", "2023"], ["2024", "2025"]),
+        ([1, 2, 3], [4, 5]),
+    ])
+    def test_next_periods(self, labels, expected):
+        out = linear_trend_forecast(self._series(labels), "v", "period", periods_ahead=2)
+        assert out["period"].tolist() == expected
+        assert out.columns[0] == "period"
+
+    def test_unordered_input_is_labelled_after_sorting(self):
+        df = self._series(["2024-12", "2024-10", "2024-11"])
+        out = linear_trend_forecast(df, "v", "period")
+        assert out["period"].tolist() == ["2025-01"]
+
+    def test_labels_that_are_not_periods_are_left_out(self):
+        df = self._series(["north", "south", "west"])
+        out = linear_trend_forecast(df, "v", "period")
+        assert "period" not in out.columns and "forecast" in out.columns
+
+    def test_label_column_does_not_clash_with_outputs(self):
+        df = pd.DataFrame({"x": [1, 2, 3], "v": [1.0, 2.0, 4.0]})
+        out = linear_trend_forecast(df, "v", "x")
+        assert out["x_period"].tolist() == [4] and out["x"].tolist() == [4]

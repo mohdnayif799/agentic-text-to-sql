@@ -3,7 +3,8 @@
 Up to the follow-up decision D is exactly C:
 - step 0 is A's first call (`step0_llm`, A's response cache in evaluation);
 - C's deterministic signals and disciplined repair (`shared_llm`, C's cache);
-- C's follow-up decision (`shared_llm`).
+- C's follow-up decision (`shared_llm`), or C's question signal (a forecast
+  or trend fit), which escalates without that call.
 With no signal and no follow-up, D answers directly with A's answer call, so
 the direct path is exactly A.
 
@@ -21,7 +22,9 @@ When the run escalates, D adds:
 
 A why-question's final table is its metric analyses stacked (they share one
 schema), and the answer step is told how to read it and to state every
-component's comparison, including components that are about the same.
+component's comparison, including components that are about the same. If the
+answer does not name the main driver (the largest contributor) in plain
+words, a sentence built from the table states it (driver_sentence).
 Other questions are assembled as in C.
 
 Budgets are the live demo's: at most `max_steps` steps (step 0 counts as
@@ -158,10 +161,14 @@ metric down by that dimension. share_of_change_pct is the item's share of \
 the metric's difference; comparison says whether side_b is higher, lower or \
 about the same as side_a (within {SIMILAR_PCT:g}%); largest_contributor marks \
 the item that explains most of the difference.
-In the answer (up to six sentences): name the largest contributor, and state \
-for EVERY component how side_b compares with side_a, with its figures, \
-including the components that are about the same (say that they are about \
-the same, so they do not explain the difference).
+Write the answer (up to six sentences) in plain words:
+- First sentence: the main driver, which is the largest contributor, named \
+as in the item column, with how side_b compares with side_a and the figures.
+- Then, for EVERY other component, how side_b compares with side_a, with its \
+figures, including the components that are about the same (say that they \
+are about the same, so they do not explain the difference).
+- Never write column names (such as value_a or largest_contributor); round \
+figures (whole numbers for counts, at most two decimals otherwise).
 """
 
 #: Questions that ask for the cause of something. General English phrasing,
@@ -176,6 +183,58 @@ _METRIC_STEPS = {f"compute:{name}" for name in METRIC_TOOLS}
 
 def is_why_question(question: str) -> bool:
     return _WHY.search(question) is not None
+
+
+def _figure(value: float) -> str:
+    return f"{value:,.0f}" if float(value).is_integer() else f"{value:,.2f}"
+
+
+def _drivers(result: ExecutionResult) -> list[tuple[tuple[str, str], list]]:
+    """Per compared pair, the largest-contributor row of its first analysis."""
+    col = {c: i for i, c in enumerate(result.columns)}
+    first: dict[tuple[str, str], str] = {}
+    found = []
+    for row in result.rows:
+        pair = (row[col["side_a"]], row[col["side_b"]])
+        analysis = row[col["analysis"]]
+        if analysis == "metric":
+            continue
+        is_first = first.setdefault(pair, analysis) == analysis
+        if is_first and row[col["largest_contributor"]]:
+            found.append((pair, row))
+    return found
+
+
+def driver_sentence(result: ExecutionResult) -> str | None:
+    """The main driver in plain words, built from a stacked metric table.
+
+    For each compared pair: the largest contributor of the first analysis
+    (the first decomposition, or the breakdown if there is none), with both
+    sides' figures and the percentage difference.
+    """
+    col = {c: i for i, c in enumerate(result.columns)}
+    parts = []
+    for (side_a, side_b), row in _drivers(result):
+        analysis, item = row[col["analysis"]], row[col["item"]]
+        name = f"{item} ({analysis})" if " by " in analysis else str(item)
+        pct = row[col["pct_change"]]
+        parts.append(
+            f"{name}, {side_b} {_figure(row[col['value_b']])} vs {side_a} "
+            f"{_figure(row[col['value_a']])}"
+            + (f" ({pct:+.1f}%)" if pct is not None else ""))
+    return ("Main driver (largest contributor): " + "; ".join(parts) + ".") \
+        if parts else None
+
+
+def _plain(text: str) -> str:
+    return " ".join(re.sub(r"[_\-]+", " ", text.lower()).split())
+
+
+def names_driver(answer: str, result: ExecutionResult) -> bool:
+    """True if the answer names every main driver (case, '-' and '_' ignored)."""
+    item = result.columns.index("item")
+    return all(_plain(str(row[item])) in _plain(answer)
+               for _, row in _drivers(result))
 
 
 _FORMATS: dict[str, dict[tuple[str, str], str]] = {}
@@ -211,7 +270,8 @@ class Full(Router):
         self.metric_system = METRIC_PLAN_SYSTEM.replace("{catalog}", catalog())
 
     def _verify(self, sql: str, result: ExecutionResult):
-        return verify(sql, result, self.question, self.schema, self.formats)
+        return verify(sql, result, self.question, self.schema, self.formats,
+                      forecast=self.question_signal is not None)
 
     def _explore_history(self, steps: list[StepRun]) -> str:
         return "\n\n".join(
@@ -292,8 +352,7 @@ class Full(Router):
             )
             first = self.run_step(1, draft.sql, repair_llm=self.shared_llm)
             steps.append(first)
-            if first.result.ok and first.result.rows:
-                decision = self._decide(first, llm=self.shared_llm)
+            decision = self._followup_decision(first, llm=self.shared_llm)
             explore = decision.needs_followup or first.signal is not None
             escalated = explore or bool(first.repairs)
             if escalated and first.result.ok and first.signal is None:
@@ -324,6 +383,10 @@ class Full(Router):
                 temperature=self.settings.temperature,
                 guidance=METRIC_GUIDANCE if stacked else "",
             )
+            answer, added = final.answer, False
+            sentence = driver_sentence(selected) if stacked else None
+            if sentence and not names_driver(answer, selected):
+                answer, added = f"{sentence} {answer}", True
         except StructuredOutputError as exc:
             return ArchOutcome(
                 arch="full", question=self.question, status="failed",
@@ -338,16 +401,18 @@ class Full(Router):
             {"step": s.number,
              "tools": [s.tool] + (["repair"] if s.repairs else []),
              "sql": s.sql, "reason": s.reason,
-             "signal": s.repairs[0].signal if s.repairs else None}
+             "signal": s.repairs[0].signal if s.repairs else None,
+             **self._signal_record(s.number)}
             for s in steps
         ]
         if plan_used:
             records.append({"step": "final",
                             "tools": ["stack" if stacked else "assemble"],
-                            "plan": plan_used})
+                            "plan": plan_used,
+                            **({"driver_sentence_added": added} if stacked else {})})
         return ArchOutcome(
             arch="full", question=self.question, status="done",
-            answer=final.answer, selected=selected,
+            answer=answer, selected=selected,
             path="escalated" if escalated else "direct",
             plan=tuple([decision.reason] if decision.needs_followup else []),
             attempts=tuple(a for s in steps for a in s.attempts),

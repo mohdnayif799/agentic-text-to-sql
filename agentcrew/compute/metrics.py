@@ -155,6 +155,36 @@ FACTORS: dict[str, tuple[str, str | None]] = {
 }
 
 
+#: Plain-language names of the factors. Decomposition rows use them as their
+#: `item`, so an answer written from the table names each component in words
+#: rather than as a column name (a why-answer that said "order_count" named
+#: the driver in a form no reader or check expects).
+LABELS: dict[str, str] = {
+    "revenue": "revenue",
+    "order_count": "number of orders",
+    "units_sold": "units sold",
+    "buying_customers": "number of buying customers",
+    "cost": "cost",
+    "average_order_value": "average order value",
+    "average_unit_price": "average unit price",
+    "one_minus_average_discount": "1 - average discount",
+    "orders_per_customer": "orders per customer",
+    "units_per_order": "units per order",
+    "refunded_orders": "refunded orders",
+    "all_orders": "all orders",
+    "gross_margin": "gross margin",
+    "resolved_tickets": "resolved tickets",
+    "resolution_days_total": "total resolution days",
+    "churned_customers": "churned customers",
+    "customers": "customers",
+    "refund_rate": "refund rate",
+    "churn_rate": "churn rate",
+    "ticket_resolution_days": "average resolution days",
+    "tickets": "support tickets",
+    "marketing_spend": "marketing spend",
+}
+
+
 @dataclass(frozen=True)
 class Metric:
     name: str
@@ -443,7 +473,7 @@ def _decomposition_rows(metric: Metric, labels: tuple[str, str],
                         ) -> list[dict[str, object]]:
     total_log = _log_ratio(a[metric.factor], b[metric.factor])
     total_change = b[metric.factor] - a[metric.factor]
-    records = [_record(labels, "metric", metric.name, a[metric.factor],
+    records = [_record(labels, "metric", LABELS[metric.factor], a[metric.factor],
                        b[metric.factor], None)]
     for analysis, parts in metric.products.items():
         group = []
@@ -453,12 +483,13 @@ def _decomposition_rows(metric: Metric, labels: tuple[str, str],
             ratio = _log_ratio(a[f], b[f])
             share = (e * ratio / total_log * 100
                      if ratio is not None and total_log else None)
-            item = f if e == 1 else f"{f} (divides)"
+            item = LABELS[f] if e == 1 else f"{LABELS[f]} (divides)"
             group.append(_record(labels, analysis, item, a[f], b[f], share))
         records += _with_largest(group)
     for analysis, parts in metric.sums.items():
         group = [
-            _record(labels, analysis, f if s == 1 else f"{f} (subtracted)", a[f], b[f],
+            _record(labels, analysis,
+                    LABELS[f] if s == 1 else f"{LABELS[f]} (subtracted)", a[f], b[f],
                     s * (b[f] - a[f]) / total_change * 100 if total_change else None)
             for f, s in parts
         ]

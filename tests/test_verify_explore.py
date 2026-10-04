@@ -84,6 +84,17 @@ class TestPercentAndDates:
         assert (date(2025, 7, 1), date(2025, 7, 31)) in spans
         assert (date(2024, 1, 1), date(2024, 12, 31)) in spans
 
+    def test_forecast_questions_skip_the_date_range_check(self, tools, formats):
+        from agentcrew.archs.checks import schema_of
+
+        sql = ("SELECT substr(order_date, 1, 7) AS m, COUNT(*) AS n FROM orders "
+               "WHERE order_date BETWEEN '2024-01-01' AND '2025-12-31' GROUP BY m")
+        question = "Forecast monthly orders for 2026."
+        result = execute_readonly_sql(tools, sql)
+        schema = schema_of(tools.catalog)
+        assert verify(sql, result, question, schema, formats).kind == "date_range"
+        assert verify(sql, result, question, schema, formats, forecast=True) is None
+
     def test_date_range(self):
         sql = "SELECT 1 FROM orders WHERE order_date LIKE '2024%'"
         assert date_range_problem(sql, "Revenue in 2025?")

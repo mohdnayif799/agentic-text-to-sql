@@ -9,7 +9,12 @@ import pytest
 
 from agentcrew.archs import run_architecture
 from agentcrew.archs.assemble import AssemblyColumn, AssemblyPlan, assemble
-from agentcrew.archs.checks import classify, schema_error, schema_of
+from agentcrew.archs.checks import (
+    classify,
+    forecast_signal,
+    schema_error,
+    schema_of,
+)
 from agentcrew.context import ContextBuilder
 from agentcrew.llm import FakeClient
 from agentcrew.schemas import ExecutionResult
@@ -75,10 +80,12 @@ def builder(engine):
     return ContextBuilder.from_database(engine, tools.catalog, today=date(2026, 10, 4))
 
 
-def run_c(script, pinned, engine, builder, **overrides):
+def run_c(script, pinned, engine, builder,
+          question="Who was our top 2024 customer and their 2025 revenue?",
+          **overrides):
     cfg = pinned.model_copy(update=overrides) if overrides else pinned
     return run_architecture(
-        "router", "Who was our top 2024 customer and their 2025 revenue?",
+        "router", question,
         settings=cfg, llm=FakeClient(responder=script),
         tools=ToolContext.create(engine), context_builder=builder,
     )
@@ -302,3 +309,45 @@ class TestEverySqlCallGetsTheFullContext:
                             "## Data dictionary", "Metric definitions:",
                             "## Today's date\n2026-10-04"):
                 assert section in user
+
+
+FORECAST = ("Project monthly signups for the next three months from a linear "
+            "trend over 2024.")
+
+
+class TestForecastSignal:
+    """A deterministic, zero-LLM escalation signal for questions that ask for
+    a forecast, a projection, a trend line or a regression fit."""
+
+    @pytest.mark.parametrize("question", [
+        FORECAST,
+        "Forecast completed revenue for next quarter.",
+        "What is the projected number of orders in March 2026?",
+        "Extrapolate the 2025 ticket counts to 2026.",
+        "Fit a trend line to monthly spend and give its slope.",
+        "Fit a straight-line trend to monthly units.",
+        "Run a linear regression of revenue on marketing spend.",
+        "Using least-squares, what is the line of best fit for orders by month?",
+    ])
+    def test_forecast_questions_signal(self, question):
+        signal = forecast_signal(question)
+        assert signal is not None and signal.kind == "forecast"
+
+    @pytest.mark.parametrize("question", [
+        "What is the Pearson correlation between monthly spend and revenue?",
+        "Which months were more than 2 standard deviations from the monthly mean?",
+        "How did revenue trend during 2024?",
+        "What was the median completed order value in 2025?",
+        "Who was our top customer in 2024?",
+    ])
+    def test_other_questions_do_not(self, question):
+        assert forecast_signal(question) is None
+
+    def test_forecast_escalates_without_a_decision_call(self, pinned, engine, builder):
+        script = Script(step0="SELECT COUNT(*) AS n FROM customers")
+        out = run_c(script, pinned, engine, builder, question=FORECAST)
+        assert out.path == "escalated"
+        assert "decision" not in script.calls
+        assert script.calls[:2] == ["step0", "followup"]
+        assert out.plan and "forecast" in out.plan[0]
+        assert out.steps[0]["escalation_signal"] == "forecast"

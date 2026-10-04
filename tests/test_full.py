@@ -10,7 +10,7 @@ import pytest
 
 from agentcrew.archs import run_architecture
 from agentcrew.archs.explore import MetricPlan
-from agentcrew.archs.full import METRIC_GUIDANCE, is_why_question
+from agentcrew.archs.full import METRIC_GUIDANCE, driver_sentence, is_why_question
 from agentcrew.compute.metrics import COLUMNS
 from agentcrew.context import ContextBuilder
 from agentcrew.llm import FakeClient
@@ -43,8 +43,10 @@ METRIC_PLAN = {"metric": "revenue", "reason": "split revenue", "comparison": {
 
 class Script:
     def __init__(self, *, step0=COUNT, needs_followup=False, actions=(),
-                 repairs=(), plan=None, metric_plans=(METRIC_PLAN,)):
+                 repairs=(), plan=None, metric_plans=(METRIC_PLAN,),
+                 answer="Scripted."):
         self.step0, self.needs_followup = step0, needs_followup
+        self.answer = answer
         self.actions, self.repairs = list(actions), list(repairs)
         self.plan = plan or {"base_step": 1, "columns": []}
         self.metric_plans = list(metric_plans)
@@ -62,6 +64,9 @@ class Script:
         if "You start the analysis of a question that asks why" in system:
             note("metric_plan")
             return self.metric_plans.pop(0) if self.metric_plans else {}
+        if "strict" in system and "checker" in system:
+            note("judge")
+            return {"verdict": "no", "quote": "", "reason": "scripted"}
         if "You plan the next step" in system:
             note("decide")
             return self.actions.pop(0) if self.actions else {"action": "answer"}
@@ -73,7 +78,7 @@ class Script:
             return self.plan
         if "final answer" in system:
             note("answer")
-            return {"answer": "Scripted.", "key_numbers": [], "caveats": []}
+            return {"answer": self.answer, "key_numbers": [], "caveats": []}
         if "SQL analyst" in system:
             note("step0")
             return {"sql": self.step0, "rationale": "x", "expected_shape": ""}
@@ -189,8 +194,8 @@ class TestEscalation:
         assert out.status == "done" and out.selected.rows == [[1400]]
 
 
-COMPONENTS = ("order_count", "average_order_value", "units_sold",
-              "average_unit_price", "one_minus_average_discount")
+COMPONENTS = ("number of orders", "average order value", "units sold",
+              "average unit price", "1 - average discount")
 
 
 class TestWhyQuestions:
@@ -333,3 +338,80 @@ def test_answer_prompt_without_guidance_is_unchanged():
     assert user == ANSWER_USER.format(question="Q?", sql="SELECT 1", row_count=1,
                                       truncated="",
                                       preview=result.preview(limit=ANSWER_ROWS))
+
+
+SERIES = ("SELECT substr(signup_date, 1, 7) AS month, COUNT(*) AS signups "
+          "FROM customers WHERE signup_date BETWEEN '2023-01-01' AND '2024-12-31' "
+          "GROUP BY month")
+FORECAST_Q = "Project monthly signups for the first two months of 2025 from a linear trend."
+
+
+def test_forecast_question_reaches_the_compute_tools(pinned, engine, builder):
+    forecast = {"action": "compute", "function": "linear_trend_forecast",
+                "params": {"step": 2, "value": "signups", "order": "month",
+                           "periods_ahead": 2}}
+    script = Script(actions=[{"action": "run_sql", "sql": SERIES}, forecast],
+                    plan={"base_step": 3, "columns": []})
+    out, _ = run_d(script, pinned, engine, builder, question=FORECAST_Q)
+    assert out.path == "escalated" and "decision" not in script.calls
+    assert out.repairs == ()  # the 2023-2024 fit window is not a date-range error
+    assert [s["tools"] for s in out.steps][:3] == [
+        ["run_sql"], ["run_sql"], ["compute:linear_trend_forecast"]]
+    assert out.selected.columns[0] == "month"
+    assert [r[0] for r in out.selected.rows] == ["2025-01", "2025-02"]
+
+
+def _stacked(rows):
+    from agentcrew.schemas import ExecutionResult
+
+    return ExecutionResult(ok=True, sql="-- stacked", columns=list(COLUMNS),
+                           rows=rows, row_count=len(rows))
+
+
+class TestDriverSentence:
+    """A why-answer always states the main driver in plain words."""
+
+    ROWS = [
+        ["B", "A", "metric", "revenue", 610000.0, 900000.0, 290000.0, 47.5, None,
+         "higher", False],
+        ["B", "A", "orders x average order value", "number of orders", 200.0, 300.0,
+         100.0, 50.0, 104.2, "higher", True],
+        ["B", "A", "orders x average order value", "average order value", 3050.0,
+         3000.0, -50.0, -1.64, -4.2, "about the same", False],
+        ["C", "A", "orders x average order value", "average order value", 2000.5,
+         3000.0, 999.5, 49.96, 98.0, "higher", True],
+        ["B", "A", "revenue by region", "APAC", 1.0, 2.0, 1.0, 100.0, 90.0,
+         "higher", True],
+    ]
+
+    def test_sentence_names_the_first_analysis_driver_per_pair(self):
+        assert driver_sentence(_stacked(self.ROWS)) == (
+            "Main driver (largest contributor): number of orders, A 300 vs B 200 "
+            "(+50.0%); average order value, A 3,000 vs C 2,000.50 (+50.0%).")
+
+    def test_breakdown_driver_names_its_dimension(self):
+        rows = [r for r in self.ROWS if r[2] in ("metric", "revenue by region")]
+        assert driver_sentence(_stacked(rows)) == (
+            "Main driver (largest contributor): APAC (revenue by region), "
+            "A 2 vs B 1 (+100.0%).")
+
+    def test_added_when_the_answer_leaves_out_the_driver(self, pinned, engine, builder):
+        out, _ = run_d(Script(needs_followup=True), pinned, engine, builder,
+                       question=WHY)
+        assert out.answer.startswith("Main driver (largest contributor): ")
+        assert out.answer.endswith(" Scripted.")
+        assert out.steps[-1]["driver_sentence_added"] is True
+
+    def test_not_added_when_the_answer_names_it(self, pinned, engine, builder):
+        out, _ = run_d(Script(needs_followup=True), pinned, engine, builder,
+                       question=WHY)
+        named = out.answer.split(": ", 1)[1].split(",", 1)[0]
+        script = Script(needs_followup=True,
+                        answer=f"The {named.upper()} explains it.")
+        again, _ = run_d(script, pinned, engine, builder, question=WHY)
+        assert again.answer == f"The {named.upper()} explains it."
+        assert again.steps[-1]["driver_sentence_added"] is False
+
+    def test_guidance_asks_for_plain_words_and_the_driver_first(self):
+        assert "plain words" in METRIC_GUIDANCE
+        assert "First sentence: the main driver" in METRIC_GUIDANCE
