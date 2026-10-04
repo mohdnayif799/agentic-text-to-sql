@@ -13,6 +13,7 @@ A single TypedDict flows through every node. Two rules keep it honest:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Any, Literal, TypedDict
 
 from sqlalchemy import Engine
@@ -80,6 +81,8 @@ class Deps:
     max_distinct_for_sampling: int = 40
     max_output_tokens: int = 2048
     temperature: float = 0.0
+    today: date | None = None
+    """Pinned "today" for the planner prompt; None means the real date."""
 
     @property
     def engine(self) -> Engine:

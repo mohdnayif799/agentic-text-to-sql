@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 from typing import Literal
 
@@ -39,6 +40,14 @@ class Settings(BaseSettings):
     sql_timeout_seconds: float = 15.0
     max_result_rows: int = 500
     """Hard cap injected as LIMIT when the model omits one."""
+
+    # ---- Architecture (eval protocol v2) ---------------------------------
+    arch: Literal["baseline", "v1", "router", "full"] = "v1"
+    """Which control flow answers a question: baseline (A), v1 (B, the
+    original agent), router (C) or full (D). See agentcrew/archs."""
+    today: date | None = None
+    """Pinned "today". None means the real current date; evaluation runs pin
+    it (eval/run_config.yaml) so prompts and the response cache are stable."""
 
     # ---- Agent budgets (loop control) ------------------------------------
     max_attempts_per_step: int = 3

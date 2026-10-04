@@ -151,6 +151,7 @@ def build_deps(
         max_distinct_for_sampling=settings.max_distinct_for_sampling,
         max_output_tokens=settings.max_output_tokens,
         temperature=settings.temperature,
+        today=settings.today,
     )
 
 

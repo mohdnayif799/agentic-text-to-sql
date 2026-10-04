@@ -78,7 +78,8 @@ def plan_node(state: AgentState, deps: Deps) -> AgentState:
                     max_steps=deps.budget.max_steps, table_names=table_names
                 ),
                 user=P.PLANNER_USER.format(
-                    question=question, today=date.today().isoformat()
+                    question=question,
+                    today=(deps.today or date.today()).isoformat(),
                 ),
             )
         except StructuredOutputError as exc:
@@ -233,6 +234,10 @@ def execute_sql_node(state: AgentState, deps: Deps) -> AgentState:
                 "duration_ms": result.duration_ms,
                 "fingerprint": fp,
                 "repeat": is_repeat,
+                # Trace-only: lets the eval runner record every attempt.
+                "sql": result.sql or sql,
+                "error": result.error_message,
+                "preview": result.preview(limit=5),
             }
         )
         span.ok = result.ok
