@@ -47,6 +47,12 @@ SOURCES = {
 SIMILARITY_LIMIT = 0.5
 
 MANUAL: dict[str, str] = {
+    "diag/d13":
+        "same template as he03 and ha04 (ticket count filtered by severity)",
+    "diag/d19":
+        "same 'never did X' anti-join template as ha14",
+    "hold1/h09":
+        "same 'never did X' anti-join template as ha14",
     "orig/q02":
         "same template as he01 (customer count for a region; only the region "
         "differs)",

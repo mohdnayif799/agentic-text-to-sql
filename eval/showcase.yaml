@@ -77,19 +77,22 @@
         - pattern: 'more\s+(completed\s+)?orders'
         - pattern: 'order\s+(volume|count|counts|numbers)'
         - pattern: '(number|count|volume|share)\s+of\s+(completed\s+)?orders'
-  judge_rubric: |
-    Required facts (each must be stated or clearly implied; rounded figures
-    are fine):
-      1. Online has far more completed orders than the other channels: about
-         3,458 versus about 2,366 (Direct) and 1,922 (Partner), roughly 45% of
-         all completed orders.
-      2. The average completed order value is about the same in every channel
-         (roughly 2,950 to 3,030; Online's is in fact slightly the lowest), so
-         order size does not explain the gap.
-    FAIL if a required fact is missing or contradicted, if the gap is
-    attributed mainly to larger orders, higher prices or smaller discounts,
-    or if any stated figure contradicts the evidence. Judge facts only;
-    ignore style and length.
+  judge_rubric:
+    required_facts:
+      - >-
+        Online has far more completed orders than the other channels:
+        about 3,458 versus about 2,366 (Direct) and 1,922 (Partner).
+      - >-
+        The average completed order value is about the same in every
+        channel (roughly 2,950 to 3,030), so order size does not explain
+        the gap.
+    disqualifying:
+      - >-
+        Attributes the gap mainly to larger orders, higher prices or
+        smaller discounts.
+      - >-
+        States a figure that contradicts the evidence.
+    allowed: []
   evidence:
     by_channel: |
       SELECT o.channel,

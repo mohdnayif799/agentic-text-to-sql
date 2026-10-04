@@ -10,7 +10,7 @@ the old numbers (eval/PROTOCOL.md, protocol v2).
 from __future__ import annotations
 
 from agentcrew.archs.answer import write_answer
-from agentcrew.archs.outcome import ArchOutcome, SqlAttempt
+from agentcrew.archs.outcome import ArchOutcome, RepairEvent, SqlAttempt
 from agentcrew.config import Settings
 from agentcrew.context import SharedContext
 from agentcrew.llm import LLMClient, StructuredOutputError
@@ -70,22 +70,28 @@ def run_baseline(
         return ArchOutcome(
             arch="baseline", question=question, status="failed", answer=message,
             selected=None, path="direct", attempts=tuple(attempts),
-            stop_reason="error", error=message,
+            stop_reason="error", error=message, repairs=tuple(repairs),
         )
 
     user = SQL_USER.format(context=context.render(), question=question,
                            retry_block="")
     attempts: list[SqlAttempt] = []
+    repairs: list[RepairEvent] = []
     try:
         draft = _draft(llm, user, settings)
         result: ExecutionResult = execute_readonly_sql(tools, draft.sql)
         attempts.append(SqlAttempt.from_result(result, draft.sql))
         if not result.ok:
+            first = result
             retry = RETRY_BLOCK.format(sql=result.sql or draft.sql,
                                        error=result.error_message)
             draft = _draft(llm, user + retry, settings)
             result = execute_readonly_sql(tools, draft.sql)
             attempts.append(SqlAttempt.from_result(result, draft.sql))
+            repairs.append(RepairEvent(
+                step=1, signal="error", detail=first.error_message or "",
+                before=first, after=result, accepted=result.ok,
+            ))
     except StructuredOutputError as exc:
         return failed(f"Could not produce a query: {exc}", attempts)
 
@@ -107,4 +113,5 @@ def run_baseline(
         selected=result, path="direct", attempts=tuple(attempts),
         steps=({"step": 1, "tools": ["run_sql"], "sql": result.sql},),
         key_numbers=tuple(final.key_numbers), caveats=tuple(final.caveats),
+        repairs=tuple(repairs), selected_step=1,
     )

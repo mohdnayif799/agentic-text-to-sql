@@ -191,20 +191,28 @@
         - pattern: "order\\s+(volume|count|counts|numbers)"
         - pattern: "(number|count|volume)\\s+of\\s+(completed\\s+)?orders"
         - pattern: "orders\\s+(fell|dropped|declined|decreased|shrank)"
-  judge_rubric: |
-    Required facts (each must be stated or clearly implied; rounded figures
-    are fine):
-      1. APAC's number of completed orders fell by about 29% from Q2 to Q3
-         2025 (about 280 to 200).
-      2. Completed orders in the other regions fell far less (about 2% to
-         12%).
-      3. Average order value fell by a similar amount in every region (about
-         32% to 39%), so order size does not explain why APAC fell more.
-    Churn, fewer active customers or lower marketing spend may be added as
-    context. FAIL if a required fact is missing or contradicted, if APAC's
-    extra decline is attributed mainly to order size, the Hardware mix,
-    prices or discounts, or if any stated figure contradicts the evidence.
-    Judge facts only; ignore style and length.
+  judge_rubric:
+    required_facts:
+      - >-
+        APAC's number of completed orders fell by about 29% from Q2 to Q3
+        2025 (about 280 to 200).
+      - >-
+        Completed orders in the other regions fell far less (about 2% to
+        12%).
+      - >-
+        Average order value fell by a similar amount in every region
+        (about 32% to 39%), so order size does not explain why APAC fell
+        more.
+    disqualifying:
+      - >-
+        Attributes APAC's extra decline mainly to order size, the Hardware
+        mix, prices or discounts.
+      - >-
+        States a figure that contradicts the evidence.
+    allowed:
+      - >-
+        Churn, fewer active customers or lower marketing spend added as
+        context.
   evidence:
     orders_and_aov_by_region: |
       WITH t AS (
@@ -240,20 +248,25 @@
     APAC customers, so tickets are not gold.)
   driver_checks:
     - text: APAC
-  judge_rubric: |
-    Required facts (each must be stated or clearly implied; rounded figures
-    are fine):
-      1. The Q3 2025 churn spike is concentrated in APAC: 44 of the 67
-         customers who churned in Q3 2025 were APAC customers (about two
-         thirds).
-      2. This is unusual: APAC had about 1 to 5 churns in each earlier quarter
-         shown, and no other region had a comparable jump in Q3 2025 (3 to 11
-         churns each).
-    Mentioning the APAC support-ticket surge as a possible contributing
-    factor is acceptable but not required. FAIL if a required fact is missing
-    or contradicted, if the main driver given is a segment, channel, product
-    or another region, or if any stated figure contradicts the evidence.
-    Judge facts only; ignore style and length.
+  judge_rubric:
+    required_facts:
+      - >-
+        The Q3 2025 churn spike is concentrated in APAC: 44 of the 67
+        customers who churned in Q3 2025 were APAC customers.
+      - >-
+        This is unusual: APAC had about 1 to 5 churns in each earlier
+        quarter shown, and no other region had a comparable jump in Q3
+        2025 (3 to 11 churns each).
+    disqualifying:
+      - >-
+        Gives a segment, channel, product or another region as the main
+        driver.
+      - >-
+        States a figure that contradicts the evidence.
+    allowed:
+      - >-
+        The APAC support-ticket surge mentioned as a possible contributing
+        factor.
   evidence:
     churn_by_region_quarter: |
       SELECT r.region_name,
@@ -272,19 +285,25 @@
     unchanged; Hardware's share of units fell from ~30% to ~10%.
   driver_checks:
     - pattern: "\\b(units?|volume|quantit(y|ies))\\b|fewer\\s+(hardware\\s+)?(items|products|sales)"
-  judge_rubric: |
-    Required facts (each must be stated or clearly implied; rounded figures
-    are fine):
-      1. Far fewer Hardware units were sold: about 2,741 in Q2 versus about
-         778 in Q3 2025 (about -72%).
-      2. The average Hardware unit price (about 1,000) and the average
-         discount (about 5%) were essentially unchanged, so price and
-         discounts do not explain the drop.
-    Mentioning that Hardware's share of units sold fell (from about 30% to
-    about 10%) is fine but not required. FAIL if a required fact is missing
-    or contradicted, if the drop is attributed mainly to price cuts,
-    discounts, refunds or cancellations, or if any stated figure contradicts
-    the evidence. Judge facts only; ignore style and length.
+  judge_rubric:
+    required_facts:
+      - >-
+        Far fewer Hardware units were sold: about 2,741 in Q2 versus about
+        778 in Q3 2025 (about -72%).
+      - >-
+        The average Hardware unit price (about 1,000) and the average
+        discount (about 5%) were essentially unchanged, so price and
+        discounts do not explain the drop.
+    disqualifying:
+      - >-
+        Attributes the drop mainly to price cuts, discounts, refunds or
+        cancellations.
+      - >-
+        States a figure that contradicts the evidence.
+    allowed:
+      - >-
+        Hardware's share of units sold falling (from about 30% to about
+        10%).
   evidence:
     hardware_volume_price_discount: |
       SELECT CASE WHEN o.order_date <= '2025-06-30' THEN 'Q2' ELSE 'Q3' END AS quarter,

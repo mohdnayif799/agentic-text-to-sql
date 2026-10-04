@@ -105,9 +105,24 @@ def responder(system: str, user: str):
         return {"verdict": "pass", "reason": "x", "repair_hint": None}
     if "final stage" in system:
         return {"answer": "1400 customers.", "key_numbers": [], "caveats": []}
-    if "impartial grader" in system:
-        return {"verdict": "fail", "reason": "scripted"}
+    if "strict" in system and "checker" in system:
+        return {"verdict": "no", "quote": "", "reason": "scripted"}
     raise AssertionError(system[:80])
+
+
+def judged_responder(system: str, user: str):
+    """A answers sc03 naming the driver; the judge says yes to fact 1 only."""
+    if "final answer" in system:
+        return {"answer": "Online has more orders: 3,458 versus 2,366 for Direct.",
+                "key_numbers": [], "caveats": []}
+    if "strict fact checker" in system:
+        if "Required fact:\nOnline has far more completed orders" in user:
+            return {"verdict": "yes", "reason": "stated",
+                    "quote": "Online has more orders: 3,458 versus 2,366 for Direct."}
+        return {"verdict": "yes", "quote": "order value is the same", "reason": "x"}
+    if "strict checker" in system:
+        return {"verdict": "no", "quote": "", "reason": "none"}
+    return responder(system, user)
 
 
 @pytest.fixture
@@ -168,8 +183,37 @@ def test_provider_error_is_a_failed_run_not_a_stop(cfg, tmp_path):
     assert all(i["primary"] is False for i in payload["items"])
 
 
+def test_per_fact_judge_and_rejudge_from_stored_answers(cfg, tmp_path):
+    made = []
+
+    def factory(settings):
+        made.append(1)
+        return FakeClient(responder=judged_responder)
+
+    run_dir = tmp_path / "run"
+    payload = Runner(cfg, live_factory=factory, log=lambda *_: None).run(
+        "showcase", ["baseline"], run_dir)
+    sc03 = next(i for i in payload["items"] if i["id"] == "sc03")
+    judge = sc03["judge"]
+    # Fact 1 quoted verbatim -> yes; fact 2's "yes" quote is not in the
+    # answer -> counts as no; so the answer fails.
+    assert [f["counts_as_yes"] for f in judge["facts"]] == [True, False]
+    assert judge["facts"][1]["verdict"] == "yes"
+    assert judge["facts"][1]["quote_verified"] is False
+    assert judge["verdict"] == "fail" and sc03["primary"] is False
+    assert sc03["judge_calls"] == 3  # 2 facts + 1 disqualifying check
+
+    # Re-judge: answers come from the traces; judge calls hit the cache.
+    redo = Runner(cfg, live_factory=None, log=lambda *_: None).rejudge(
+        "showcase", run_dir)
+    again = next(i for i in redo["items"] if i["id"] == "sc03")
+    assert again["judge"] == judge and "rejudged_utc" in redo
+
+
 def test_planned_calls():
-    questions = [{"type": "why"}, {"type": "easy"}]
+    rubric = {"required_facts": ["a", "b"], "disqualifying": ["c"]}
+    questions = [{"type": "why", "judge_rubric": rubric}, {"type": "easy"}]
     plan = planned_calls(questions, ["baseline", "v1"])
-    assert plan["typical"] == 2 * 2 + 5 * 2 + 2
-    assert plan["max"] == 3 * 2 + 20 * 2 + 2
+    assert plan["judge_max"] == 3 * 2
+    assert plan["typical"] == 2 * 2 + 5 * 2 + 6
+    assert plan["max"] == 3 * 2 + 20 * 2 + 6

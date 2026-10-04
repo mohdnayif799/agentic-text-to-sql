@@ -32,9 +32,16 @@ from agentcrew.tools import ToolContext
 from agentcrew.tracer import Tracer
 from evalkit.answer_checks import check_answer
 from evalkit.gold import connect_read_only, database_fingerprint, load_gold
-from evalkit.judge import JudgeVerdict, build_judge_prompt
+from evalkit.judge import (
+    CheckVerdict,
+    build_disqualifying_prompt,
+    build_fact_prompt,
+    counts_as_yes,
+    judge_passes,
+    quote_in_answer,
+)
 from evalkit.questions import GOLD_FILES, ROOT, load_set
-from evalkit.scoring import score_question
+from evalkit.scoring import result_verdict, score_question
 from evalkit.stats import wilson_interval
 from evalrun.backoff import DailyLimitReached
 from evalrun.cache import CacheMiss, CachingClient
@@ -44,8 +51,15 @@ RUN_CONFIG = ROOT / "eval" / "run_config.yaml"
 RESULT_ROWS = 20
 
 #: (typical, maximum) LLM calls per question, used for the pre-run estimate.
-#: v1's maximum follows its budgets at 3 steps x 3 attempts.
-CALL_ESTIMATE = {"baseline": (2, 3), "v1": (5, 20), "router": (3, 8), "full": (5, 14)}
+#: v1's maximum follows its budgets at 3 steps x 3 attempts; the router's
+#: maximum is step 0 + 2 repairs + 2 follow-ups with 2 repairs each + assembly
+#: + answer.
+CALL_ESTIMATE = {"baseline": (2, 3), "v1": (5, 20), "router": (3, 11), "full": (5, 14)}
+
+
+def judge_calls_per_answer(q: dict[str, Any]) -> int:
+    """One call per required fact plus one for disqualifying claims."""
+    return len(q["judge_rubric"]["required_facts"]) + 1 if q["type"] == "why" else 0
 
 
 @dataclass(frozen=True)
@@ -81,12 +95,11 @@ class RunConfig:
 
 def planned_calls(questions: list[dict[str, Any]], archs: list[str]) -> dict[str, Any]:
     n = len(questions)
-    why = sum(1 for q in questions if q["type"] == "why")
     per_arch = {
         a: {"typical": CALL_ESTIMATE[a][0] * n, "max": CALL_ESTIMATE[a][1] * n}
         for a in archs
     }
-    judge = why * len(archs)
+    judge = sum(judge_calls_per_answer(q) for q in questions) * len(archs)
     return {
         "per_arch": per_arch,
         "judge_max": judge,
@@ -119,21 +132,46 @@ def _result_dict(outcome: ArchOutcome) -> dict[str, Any] | None:
             "rows": r.rows[:RESULT_ROWS], "row_count": r.row_count}
 
 
+def _check(client: CachingClient, prompt: tuple[str, str], temperature: float,
+           answer: str) -> dict[str, Any]:
+    system, user = prompt
+    verdict, _ = client.complete_structured(
+        system=system, user=user, schema=CheckVerdict,
+        max_tokens=512, temperature=temperature,
+    )
+    return {"verdict": verdict.verdict, "quote": verdict.quote,
+            "quote_verified": quote_in_answer(verdict.quote, answer),
+            "counts_as_yes": counts_as_yes(verdict, answer),
+            "reason": verdict.reason}
+
+
 def _judge(
     q: dict[str, Any], gold_entry: dict[str, Any], answer: str,
     client: CachingClient, temperature: float,
 ) -> dict[str, Any]:
-    system, user = build_judge_prompt(
-        q["question"], q["judge_rubric"], gold_entry["evidence"], answer
-    )
+    """One strict call per required fact, one for disqualifying claims."""
+    rubric, evidence = q["judge_rubric"], gold_entry["evidence"]
     try:
-        verdict, _ = client.complete_structured(
-            system=system, user=user, schema=JudgeVerdict,
-            max_tokens=512, temperature=temperature,
-        )
+        facts = [
+            {"fact": fact, **_check(client, build_fact_prompt(
+                q["question"], fact, evidence, answer), temperature, answer)}
+            for fact in rubric["required_facts"]
+        ]
+        disqualifying = _check(client, build_disqualifying_prompt(
+            q["question"], rubric["disqualifying"], rubric.get("allowed", []),
+            evidence, answer), temperature, answer)
     except StructuredOutputError as exc:
         return {"verdict": None, "reason": f"judge error: {exc}"}
-    return {"verdict": verdict.verdict, "reason": verdict.reason}
+    passed = judge_passes([f["counts_as_yes"] for f in facts],
+                          disqualifying["counts_as_yes"])
+    missing = [i + 1 for i, f in enumerate(facts) if not f["counts_as_yes"]]
+    reason = (
+        "all required facts stated; no disqualifying claim" if passed
+        else f"required fact(s) not stated: {missing}" if missing
+        else "disqualifying claim present"
+    )
+    return {"verdict": "pass" if passed else "fail", "reason": reason,
+            "facts": facts, "disqualifying": disqualifying}
 
 
 class Runner:
@@ -212,6 +250,10 @@ class Runner:
             judge_pass, sql=selected.sql if selected else None,
             columns=selected.columns if selected else None,
         )
+        repairs = [
+            {**_repair_summary(r), "effect": _repair_effect(q, gold_entry, r, outcome)}
+            for r in outcome.repairs
+        ]
 
         trace = redact({
             "question_id": q["id"], "type": q["type"], "arch": arch,
@@ -221,6 +263,8 @@ class Runner:
             "error": outcome.error, "plan": list(outcome.plan),
             "sql_attempts": [asdict(a) for a in outcome.attempts],
             "steps": list(outcome.steps),
+            "repairs": repairs,
+            "selected_step": outcome.selected_step,
             "selected_result": _result_dict(outcome),
             "answer": outcome.answer, "key_numbers": list(outcome.key_numbers),
             "caveats": list(outcome.caveats), "judge": judge,
@@ -247,8 +291,61 @@ class Runner:
             "cache_hits": client.cache_hits,
             "judge_calls": judge_client.calls if judge_client else 0,
             "latency_s": round(latency, 3),
+            "repairs": len(repairs),
+            "repair_fixes": sum(1 for r in repairs if r["effect"] == "fix"),
+            "repair_breaks": sum(1 for r in repairs if r["effect"] == "break"),
+            "tools": [s.get("tools", []) for s in outcome.steps],
             "trace": path.relative_to(trace_dir.parent).as_posix(),
         }
+
+    def rejudge(self, set_name: str, run_dir: Path) -> dict[str, Any]:
+        """Re-judge the stored answers of a run's why-questions (judge calls only).
+
+        No architecture is re-run: answers come from the run's traces.
+        """
+        questions = {q["id"]: q for q in load_set(set_name)}
+        gold = load_gold(GOLD_FILES[set_name])["gold"]
+        results_path = run_dir / "results.json"
+        payload = json.loads(results_path.read_text("utf-8"))
+        targets = [i for i in payload["items"] if i["state"] == "evaluated"
+                   and questions[i["id"]]["type"] == "why"]
+        planned = sum(judge_calls_per_answer(questions[i["id"]]) for i in targets)
+        self._log(f"Re-judging {len(targets)} answer(s): at most {planned} judge "
+                  "call(s); no architecture calls.")
+        for item in targets:
+            q = questions[item["id"]]
+            trace_path = run_dir / item["trace"]
+            trace = json.loads(trace_path.read_text("utf-8"))
+            judge, client = None, None
+            if check_answer(trace["answer"], q["driver_checks"]).passed:
+                client = self._client(f"judge-{item['arch']}", q["id"])
+                try:
+                    judge = _judge(q, gold[q["id"]], trace["answer"], client,
+                                   self.cfg.temperature)
+                except (DailyLimitReached, CacheMiss) as exc:
+                    self._log(f"STOPPED re-judging: {type(exc).__name__}")
+                    break
+            judge_pass = None if not judge or judge["verdict"] is None else (
+                judge["verdict"] == "pass")
+            score = score_question(q, gold[q["id"]], None, trace["answer"], judge_pass)
+            item.update({
+                "primary": score.primary, "answer_ok": score.answer_ok,
+                "end_to_end": score.end_to_end, "detail": score.detail,
+                "first_failing_check": "" if score.primary else score.detail,
+                "judge": judge, "judge_calls": client.calls if client else 0,
+            })
+            trace.update({"judge": judge, "score": asdict(score),
+                          "judge_calls": [asdict(r) for r in client.records]
+                          if client else []})
+            trace_path.write_text(json.dumps(redact(trace, self.secrets), indent=1,
+                                             default=str) + "\n", "utf-8", newline="\n")
+            self._log(f"  {q['id']} {item['arch']:9} {_flag(score.primary)}  "
+                      f"{judge['reason'] if judge else score.detail}")
+        payload["rejudged_utc"] = datetime.now(UTC).isoformat(timespec="seconds")
+        payload["summary"] = summarise(payload["items"], payload["archs"])
+        results_path.write_text(json.dumps(redact(payload, self.secrets), indent=1,
+                                           default=str) + "\n", "utf-8", newline="\n")
+        return payload
 
     def run(self, set_name: str, archs: list[str], run_dir: Path) -> dict[str, Any]:
         questions = load_set(set_name)
@@ -324,6 +421,43 @@ class Runner:
 
 def _flag(primary: bool | None) -> str:
     return "PEND" if primary is None else ("PASS" if primary else "FAIL")
+
+
+def _repair_summary(r: Any) -> dict[str, Any]:
+    def brief(result: Any) -> dict[str, Any] | None:
+        if result is None:
+            return None
+        return {"sql": result.sql, "ok": result.ok, "rows": result.row_count,
+                "error": result.error_message}
+
+    return {"step": r.step, "signal": r.signal, "detail": r.detail,
+            "accepted": r.accepted, "attempts": r.attempts,
+            "before": brief(r.before), "after": brief(r.after)}
+
+
+def _correct(q: dict[str, Any], gold_entry: dict[str, Any], result: Any) -> bool:
+    if result is None or not result.ok:
+        return False
+    if q["type"] == "ambiguous":
+        return any(result_verdict(e, result.rows, result.sql, result.columns).passed
+                   for e in gold_entry["interpretations"].values())
+    return result_verdict(gold_entry, result.rows, result.sql, result.columns).passed
+
+
+def _repair_effect(q: dict[str, Any], gold_entry: dict[str, Any], r: Any,
+                   outcome: ArchOutcome) -> str:
+    """fix = wrong -> right, break = right -> wrong, judged against gold.
+
+    Only defined for an accepted repair on the step that produced the graded
+    result of a result-graded question; anything else is "n/a".
+    """
+    if (q["type"] == "why" or not r.accepted
+            or r.step != outcome.selected_step):
+        return "n/a"
+    before, after = _correct(q, gold_entry, r.before), _correct(q, gold_entry, r.after)
+    if before == after:
+        return "neutral"
+    return "fix" if after else "break"
 
 
 def _not_evaluated(q: dict[str, Any], arch: str, reason: str) -> dict[str, Any]:

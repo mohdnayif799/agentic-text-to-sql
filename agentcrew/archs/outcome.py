@@ -34,6 +34,23 @@ class SqlAttempt:
 
 
 @dataclass(frozen=True)
+class RepairEvent:
+    """One repair attempt on one step, on a concrete signal.
+
+    `before` is the query's result when the signal was raised and is kept;
+    `after` replaces it only if `accepted` (the signal was resolved).
+    """
+
+    step: int
+    signal: str
+    detail: str
+    before: ExecutionResult
+    after: ExecutionResult | None
+    accepted: bool
+    attempts: int = 1
+
+
+@dataclass(frozen=True)
 class ArchOutcome:
     """What an architecture produced for one question.
 
@@ -55,6 +72,9 @@ class ArchOutcome:
     caveats: tuple[str, ...] = ()
     stop_reason: str = "none"
     error: str | None = None
+    repairs: tuple[RepairEvent, ...] = ()
+    selected_step: int | None = None
+    """Step whose rows form the graded result (the base step if assembled)."""
 
     @property
     def succeeded(self) -> bool:

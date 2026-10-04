@@ -48,10 +48,6 @@ pool:
   question: Which customer segment has the fewest customers in EMEA?
   sql: SELECT c.segment FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE
     r.region_name = 'EMEA' GROUP BY c.segment ORDER BY COUNT(*) ASC
-- id: diag/d13
-  question: How many critical support tickets have Enterprise customers raised?
-  sql: SELECT COUNT(*) FROM support_tickets t JOIN customers c ON c.customer_id = t.customer_id
-    WHERE t.severity = 'critical' AND c.segment = 'Enterprise'
 - id: diag/d17
   question: Which product actually made us the most money in 2025 once you account for discounts
     and what the product costs us?
@@ -59,11 +55,6 @@ pool:
     JOIN products p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date
     >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.product_id, p.product_name
     ORDER BY SUM(oi.quantity * (oi.unit_price * (1 - oi.discount) - p.unit_cost)) DESC
-- id: diag/d19
-  question: How many customers have placed orders but never had a single one completed?
-  sql: SELECT COUNT(*) FROM customers c WHERE EXISTS (SELECT 1 FROM orders o WHERE o.customer_id
-    = c.customer_id) AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id
-    AND o.status = 'completed')
 - id: diag/d23
   question: On average, how many days does it take us to resolve high or critical tickets
     from APAC customers?
@@ -100,12 +91,6 @@ pool:
     ORDER BY SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price *
     (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.quantity
     * oi.unit_price * (1 - oi.discount) ELSE 0 END) DESC
-- id: hold1/h09
-  question: Among customers who have never filed a support ticket, how many have placed more
-    than 10 orders?
-  sql: SELECT COUNT(*) FROM ( SELECT o.customer_id FROM orders o WHERE NOT EXISTS (SELECT
-    1 FROM support_tickets t WHERE t.customer_id = o.customer_id) GROUP BY o.customer_id HAVING
-    COUNT(*) > 10)
 excluded:
 - id: orig/q02
   question: How many customers are in the APAC region?
@@ -187,6 +172,10 @@ excluded:
   question: Which month in 2025 had the highest total marketing spend?
   reasons:
   - same template as ha02 hop 1 (2025 month by marketing spend; sort reversed)
+- id: diag/d13
+  question: How many critical support tickets have Enterprise customers raised?
+  reasons:
+  - same template as he03 and ha04 (ticket count filtered by severity)
 - id: diag/d14
   question: How many churned customers does each region have?
   reasons:
@@ -196,6 +185,10 @@ excluded:
     dollars?
   reasons:
   - same event as ha07 (regional revenue fall Q2 to Q3 2025)
+- id: diag/d19
+  question: How many customers have placed orders but never had a single one completed?
+  reasons:
+  - same 'never did X' anti-join template as ha14
 - id: diag/d20
   question: Of the customers who churned in 2025, how many had raised a critical support ticket
     before they left?
@@ -217,3 +210,8 @@ excluded:
   question: How many high-severity support tickets were opened in 2025?
   reasons:
   - same template as he03 (ticket count by severity in 2025; only severity differs)
+- id: hold1/h09
+  question: Among customers who have never filed a support ticket, how many have placed more
+    than 10 orders?
+  reasons:
+  - same 'never did X' anti-join template as ha14

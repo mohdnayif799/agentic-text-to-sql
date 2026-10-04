@@ -2,7 +2,8 @@
 
     baseline  A: one SQL from the shared context, one retry on error, answer
     v1        B: the original agent, unchanged (reference only)
-    router    C: A as step 0, plus escalation and disciplined repair (Phase 3)
+    router    C: A as step 0, plus escalation, disciplined repair and one
+              assembled final table when several steps are used
     full      D: C plus exploration, compute tools and checks (Phase 4)
 
 A, C and D get the same shared context; only the control flow differs.
@@ -11,7 +12,8 @@ A, C and D get the same shared context; only the control flow differs.
 from __future__ import annotations
 
 from agentcrew.archs.baseline import run_baseline
-from agentcrew.archs.outcome import ArchOutcome, SqlAttempt
+from agentcrew.archs.outcome import ArchOutcome, RepairEvent, SqlAttempt
+from agentcrew.archs.router import run_router
 from agentcrew.archs.v1 import run_v1
 from agentcrew.config import Settings
 from agentcrew.context import ContextBuilder
@@ -21,7 +23,7 @@ from agentcrew.tracer import Tracer
 
 ARCHS = ("baseline", "v1", "router", "full")
 
-__all__ = ["ARCHS", "ArchOutcome", "SqlAttempt", "run_architecture"]
+__all__ = ["ARCHS", "ArchOutcome", "RepairEvent", "SqlAttempt", "run_architecture"]
 
 
 def run_architecture(
@@ -36,6 +38,11 @@ def run_architecture(
 ) -> ArchOutcome:
     if arch == "baseline":
         return run_baseline(
+            question, llm=llm, tools=tools,
+            context=context_builder.build(question), settings=settings,
+        )
+    if arch == "router":
+        return run_router(
             question, llm=llm, tools=tools,
             context=context_builder.build(question), settings=settings,
         )

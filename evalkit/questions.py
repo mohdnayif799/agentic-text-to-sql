@@ -81,6 +81,27 @@ def _check_problems(where: str, checks: Any) -> list[str]:
     return problems
 
 
+def _rubric_problems(where: str, rubric: Any) -> list[str]:
+    """Judge rubric: required_facts (non-empty), disqualifying, optional allowed."""
+    if not isinstance(rubric, Mapping):
+        return [f"{where}: judge_rubric must have required_facts and disqualifying"]
+    problems = []
+    for key, required in (("required_facts", True), ("disqualifying", True),
+                          ("allowed", False)):
+        items = rubric.get(key)
+        if items is None and not required:
+            continue
+        if not (isinstance(items, list) and all(isinstance(i, str) and i.strip()
+                                                for i in items)):
+            problems.append(f"{where}: judge_rubric.{key} must be a list of text")
+        elif key == "required_facts" and not items:
+            problems.append(f"{where}: judge_rubric needs at least one required fact")
+    extra = set(rubric) - {"required_facts", "disqualifying", "allowed"}
+    if extra:
+        problems.append(f"{where}: unknown judge_rubric keys {sorted(extra)}")
+    return problems
+
+
 def _gold_problems(where: str, gold: Any) -> list[str]:
     if not isinstance(gold, Mapping) or len(set(gold) & {"sql", "pandas"}) != 1:
         return [f"{where}: gold needs exactly one of sql/pandas"]
@@ -103,8 +124,7 @@ def question_problems(q: Mapping[str, Any]) -> list[str]:
         if not q.get("driver_checks"):
             problems.append(f"{qid}: why-question needs driver_checks")
         problems += _check_problems(qid, q.get("driver_checks") or [])
-        if not q.get("judge_rubric"):
-            problems.append(f"{qid}: why-question needs judge_rubric")
+        problems += _rubric_problems(qid, q.get("judge_rubric"))
         if not q.get("evidence"):
             problems.append(f"{qid}: why-question needs evidence queries")
     elif kind == "ambiguous":

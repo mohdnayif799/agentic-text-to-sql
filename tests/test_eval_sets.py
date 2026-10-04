@@ -101,3 +101,22 @@ def test_validator_catches_problems():
     malformed = {"id": "z", "type": "easy", "question": "?",
                  "gold": {"sql": "SELECT 1"}, "answer_checks": [{"pattern": "("}]}
     assert any("bad regex" in p for p in question_problems(malformed))
+
+
+def test_rubric_must_be_structured():
+    base = {"id": "w", "type": "why", "question": "Why?",
+            "driver_checks": [{"text": "x"}], "evidence": {"t": "SELECT 1"}}
+    good = {"required_facts": ["A fact."], "disqualifying": ["A claim."]}
+    assert question_problems({**base, "judge_rubric": good}) == []
+    assert question_problems({**base, "judge_rubric": {**good, "allowed": ["ok"]}}) == []
+    assert question_problems({**base, "judge_rubric": "free text"})
+    assert question_problems({**base, "judge_rubric": {**good, "required_facts": []}})
+    assert question_problems({**base, "judge_rubric": {**good, "extra": []}})
+
+
+def test_every_why_rubric_lists_facts_and_disqualifiers():
+    for name in SETS:
+        for q in load_set(name):
+            if q["type"] == "why":
+                assert len(q["judge_rubric"]["required_facts"]) >= 2, q["id"]
+                assert q["judge_rubric"]["disqualifying"], q["id"]

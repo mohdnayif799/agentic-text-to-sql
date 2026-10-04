@@ -249,11 +249,21 @@ numbers.
 **Judge** (why-questions only, `evalkit/judge.py`):
 
 - It runs only after the driver check passes.
-- Each rubric lists the required facts with their numbers, plus the
-  disqualifying claims, so the judge checks facts against the evidence, not
-  style.
-- It sees the question, the rubric written in the YAML, the stored evidence
-  tables and the fenced answer, and returns pass or fail with a reason.
+- Each rubric lists the required facts with their numbers, the disqualifying
+  claims and the allowed mentions, so the judge checks facts against the
+  evidence, not style.
+- Per-fact procedure (pre-run amendment 2):
+  - Each required fact gets its own strict yes/no call. Implied, inferred or
+    partial mentions count as NO.
+  - A YES must quote the sentence of the answer that states the fact. The
+    quote is verified against the answer in code, and an unverifiable quote
+    counts as NO.
+  - One more call checks the disqualifying claims; a YES there also needs a
+    verified quote.
+  - The pass/fail decision is made in code: every required fact YES and no
+    disqualifying claim.
+- Every call sees the question, the stored evidence tables and the fenced
+  answer.
 - Verdicts are spot-checked by hand.
 - It uses the same model and temperature as the runs, and its responses are
   cached.
@@ -361,6 +371,17 @@ and reason, never made silently.
     `FREEZE_v2.sha256` was regenerated.
   - **ha12 did not:** the January 2026 forecast moved by $331.52, within its
     $1,220.73 tolerance, so its text is unchanged.
+- **2026-10-04, pre-run amendment 2 (no architecture had been run on either
+  holdout).** On the showcase, the single-call judge passed one answer whose
+  required fact was only "implied". The judge now checks each required fact
+  separately, as described in the Judge section above.
+  - **Rubrics:** each is now structured as required facts, disqualifying
+    claims and allowed mentions. The facts carry the same wording and
+    numbers as before; no fact was added or removed.
+  - **Files changed:** `evalkit/judge.py`, `evalkit/questions.py` (rubric
+    validation), the rubrics of ha07, ha08 and ha09 in `holdout_agent.yaml`,
+    and `gold/holdout_agent.json` (question hash only; gold values
+    unchanged). `FREEZE_v2.sha256` was regenerated.
 
 ## Archive: protocol v1 - expanded evaluation (52 questions)
 
