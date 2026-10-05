@@ -1,0 +1,103 @@
+{
+ "question_id": "he12",
+ "type": "easy",
+ "arch": "router",
+ "question": "Which Hardware product has the highest list price? Give its product ID, name and list price.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT product_id, product_name, list_price FROM products WHERE category = 'Hardware' ORDER BY list_price DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "product_id | product_name | list_price\n9 | Lattice Ridge | 1586.06"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT product_id, product_name, list_price FROM products WHERE category = 'Hardware' ORDER BY list_price DESC LIMIT 1",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT product_id, product_name, list_price FROM products WHERE category = 'Hardware' ORDER BY list_price DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "product_id",
+   "product_name",
+   "list_price"
+  ],
+  "rows": [
+   [
+    9,
+    "Lattice Ridge",
+    1586.06
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The Hardware product with the highest list price is Lattice Ridge (product ID 9), with a list price of 1586.06.",
+ "key_numbers": [
+  "9",
+  "1586.06"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "11c7b346c2653006de73660b7b6d8bb5a065163dff28eb221a594e9254068e4b",
+   "cache_hit": false,
+   "latency_ms": 2187.8,
+   "input_tokens": 366,
+   "output_tokens": 48,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "3b495c852d4d96c5eec2084628738788404602cd7299d32f57cefa003ccdc8b1",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2692,
+   "output_tokens": 118,
+   "original_latency_ms": 1468.2,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "faa7e47123c407de535d98a84f6a9a1087a20f0f1d63307c67f3e66211d068a3",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 478,
+   "output_tokens": 72,
+   "original_latency_ms": 1114.9,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 2.23,
+ "latency_live_s": 4.813,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

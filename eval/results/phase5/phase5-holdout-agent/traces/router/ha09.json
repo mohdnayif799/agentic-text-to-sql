@@ -1,0 +1,206 @@
+{
+ "question_id": "ha09",
+ "type": "why",
+ "arch": "router",
+ "question": "Why did Hardware revenue drop so sharply from Q2 to Q3 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The query only lists the revenue per product for Q2 and Q3 but does not explain the underlying cause for the sharp drop."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.product_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND p.category = 'Hardware' GROUP BY p.product_id, p.product_name ORDER BY (q3_revenue - q2_revenue) ASC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 9,
+   "preview": "product_name | q2_revenue | q3_revenue\nLattice Ridge | 482955.26999999996 | 127995.04199999999\nCascade Beacon | 459070.15 | 136043.38\nNimbus Quartz | 404436.9275 | 116734.4525\nAnchor Summit | 292276.45 | 83381.508\nHarbor Lumen | 283296.482 | 82355.272\n... 4 more row(s)"
+  },
+  {
+   "sql": "SELECT p.product_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity ELSE 0 END) AS q2_units, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity ELSE 0 END) AS q3_units, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.unit_price * (1 - oi.discount) ELSE 0 END) / SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN 1 ELSE 0 END) AS q2_avg_net_price, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.unit_price * (1 - oi.discount) ELSE 0 END) / SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN 1 ELSE 0 END) AS q3_avg_net_price FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND p.category = 'Hardware' GROUP BY p.product_id, p.product_name ORDER BY q2_units DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 9,
+   "preview": "product_name | q2_units | q3_units | q2_avg_net_price | q3_avg_net_price\nNimbus Quartz | 320 | 93 | 1263.3060275229357 | 1262.644090909091\nLattice Ridge | 319 | 85 | 1508.1482807017542 | 1509.694148148148\nCascade Beacon | 316 | 93 | 1454.9931 | 1444.2708333333333\nHarbor Lumen | 316 | 94 | 890.4545999999999 | 878.3395714285714\nHarbor Ridge | 313 | 99 | 776.1847098214286 | 766.2238783783785\n... 4 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.product_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND p.category = 'Hardware' GROUP BY p.product_id, p.product_name ORDER BY (q3_revenue - q2_revenue) ASC LIMIT 500",
+   "reason": "",
+   "signal": null
+  },
+  {
+   "step": 2,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.product_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity ELSE 0 END) AS q2_units, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity ELSE 0 END) AS q3_units, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.unit_price * (1 - oi.discount) ELSE 0 END) / SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN 1 ELSE 0 END) AS q2_avg_net_price, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.unit_price * (1 - oi.discount) ELSE 0 END) / SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN 1 ELSE 0 END) AS q3_avg_net_price FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND p.category = 'Hardware' GROUP BY p.product_id, p.product_name ORDER BY q2_units DESC LIMIT 500",
+   "reason": "Check whether the revenue drop in Hardware products from Q2 to Q3 2025 was due to a drop in units sold or a drop in price.",
+   "signal": null
+  },
+  {
+   "step": "final",
+   "tools": [
+    "assemble"
+   ],
+   "plan": {
+    "base_step": 1,
+    "columns": []
+   }
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "-- assembled: rows from step 1\nSELECT p.product_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND p.category = 'Hardware' GROUP BY p.product_id, p.product_name ORDER BY (q3_revenue - q2_revenue) ASC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "product_name",
+   "q2_revenue",
+   "q3_revenue"
+  ],
+  "rows": [
+   [
+    "Lattice Ridge",
+    482955.26999999996,
+    127995.04199999999
+   ],
+   [
+    "Cascade Beacon",
+    459070.15,
+    136043.38
+   ],
+   [
+    "Nimbus Quartz",
+    404436.9275,
+    116734.4525
+   ],
+   [
+    "Anchor Summit",
+    292276.45,
+    83381.508
+   ],
+   [
+    "Harbor Lumen",
+    283296.482,
+    82355.272
+   ],
+   [
+    "Harbor Ridge",
+    243288.79650000003,
+    75478.02750000001
+   ],
+   [
+    "Forge Lumen",
+    186705.03149999998,
+    56021.218499999995
+   ],
+   [
+    "Lattice Cobalt",
+    144364.491,
+    33638.328
+   ],
+   [
+    "Cobalt Nimbus",
+    118918.326,
+    32963.88
+   ]
+  ],
+  "row_count": 9
+ },
+ "answer": "The sharp drop in Hardware revenue from Q2 to Q3 2025 was driven by significant decreases across all products. For instance, Lattice Ridge fell from $482,955.27 in Q2 to $127,995.04 in Q3, Cascade Beacon dropped from $459,070.15 to $136,043.38, and Nimbus Quartz decreased from $404,436.93 to $116,734.45.",
+ "key_numbers": [
+  "482955.26999999996",
+  "127995.04199999999",
+  "459070.15",
+  "136043.38",
+  "404436.9275",
+  "116734.4525"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "1c64f1493eab7a13a4e99262575cf55fe95393bc7a911b6d135769986256b015",
+   "cache_hit": false,
+   "latency_ms": 1298.5,
+   "input_tokens": 829,
+   "output_tokens": 50,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You are continuing an analysis of a read-only SQLite database. The user's questi",
+   "prompt_hash": "f8bbe5a00e3c752d5c2dc4ba4d25a32c8824eb5cef4cb157ba83de881b6b2a25",
+   "cache_hit": false,
+   "latency_ms": 2074.0,
+   "input_tokens": 3460,
+   "output_tokens": 498,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You are continuing an analysis of a read-only SQLite database. The user's questi",
+   "prompt_hash": "47f153e08f89197300c75fbf3a01487395c4c5463e328350e66f6304f1c84d95",
+   "cache_hit": false,
+   "latency_ms": 1582.2,
+   "input_tokens": 4341,
+   "output_tokens": 78,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "Several queries were run to answer one question. Choose the final result table t",
+   "prompt_hash": "0e4ef9b2b0de8c031e4f3b024f82b8a4365381b7ff8a8d851dfba2e3b74b888e",
+   "cache_hit": false,
+   "latency_ms": 983.9,
+   "input_tokens": 1813,
+   "output_tokens": 24,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "75f5e93edd9bbe3aed1ec758208b50d2dc67ce67c2243d2c063586f6fc82e4c2",
+   "cache_hit": false,
+   "latency_ms": 1308.7,
+   "input_tokens": 967,
+   "output_tokens": 245,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "b0ebd614f484b15375b23e009e2d9544e0dd00a55dba064fbdb2e004bf13c8c5",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2938,
+   "output_tokens": 380,
+   "original_latency_ms": 6534.9,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 7.352,
+ "latency_live_s": 13.886,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "driver not named: ['pattern: \\\\b(units?|volume|quantit(y|ies))\\\\b|fewer\\\\s+(hardware\\\\s+)?(items|products|sales)']"
+ }
+}

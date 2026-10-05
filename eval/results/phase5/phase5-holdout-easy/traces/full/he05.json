@@ -1,0 +1,117 @@
+{
+ "question_id": "he05",
+ "type": "easy",
+ "arch": "full",
+ "question": "What were the top 3 products by completed revenue in 2024? Give each product's ID, name and revenue.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY p.product_id, p.product_name ORDER BY revenue DESC LIMIT 3",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "product_id | product_name | revenue\n9 | Lattice Ridge | 1308261.591\n1 | Cascade Beacon | 1168417.415\n6 | Nimbus Quartz | 902459.8325"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY p.product_id, p.product_name ORDER BY revenue DESC LIMIT 3",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY p.product_id, p.product_name ORDER BY revenue DESC LIMIT 3",
+  "ok": true,
+  "columns": [
+   "product_id",
+   "product_name",
+   "revenue"
+  ],
+  "rows": [
+   [
+    9,
+    "Lattice Ridge",
+    1308261.591
+   ],
+   [
+    1,
+    "Cascade Beacon",
+    1168417.415
+   ],
+   [
+    6,
+    "Nimbus Quartz",
+    902459.8325
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "The top 3 products by completed revenue in 2024 were product ID 9, Lattice Ridge, with a revenue of 1308261.591; product ID 1, Cascade Beacon, with 1168417.415; and product ID 6, Nimbus Quartz, with 902459.8325.",
+ "key_numbers": [
+  "9",
+  "1308261.591",
+  "1",
+  "1168417.415",
+  "6",
+  "902459.8325"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "265ead19fa9c6ad082a524479b95b09a0888bcc7199afb668e7f8f3e1b71bc28",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2862,
+   "output_tokens": 254,
+   "original_latency_ms": 1646.5,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "f630bbd37659559a8585dca5ff3542fedc53f148d383c243b06fa68a1c8ba336",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 634,
+   "output_tokens": 170,
+   "original_latency_ms": 1223.4,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "dd4f86f4efdb8dc99560b4b3e5bb63538bbcbde3b71cc8edbed4c74b5f6c42f3",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 522,
+   "output_tokens": 51,
+   "original_latency_ms": 970.7,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.05,
+ "latency_live_s": 3.891,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "3 row(s) match"
+ }
+}

@@ -1,0 +1,92 @@
+{
+ "question_id": "ha12",
+ "type": "statistics",
+ "arch": "baseline",
+ "question": "Using a straight-line trend fitted to monthly completed revenue from January 2024 to December 2025, what is the forecast for January 2026?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH monthly_rev AS (SELECT SUBSTRING(o.order_date, 1, 7) AS ym, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY ym), indexed_rev AS (SELECT ROW_NUMBER() OVER (ORDER BY ym) AS x, rev AS y FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(y) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * y) AS sum_xy FROM indexed_rev) SELECT (CAST(sum_xy AS REAL) - (CAST(sum_x AS REAL) * sum_y / n)) / (CAST(sum_xx AS REAL) - (CAST(sum_x AS REAL) * sum_x / n)) AS slope, (sum_y - ((CAST(sum_xy AS REAL) - (CAST(sum_x AS REAL) * sum_y / n)) / (CAST(sum_xx AS REAL) - (CAST(sum_x AS REAL) * sum_x / n))) * sum_x) / n AS intercept, ((sum_y - ((CAST(sum_xy AS REAL) - (CAST(sum_x AS REAL) * sum_y / n)) / (CAST(sum_xx AS REAL) - (CAST(sum_x AS REAL) * sum_x / n))) * sum_x) / n) + (((CAST(sum_xy AS REAL) - (CAST(sum_x AS REAL) * sum_y / n)) / (CAST(sum_xx AS REAL) - (CAST(sum_x AS REAL) * sum_x / n))) * 25) AS forecast_jan_2026 FROM stats LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "slope | intercept | forecast_jan_2026\n20548.41077565214 | 707016.5817210148 | 1220726.8511123182"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH monthly_rev AS (SELECT SUBSTRING(o.order_date, 1, 7) AS ym, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY ym), indexed_rev AS (SELECT ROW_NUMBER() OVER (ORDER BY ym) AS x, rev AS y FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(y) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * y) AS sum_xy FROM indexed_rev) SELECT (CAST(sum_xy AS REAL) - (CAST(sum_x AS REAL) * sum_y / n)) / (CAST(sum_xx AS REAL) - (CAST(sum_x AS REAL) * sum_x / n)) AS slope, (sum_y - ((CAST(sum_xy AS REAL) - (CAST(sum_x AS REAL) * sum_y / n)) / (CAST(sum_xx AS REAL) - (CAST(sum_x AS REAL) * sum_x / n))) * sum_x) / n AS intercept, ((sum_y - ((CAST(sum_xy AS REAL) - (CAST(sum_x AS REAL) * sum_y / n)) / (CAST(sum_xx AS REAL) - (CAST(sum_x AS REAL) * sum_x / n))) * sum_x) / n) + (((CAST(sum_xy AS REAL) - (CAST(sum_x AS REAL) * sum_y / n)) / (CAST(sum_xx AS REAL) - (CAST(sum_x AS REAL) * sum_x / n))) * 25) AS forecast_jan_2026 FROM stats LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH monthly_rev AS (SELECT SUBSTRING(o.order_date, 1, 7) AS ym, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY ym), indexed_rev AS (SELECT ROW_NUMBER() OVER (ORDER BY ym) AS x, rev AS y FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(y) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * y) AS sum_xy FROM indexed_rev) SELECT (CAST(sum_xy AS REAL) - (CAST(sum_x AS REAL) * sum_y / n)) / (CAST(sum_xx AS REAL) - (CAST(sum_x AS REAL) * sum_x / n)) AS slope, (sum_y - ((CAST(sum_xy AS REAL) - (CAST(sum_x AS REAL) * sum_y / n)) / (CAST(sum_xx AS REAL) - (CAST(sum_x AS REAL) * sum_x / n))) * sum_x) / n AS intercept, ((sum_y - ((CAST(sum_xy AS REAL) - (CAST(sum_x AS REAL) * sum_y / n)) / (CAST(sum_xx AS REAL) - (CAST(sum_x AS REAL) * sum_x / n))) * sum_x) / n) + (((CAST(sum_xy AS REAL) - (CAST(sum_x AS REAL) * sum_y / n)) / (CAST(sum_xx AS REAL) - (CAST(sum_x AS REAL) * sum_x / n))) * 25) AS forecast_jan_2026 FROM stats LIMIT 500",
+  "ok": true,
+  "columns": [
+   "slope",
+   "intercept",
+   "forecast_jan_2026"
+  ],
+  "rows": [
+   [
+    20548.41077565214,
+    707016.5817210148,
+    1220726.8511123182
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Using a straight-line trend fitted to monthly completed revenue from January 2024 to December 2025, the forecast for January 2026 is 1,220,726.85, calculated with a slope of 20,548.41 and an intercept of 707,016.58.",
+ "key_numbers": [
+  "1,220,726.85",
+  "20,548.41",
+  "707,016.58"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "2783dcff12030f037228bc2506310927ef688b461104a70c3da8c45d618ccff1",
+   "cache_hit": false,
+   "latency_ms": 2750.8,
+   "input_tokens": 2957,
+   "output_tokens": 729,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "c2f0f2dad8fc403e8cb3f3a7953f6b45f761f4e3c720eb8ce728931eb815a34e",
+   "cache_hit": false,
+   "latency_ms": 1428.1,
+   "input_tokens": 976,
+   "output_tokens": 149,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.229,
+ "latency_live_s": 4.229,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

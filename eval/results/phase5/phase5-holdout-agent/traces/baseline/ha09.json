@@ -1,0 +1,135 @@
+{
+ "question_id": "ha09",
+ "type": "why",
+ "arch": "baseline",
+ "question": "Why did Hardware revenue drop so sharply from Q2 to Q3 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.product_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND p.category = 'Hardware' GROUP BY p.product_id, p.product_name ORDER BY (q3_revenue - q2_revenue) ASC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 9,
+   "preview": "product_name | q2_revenue | q3_revenue\nLattice Ridge | 482955.26999999996 | 127995.04199999999\nCascade Beacon | 459070.15 | 136043.38\nNimbus Quartz | 404436.9275 | 116734.4525\nAnchor Summit | 292276.45 | 83381.508\nHarbor Lumen | 283296.482 | 82355.272\n... 4 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.product_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND p.category = 'Hardware' GROUP BY p.product_id, p.product_name ORDER BY (q3_revenue - q2_revenue) ASC LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT p.product_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND p.category = 'Hardware' GROUP BY p.product_id, p.product_name ORDER BY (q3_revenue - q2_revenue) ASC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "product_name",
+   "q2_revenue",
+   "q3_revenue"
+  ],
+  "rows": [
+   [
+    "Lattice Ridge",
+    482955.26999999996,
+    127995.04199999999
+   ],
+   [
+    "Cascade Beacon",
+    459070.15,
+    136043.38
+   ],
+   [
+    "Nimbus Quartz",
+    404436.9275,
+    116734.4525
+   ],
+   [
+    "Anchor Summit",
+    292276.45,
+    83381.508
+   ],
+   [
+    "Harbor Lumen",
+    283296.482,
+    82355.272
+   ],
+   [
+    "Harbor Ridge",
+    243288.79650000003,
+    75478.02750000001
+   ],
+   [
+    "Forge Lumen",
+    186705.03149999998,
+    56021.218499999995
+   ],
+   [
+    "Lattice Cobalt",
+    144364.491,
+    33638.328
+   ],
+   [
+    "Cobalt Nimbus",
+    118918.326,
+    32963.88
+   ]
+  ],
+  "row_count": 9
+ },
+ "answer": "The drop in Hardware revenue from Q2 to Q3 2025 was driven by decreases across all listed products. For example, Lattice Ridge fell from 482,955.27 in Q2 to 127,995.04 in Q3, Cascade Beacon dropped from 459,070.15 to 136,043.38, and Nimbus Quartz decreased from 404,436.93 to 116,734.45.",
+ "key_numbers": [
+  "482955.27",
+  "127995.04",
+  "459070.15",
+  "136043.38",
+  "404436.93",
+  "116734.45"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "b0ebd614f484b15375b23e009e2d9544e0dd00a55dba064fbdb2e004bf13c8c5",
+   "cache_hit": false,
+   "latency_ms": 6534.9,
+   "input_tokens": 2938,
+   "output_tokens": 380,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "282839018d0d92b5abb016325fb7bfb82f0fa4848894419f39e8528caa142124",
+   "cache_hit": false,
+   "latency_ms": 1299.7,
+   "input_tokens": 958,
+   "output_tokens": 222,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 7.857,
+ "latency_live_s": 7.857,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "driver not named: ['pattern: \\\\b(units?|volume|quantit(y|ies))\\\\b|fewer\\\\s+(hardware\\\\s+)?(items|products|sales)']"
+ }
+}

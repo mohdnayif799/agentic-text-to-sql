@@ -1,0 +1,125 @@
+{
+ "question_id": "he09",
+ "type": "easy",
+ "arch": "router",
+ "question": "How many completed orders were placed in each month of the first half of 2025? Label months as YYYY-MM.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT SUBSTRING(o.order_date, 1, 7) AS month, COUNT(DISTINCT o.order_id) AS completed_orders FROM orders AS o WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-06-30' GROUP BY SUBSTRING(o.order_date, 1, 7) ORDER BY month LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 6,
+   "preview": "month | completed_orders\n2025-01 | 387\n2025-02 | 305\n2025-03 | 385\n2025-04 | 383\n2025-05 | 406\n... 1 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT SUBSTRING(o.order_date, 1, 7) AS month, COUNT(DISTINCT o.order_id) AS completed_orders FROM orders AS o WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-06-30' GROUP BY SUBSTRING(o.order_date, 1, 7) ORDER BY month LIMIT 500",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT SUBSTRING(o.order_date, 1, 7) AS month, COUNT(DISTINCT o.order_id) AS completed_orders FROM orders AS o WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-06-30' GROUP BY SUBSTRING(o.order_date, 1, 7) ORDER BY month LIMIT 500",
+  "ok": true,
+  "columns": [
+   "month",
+   "completed_orders"
+  ],
+  "rows": [
+   [
+    "2025-01",
+    387
+   ],
+   [
+    "2025-02",
+    305
+   ],
+   [
+    "2025-03",
+    385
+   ],
+   [
+    "2025-04",
+    383
+   ],
+   [
+    "2025-05",
+    406
+   ],
+   [
+    "2025-06",
+    417
+   ]
+  ],
+  "row_count": 6
+ },
+ "answer": "In the first half of 2025, the number of completed orders placed each month was 387 in 2025-01, 305 in 2025-02, 385 in 2025-03, 383 in 2025-04, 406 in 2025-05, and 417 in 2025-06.",
+ "key_numbers": [
+  "387",
+  "305",
+  "385",
+  "383",
+  "406",
+  "417"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "ffc69275328a6e8f930fc1fd55bcfd40702b7a2106344d5a0fa2a7deaef75e87",
+   "cache_hit": false,
+   "latency_ms": 1292.3,
+   "input_tokens": 513,
+   "output_tokens": 54,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "8f9f82cce84a2c0ea5348453a3d0c9db0423d0f5d73e7b80ff0f4184ba388885",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2865,
+   "output_tokens": 280,
+   "original_latency_ms": 1653.1,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "c67fd25d2757e125bce826a5bfe2ca0d066a738fd5a0fc4d062fc056bd616a89",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 625,
+   "output_tokens": 172,
+   "original_latency_ms": 15285.0,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 1.336,
+ "latency_live_s": 18.274,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "6 row(s) match"
+ }
+}

@@ -1,0 +1,103 @@
+{
+ "question_id": "ha01",
+ "type": "multi_hop",
+ "arch": "router",
+ "question": "Which customer segment had the most customers churn in 2025, and who was that segment's top customer by completed revenue in 2025? Give the customer's ID, name and 2025 completed revenue.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev_2025 FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.segment = (SELECT c2.segment FROM customers AS c2 WHERE c2.churn_date >= '2025-01-01' AND c2.churn_date <= '2025-12-31' GROUP BY c2.segment ORDER BY COUNT(c2.customer_id) DESC LIMIT 1) AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY rev_2025 DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "customer_id | customer_name | rev_2025\n84 | Jonas Duarte | 34461.23"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev_2025 FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.segment = (SELECT c2.segment FROM customers AS c2 WHERE c2.churn_date >= '2025-01-01' AND c2.churn_date <= '2025-12-31' GROUP BY c2.segment ORDER BY COUNT(c2.customer_id) DESC LIMIT 1) AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY rev_2025 DESC LIMIT 1",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev_2025 FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.segment = (SELECT c2.segment FROM customers AS c2 WHERE c2.churn_date >= '2025-01-01' AND c2.churn_date <= '2025-12-31' GROUP BY c2.segment ORDER BY COUNT(c2.customer_id) DESC LIMIT 1) AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY rev_2025 DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "customer_id",
+   "customer_name",
+   "rev_2025"
+  ],
+  "rows": [
+   [
+    84,
+    "Jonas Duarte",
+    34461.23
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Assuming the segment with the most customer churn in 2025 is determined by the highest count of churned customers within that year, the top customer in that segment by completed revenue in 2025 was Jonas Duarte (customer ID 84), with a completed revenue of 34461.23.",
+ "key_numbers": [
+  "84",
+  "34461.23"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "99fb958a43003f658f02ca0b9260d3d22ece18d0512aed9b0c725ef1bfc87f6b",
+   "cache_hit": false,
+   "latency_ms": 883.0,
+   "input_tokens": 600,
+   "output_tokens": 59,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "321c7b9f88c65a57abf97e89367c813353e6e798365df199bc6e829216b228f9",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2996,
+   "output_tokens": 411,
+   "original_latency_ms": 2130.8,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "f9af04ce615f52c4899097242e723f17d1c80af7c6f0db63c8eca36f8717c5ef",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 712,
+   "output_tokens": 111,
+   "original_latency_ms": 1055.7,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.935,
+ "latency_live_s": 4.122,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "1 row(s) match; answer missing ['text: Mid-Market']"
+ }
+}

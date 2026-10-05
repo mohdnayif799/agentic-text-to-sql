@@ -1,0 +1,82 @@
+{
+ "question_id": "ha06",
+ "type": "term_matching",
+ "arch": "baseline",
+ "question": "How many units of the 'Cobolt Nimbus' did we sell in completed orders in 2025? Give the product's ID and name with the unit count.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM products AS p JOIN order_items AS oi ON oi.product_id = p.product_id JOIN orders AS o ON o.order_id = oi.order_id WHERE p.product_name = 'Cobolt Nimbus' AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.product_id, p.product_name LIMIT 500",
+   "ok": true,
+   "failure": "empty",
+   "error": null,
+   "row_count": 0,
+   "preview": "0 rows returned."
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM products AS p JOIN order_items AS oi ON oi.product_id = p.product_id JOIN orders AS o ON o.order_id = oi.order_id WHERE p.product_name = 'Cobolt Nimbus' AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.product_id, p.product_name LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM products AS p JOIN order_items AS oi ON oi.product_id = p.product_id JOIN orders AS o ON o.order_id = oi.order_id WHERE p.product_name = 'Cobolt Nimbus' AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.product_id, p.product_name LIMIT 500",
+  "ok": true,
+  "columns": [
+   "product_id",
+   "product_name",
+   "units_sold"
+  ],
+  "rows": [],
+  "row_count": 0
+ },
+ "answer": "No matching data was found for the product 'Cobolt Nimbus' in completed orders in 2025.",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "fb1c22d6eb71a2d64702528d8c3a9f0429fb4f3fea059cdd5025dac36d89a098",
+   "cache_hit": false,
+   "latency_ms": 1416.1,
+   "input_tokens": 2710,
+   "output_tokens": 260,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "75b239a2f42680234932641f4b5ff27229d3aaa8bacb861da29fe773c00c3dac",
+   "cache_hit": false,
+   "latency_ms": 824.2,
+   "input_tokens": 582,
+   "output_tokens": 45,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 2.266,
+ "latency_live_s": 2.266,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "expected 1 row(s), got 0; answer missing ['text: Cobalt Nimbus', 'number: 913']"
+ }
+}

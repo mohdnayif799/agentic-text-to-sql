@@ -1,0 +1,126 @@
+{
+ "question_id": "ha10",
+ "type": "statistics",
+ "arch": "baseline",
+ "question": "What was the median completed order value in 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH order_values AS (SELECT o.order_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS order_val FROM orders o JOIN order_items oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY o.order_id) SELECT AVG(order_val) AS median_completed_order_value FROM (SELECT order_val FROM order_values ORDER BY order_val LIMIT 2 - (SELECT COUNT(*) FROM order_values) % 2 OFFSET (SELECT (COUNT(*) - 1) / 2 FROM order_values))",
+   "ok": false,
+   "failure": "blocked",
+   "error": "Could not parse SQL: Expecting ). Line 1, Col: 408.\n  AS median_completed_order_value FROM (SELECT order_val FROM order_values ORDER BY order_val LIMIT 2 \u001b[4m-\u001b[0m (SELECT COUNT(*) FROM order_values) % 2 OFFSET (SELECT (COUNT(*) - 1) / 2 FROM order_values))",
+   "row_count": 0,
+   "preview": "ERROR (blocked): Could not parse SQL: Expecting ). Line 1, Col: 408.\n  AS median_completed_order_value FROM (SELECT order_val FROM order_values ORDER BY order_val LIMIT 2 \u001b[4m-\u001b[0m (SELECT COUNT(*) FROM order_values) % 2 OFFSET (SELECT (COUNT(*) - 1) / 2 FROM order_values))"
+  },
+  {
+   "sql": "WITH order_values AS (SELECT o.order_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS order_val FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY o.order_id), ranked AS (SELECT order_val, ROW_NUMBER() OVER (ORDER BY order_val) AS rn, COUNT(*) OVER () AS cnt FROM order_values) SELECT AVG(order_val) AS median_completed_order_value FROM ranked WHERE rn IN ((cnt + 1) / 2, (cnt + 2) / 2) LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "median_completed_order_value\n2096.64"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH order_values AS (SELECT o.order_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS order_val FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY o.order_id), ranked AS (SELECT order_val, ROW_NUMBER() OVER (ORDER BY order_val) AS rn, COUNT(*) OVER () AS cnt FROM order_values) SELECT AVG(order_val) AS median_completed_order_value FROM ranked WHERE rn IN ((cnt + 1) / 2, (cnt + 2) / 2) LIMIT 500"
+  }
+ ],
+ "repairs": [
+  {
+   "step": 1,
+   "signal": "error",
+   "detail": "Could not parse SQL: Expecting ). Line 1, Col: 408.\n  AS median_completed_order_value FROM (SELECT order_val FROM order_values ORDER BY order_val LIMIT 2 \u001b[4m-\u001b[0m (SELECT COUNT(*) FROM order_values) % 2 OFFSET (SELECT (COUNT(*) - 1) / 2 FROM order_values))",
+   "via": "repair",
+   "accepted": true,
+   "attempts": 1,
+   "before": {
+    "sql": "WITH order_values AS (SELECT o.order_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS order_val FROM orders o JOIN order_items oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY o.order_id) SELECT AVG(order_val) AS median_completed_order_value FROM (SELECT order_val FROM order_values ORDER BY order_val LIMIT 2 - (SELECT COUNT(*) FROM order_values) % 2 OFFSET (SELECT (COUNT(*) - 1) / 2 FROM order_values))",
+    "ok": false,
+    "rows": 0,
+    "error": "Could not parse SQL: Expecting ). Line 1, Col: 408.\n  AS median_completed_order_value FROM (SELECT order_val FROM order_values ORDER BY order_val LIMIT 2 \u001b[4m-\u001b[0m (SELECT COUNT(*) FROM order_values) % 2 OFFSET (SELECT (COUNT(*) - 1) / 2 FROM order_values))"
+   },
+   "after": {
+    "sql": "WITH order_values AS (SELECT o.order_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS order_val FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY o.order_id), ranked AS (SELECT order_val, ROW_NUMBER() OVER (ORDER BY order_val) AS rn, COUNT(*) OVER () AS cnt FROM order_values) SELECT AVG(order_val) AS median_completed_order_value FROM ranked WHERE rn IN ((cnt + 1) / 2, (cnt + 2) / 2) LIMIT 500",
+    "ok": true,
+    "rows": 1,
+    "error": null
+   },
+   "effect": "fix"
+  }
+ ],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH order_values AS (SELECT o.order_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS order_val FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY o.order_id), ranked AS (SELECT order_val, ROW_NUMBER() OVER (ORDER BY order_val) AS rn, COUNT(*) OVER () AS cnt FROM order_values) SELECT AVG(order_val) AS median_completed_order_value FROM ranked WHERE rn IN ((cnt + 1) / 2, (cnt + 2) / 2) LIMIT 500",
+  "ok": true,
+  "columns": [
+   "median_completed_order_value"
+  ],
+  "rows": [
+   [
+    2096.64
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The median completed order value in 2025 was 2096.64.",
+ "key_numbers": [
+  "2096.64"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "6e1630b9f0ff919ce2ad65ad9cc6d594d2c6b8cca0b0e8acc549230a936e5e7b",
+   "cache_hit": false,
+   "latency_ms": 1417.1,
+   "input_tokens": 2854,
+   "output_tokens": 270,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "9b4b5b480d0d491f5bd65e1a021032a1cea6d7bd7c500c1a781351e4e20e5859",
+   "cache_hit": false,
+   "latency_ms": 1819.0,
+   "input_tokens": 3131,
+   "output_tokens": 285,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "ecad54d0592d57956b576a9023a7002698fe5f75a8992c22d93b6f449d8b942b",
+   "cache_hit": false,
+   "latency_ms": 970.5,
+   "input_tokens": 625,
+   "output_tokens": 57,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.252,
+ "latency_live_s": 4.252,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

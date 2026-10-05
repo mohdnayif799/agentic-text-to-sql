@@ -1,0 +1,101 @@
+{
+ "question_id": "ha16",
+ "type": "ambiguous",
+ "arch": "full",
+ "question": "What was our best month in 2025? Give the month (as YYYY-MM) and the figure that makes it the best.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT SUBSTRING(o.order_date, 1, 7) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY month ORDER BY revenue DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "month | revenue\n2025-05 | 1358256.722"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT SUBSTRING(o.order_date, 1, 7) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY month ORDER BY revenue DESC LIMIT 1",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT SUBSTRING(o.order_date, 1, 7) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY month ORDER BY revenue DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "month",
+   "revenue"
+  ],
+  "rows": [
+   [
+    "2025-05",
+    1358256.722
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Assuming best refers to the highest revenue, our best month in 2025 was 2025-05 with a revenue of 1358256.72.",
+ "key_numbers": [
+  "2025-05",
+  "1358256.722"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "0248a2502925136d5341c44aeb12d133b7174cd2b2eeaced17b97f81795c9239",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2910,
+   "output_tokens": 198,
+   "original_latency_ms": 1719.5,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "227b2f61757a4942cba4868f41941d3fa7089891b61e7a90fe955fc7fd8355a9",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 579,
+   "output_tokens": 93,
+   "original_latency_ms": 1068.4,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "49089da96be3ba8275a8559524e4c6747ffc6645fe374fe2da551748bbe764f0",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 467,
+   "output_tokens": 55,
+   "original_latency_ms": 1212.9,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.052,
+ "latency_live_s": 4.053,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "matched interpretation completed_revenue"
+ }
+}

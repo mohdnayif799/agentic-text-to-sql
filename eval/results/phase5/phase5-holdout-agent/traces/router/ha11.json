@@ -1,0 +1,154 @@
+{
+ "question_id": "ha11",
+ "type": "statistics",
+ "arch": "router",
+ "question": "Fit a straight-line trend to monthly completed revenue from January 2024 to December 2025, using month number 1 to 24 as x. Which months fell more than 1.5 standard deviations below the trend line, using the standard deviation of the residuals, and what was each month's residual (actual minus trend, in dollars)? Label months as YYYY-MM.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The question asks for a forecast, a projection or a fitted trend line: get the series it is fitted on (one row per period), fit it from that series, and report each forecast with its period."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "WITH monthly_rev AS (SELECT STRFTIME('%Y-%m', o.order_date) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY STRFTIME('%Y-%m', o.order_date)), indexed_rev AS (SELECT month, rev, ROW_NUMBER() OVER (ORDER BY month) AS x FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(rev) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * rev) AS sum_xy, SUM(rev * rev) AS sum_yy FROM indexed_rev), regression AS (SELECT n, sum_x, sum_y, sum_xx, sum_xy, (n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_x) * 1.0 / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats), residuals AS (SELECT i.month, i.rev AS actual, (r.slope * i.x + r.intercept) AS trend, (i.rev - (r.slope * i.x + r.intercept)) AS residual FROM indexed_rev AS i CROSS JOIN regression AS r), sd_calc AS (SELECT SQRT(SUM(residual * residual) / (SELECT COUNT(*) - 2 FROM indexed_rev)) AS sd FROM residuals) SELECT res.month, res.residual FROM residuals AS res CROSS JOIN sd_calc AS s WHERE res.residual < -1.5 * s.sd ORDER BY res.month LIMIT 500",
+   "ok": true,
+   "failure": "empty",
+   "error": null,
+   "row_count": 0,
+   "preview": "0 rows returned."
+  },
+  {
+   "sql": "WITH monthly_rev AS (SELECT STRFTIME('%Y-%m', o.order_date) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY STRFTIME('%Y-%m', o.order_date)), indexed_rev AS (SELECT month, rev, ROW_NUMBER() OVER (ORDER BY month) AS x FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(rev) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * rev) AS sum_xy FROM indexed_rev), regression AS (SELECT n, (n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats), residuals AS (SELECT i.month, i.rev AS actual, (r.slope * i.x + r.intercept) AS trend, (i.rev - (r.slope * i.x + r.intercept)) AS residual FROM indexed_rev AS i CROSS JOIN regression AS r), sd_calc AS (SELECT SQRT(SUM(residual * residual) / (SELECT COUNT(*) - 2 FROM indexed_rev)) AS sd FROM residuals) SELECT res.month, res.residual FROM residuals AS res CROSS JOIN sd_calc AS s WHERE res.residual < -1.5 * s.sd ORDER BY res.month LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "month | residual\n2025-07 | -348547.3194584057\n2025-08 | -425181.9997340579\n2025-09 | -452444.7145097101"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql",
+    "repair"
+   ],
+   "sql": "WITH monthly_rev AS (SELECT STRFTIME('%Y-%m', o.order_date) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY STRFTIME('%Y-%m', o.order_date)), indexed_rev AS (SELECT month, rev, ROW_NUMBER() OVER (ORDER BY month) AS x FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(rev) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * rev) AS sum_xy FROM indexed_rev), regression AS (SELECT n, (n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats), residuals AS (SELECT i.month, i.rev AS actual, (r.slope * i.x + r.intercept) AS trend, (i.rev - (r.slope * i.x + r.intercept)) AS residual FROM indexed_rev AS i CROSS JOIN regression AS r), sd_calc AS (SELECT SQRT(SUM(residual * residual) / (SELECT COUNT(*) - 2 FROM indexed_rev)) AS sd FROM residuals) SELECT res.month, res.residual FROM residuals AS res CROSS JOIN sd_calc AS s WHERE res.residual < -1.5 * s.sd ORDER BY res.month LIMIT 500",
+   "reason": "",
+   "signal": "empty",
+   "escalation_signal": "forecast"
+  }
+ ],
+ "repairs": [
+  {
+   "step": 1,
+   "signal": "empty",
+   "detail": "The query ran but returned no rows.",
+   "via": "repair",
+   "accepted": true,
+   "attempts": 1,
+   "before": {
+    "sql": "WITH monthly_rev AS (SELECT STRFTIME('%Y-%m', o.order_date) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY STRFTIME('%Y-%m', o.order_date)), indexed_rev AS (SELECT month, rev, ROW_NUMBER() OVER (ORDER BY month) AS x FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(rev) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * rev) AS sum_xy, SUM(rev * rev) AS sum_yy FROM indexed_rev), regression AS (SELECT n, sum_x, sum_y, sum_xx, sum_xy, (n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_x) * 1.0 / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats), residuals AS (SELECT i.month, i.rev AS actual, (r.slope * i.x + r.intercept) AS trend, (i.rev - (r.slope * i.x + r.intercept)) AS residual FROM indexed_rev AS i CROSS JOIN regression AS r), sd_calc AS (SELECT SQRT(SUM(residual * residual) / (SELECT COUNT(*) - 2 FROM indexed_rev)) AS sd FROM residuals) SELECT res.month, res.residual FROM residuals AS res CROSS JOIN sd_calc AS s WHERE res.residual < -1.5 * s.sd ORDER BY res.month LIMIT 500",
+    "ok": true,
+    "rows": 0,
+    "error": null
+   },
+   "after": {
+    "sql": "WITH monthly_rev AS (SELECT STRFTIME('%Y-%m', o.order_date) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY STRFTIME('%Y-%m', o.order_date)), indexed_rev AS (SELECT month, rev, ROW_NUMBER() OVER (ORDER BY month) AS x FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(rev) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * rev) AS sum_xy FROM indexed_rev), regression AS (SELECT n, (n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats), residuals AS (SELECT i.month, i.rev AS actual, (r.slope * i.x + r.intercept) AS trend, (i.rev - (r.slope * i.x + r.intercept)) AS residual FROM indexed_rev AS i CROSS JOIN regression AS r), sd_calc AS (SELECT SQRT(SUM(residual * residual) / (SELECT COUNT(*) - 2 FROM indexed_rev)) AS sd FROM residuals) SELECT res.month, res.residual FROM residuals AS res CROSS JOIN sd_calc AS s WHERE res.residual < -1.5 * s.sd ORDER BY res.month LIMIT 500",
+    "ok": true,
+    "rows": 3,
+    "error": null
+   },
+   "effect": "fix"
+  }
+ ],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH monthly_rev AS (SELECT STRFTIME('%Y-%m', o.order_date) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY STRFTIME('%Y-%m', o.order_date)), indexed_rev AS (SELECT month, rev, ROW_NUMBER() OVER (ORDER BY month) AS x FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(rev) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * rev) AS sum_xy FROM indexed_rev), regression AS (SELECT n, (n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats), residuals AS (SELECT i.month, i.rev AS actual, (r.slope * i.x + r.intercept) AS trend, (i.rev - (r.slope * i.x + r.intercept)) AS residual FROM indexed_rev AS i CROSS JOIN regression AS r), sd_calc AS (SELECT SQRT(SUM(residual * residual) / (SELECT COUNT(*) - 2 FROM indexed_rev)) AS sd FROM residuals) SELECT res.month, res.residual FROM residuals AS res CROSS JOIN sd_calc AS s WHERE res.residual < -1.5 * s.sd ORDER BY res.month LIMIT 500",
+  "ok": true,
+  "columns": [
+   "month",
+   "residual"
+  ],
+  "rows": [
+   [
+    "2025-07",
+    -348547.3194584057
+   ],
+   [
+    "2025-08",
+    -425181.9997340579
+   ],
+   [
+    "2025-09",
+    -452444.7145097101
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "The months that fell more than 1.5 standard deviations below the trend line were 2025-07 with a residual of -$348,547.32, 2025-08 with a residual of -$425,182.00, and 2025-09 with a residual of -$452,444.71.",
+ "key_numbers": [
+  "-348547.3194584057",
+  "-425181.9997340579",
+  "-452444.7145097101"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You fix one SQLite query. A concrete problem was detected and is described below",
+   "prompt_hash": "c484a4f1cdfc10279ef4f6b66f94386f24e8136e208c2ed835b008ba3fe843d4",
+   "cache_hit": false,
+   "latency_ms": 2752.8,
+   "input_tokens": 3541,
+   "output_tokens": 671,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You are continuing an analysis of a read-only SQLite database. The user's questi",
+   "prompt_hash": "eee159705695d18d0f599889da9536cea76550e540c8b2eef4c7c98792fdd4a3",
+   "cache_hit": false,
+   "latency_ms": 931.9,
+   "input_tokens": 3554,
+   "output_tokens": 82,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "5bbe02197d2887e0366b0b5be8b32cc889fbe565b7169b52fa584f0b06fa12b1",
+   "cache_hit": false,
+   "latency_ms": 1303.4,
+   "input_tokens": 1019,
+   "output_tokens": 178,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "42b6b4421ea9c4559b2111419205eadf5818020eaa7db107408f4748a65c68b0",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3005,
+   "output_tokens": 760,
+   "original_latency_ms": 2939.5,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 5.144,
+ "latency_live_s": 8.084,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "3 row(s) match"
+ }
+}

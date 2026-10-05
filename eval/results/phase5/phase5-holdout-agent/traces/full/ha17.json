@@ -1,0 +1,100 @@
+{
+ "question_id": "ha17",
+ "type": "ambiguous",
+ "arch": "full",
+ "question": "Which customer segment is our most valuable? Give the segment and the figure that makes it the most valuable.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' GROUP BY c.segment ORDER BY revenue DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "segment | revenue\nSMB | 9174303.8565"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' GROUP BY c.segment ORDER BY revenue DESC LIMIT 1",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' GROUP BY c.segment ORDER BY revenue DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "segment",
+   "revenue"
+  ],
+  "rows": [
+   [
+    "SMB",
+    9174303.8565
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The most valuable customer segment is SMB, generating a revenue of 9,174,303.86.",
+ "key_numbers": [
+  "9174303.8565"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "1afef1b6fd7884251aa381cfeff7292b2e03fa0ba10ae05565c7a1f3ac438823",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2760,
+   "output_tokens": 183,
+   "original_latency_ms": 1459.5,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "aa56efd47cbca8a71ef0a770374afa39954b984e41a50cdd38dc4c32704f5614",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 529,
+   "output_tokens": 67,
+   "original_latency_ms": 941.4,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "eaf368037617c4cdf41506422e481396d55f80b9459f74e654fc73d41f40bce1",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 417,
+   "output_tokens": 45,
+   "original_latency_ms": 959.9,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.05,
+ "latency_live_s": 3.411,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "no interpretation matched (assumption stated: False; answer fits: none)"
+ }
+}

@@ -1,0 +1,98 @@
+{
+ "question_id": "he03",
+ "type": "easy",
+ "arch": "full",
+ "question": "How many critical-severity support tickets were created in 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT COUNT(*) FROM support_tickets WHERE severity = 'critical' AND created_date >= '2025-01-01' AND created_date <= '2025-12-31'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "COUNT(*)\n211"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT COUNT(*) FROM support_tickets WHERE severity = 'critical' AND created_date >= '2025-01-01' AND created_date <= '2025-12-31'",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT COUNT(*) FROM support_tickets WHERE severity = 'critical' AND created_date >= '2025-01-01' AND created_date <= '2025-12-31'",
+  "ok": true,
+  "columns": [
+   "COUNT(*)"
+  ],
+  "rows": [
+   [
+    211
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "A total of 211 critical-severity support tickets were created in 2025.",
+ "key_numbers": [
+  "211"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "35451cc97341c88091a45da14f8fcda3457d37a1da9de0e54284e682d9651e4d",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2807,
+   "output_tokens": 113,
+   "original_latency_ms": 1627.1,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "e20dfd31c6ebac05525ed09e260875dfd5a3e81fcd1497093299ad89ea0d65e2",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 474,
+   "output_tokens": 60,
+   "original_latency_ms": 993.7,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "d343863a3cb340c40858686e4f988d6c9d477301b985cd3e25acdddbab33c809",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 362,
+   "output_tokens": 45,
+   "original_latency_ms": 1208.2,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.027,
+ "latency_live_s": 3.856,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

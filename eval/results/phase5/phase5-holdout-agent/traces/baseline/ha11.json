@@ -1,0 +1,81 @@
+{
+ "question_id": "ha11",
+ "type": "statistics",
+ "arch": "baseline",
+ "question": "Fit a straight-line trend to monthly completed revenue from January 2024 to December 2025, using month number 1 to 24 as x. Which months fell more than 1.5 standard deviations below the trend line, using the standard deviation of the residuals, and what was each month's residual (actual minus trend, in dollars)? Label months as YYYY-MM.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH monthly_rev AS (SELECT STRFTIME('%Y-%m', o.order_date) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY STRFTIME('%Y-%m', o.order_date)), indexed_rev AS (SELECT month, rev, ROW_NUMBER() OVER (ORDER BY month) AS x FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(rev) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * rev) AS sum_xy, SUM(rev * rev) AS sum_yy FROM indexed_rev), regression AS (SELECT n, sum_x, sum_y, sum_xx, sum_xy, (n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_x) * 1.0 / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats), residuals AS (SELECT i.month, i.rev AS actual, (r.slope * i.x + r.intercept) AS trend, (i.rev - (r.slope * i.x + r.intercept)) AS residual FROM indexed_rev AS i CROSS JOIN regression AS r), sd_calc AS (SELECT SQRT(SUM(residual * residual) / (SELECT COUNT(*) - 2 FROM indexed_rev)) AS sd FROM residuals) SELECT res.month, res.residual FROM residuals AS res CROSS JOIN sd_calc AS s WHERE res.residual < -1.5 * s.sd ORDER BY res.month LIMIT 500",
+   "ok": true,
+   "failure": "empty",
+   "error": null,
+   "row_count": 0,
+   "preview": "0 rows returned."
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH monthly_rev AS (SELECT STRFTIME('%Y-%m', o.order_date) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY STRFTIME('%Y-%m', o.order_date)), indexed_rev AS (SELECT month, rev, ROW_NUMBER() OVER (ORDER BY month) AS x FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(rev) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * rev) AS sum_xy, SUM(rev * rev) AS sum_yy FROM indexed_rev), regression AS (SELECT n, sum_x, sum_y, sum_xx, sum_xy, (n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_x) * 1.0 / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats), residuals AS (SELECT i.month, i.rev AS actual, (r.slope * i.x + r.intercept) AS trend, (i.rev - (r.slope * i.x + r.intercept)) AS residual FROM indexed_rev AS i CROSS JOIN regression AS r), sd_calc AS (SELECT SQRT(SUM(residual * residual) / (SELECT COUNT(*) - 2 FROM indexed_rev)) AS sd FROM residuals) SELECT res.month, res.residual FROM residuals AS res CROSS JOIN sd_calc AS s WHERE res.residual < -1.5 * s.sd ORDER BY res.month LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH monthly_rev AS (SELECT STRFTIME('%Y-%m', o.order_date) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY STRFTIME('%Y-%m', o.order_date)), indexed_rev AS (SELECT month, rev, ROW_NUMBER() OVER (ORDER BY month) AS x FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(rev) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * rev) AS sum_xy, SUM(rev * rev) AS sum_yy FROM indexed_rev), regression AS (SELECT n, sum_x, sum_y, sum_xx, sum_xy, (n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_x) * 1.0 / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats), residuals AS (SELECT i.month, i.rev AS actual, (r.slope * i.x + r.intercept) AS trend, (i.rev - (r.slope * i.x + r.intercept)) AS residual FROM indexed_rev AS i CROSS JOIN regression AS r), sd_calc AS (SELECT SQRT(SUM(residual * residual) / (SELECT COUNT(*) - 2 FROM indexed_rev)) AS sd FROM residuals) SELECT res.month, res.residual FROM residuals AS res CROSS JOIN sd_calc AS s WHERE res.residual < -1.5 * s.sd ORDER BY res.month LIMIT 500",
+  "ok": true,
+  "columns": [
+   "month",
+   "residual"
+  ],
+  "rows": [],
+  "row_count": 0
+ },
+ "answer": "No matching data was found for months falling more than 1.5 standard deviations below the trend line.",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "42b6b4421ea9c4559b2111419205eadf5818020eaa7db107408f4748a65c68b0",
+   "cache_hit": false,
+   "latency_ms": 2939.5,
+   "input_tokens": 3005,
+   "output_tokens": 760,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "029846c3e1df2a9f7c2e5477b4c2a3a93aa661e802443ac3888fa41a68ec5955",
+   "cache_hit": false,
+   "latency_ms": 1595.5,
+   "input_tokens": 966,
+   "output_tokens": 35,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.594,
+ "latency_live_s": 4.594,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "expected 3 row(s), got 0; answer missing [\"any_of: [{'text': '2025-07'}, {'pattern': 'jul(y)?\\\\\\\\.?\\\\\\\\s+2025'}]\", \"any_of: [{'text': '2025-08'}, {'pattern': 'aug(ust)?\\\\\\\\.?\\\\\\\\s+2025'}]\", \"any_of: [{'text': '2025-09'}, {'pattern': 'sep(t|tember)?\\\\\\\\.?\\\\\\\\s+2025'}]\"]"
+ }
+}

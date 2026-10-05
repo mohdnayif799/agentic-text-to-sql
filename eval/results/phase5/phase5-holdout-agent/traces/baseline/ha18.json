@@ -1,0 +1,91 @@
+{
+ "question_id": "ha18",
+ "type": "ambiguous",
+ "arch": "baseline",
+ "question": "What is our most popular product? Give its product ID, name and the figure that makes it the most popular.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' GROUP BY p.product_id, p.product_name ORDER BY units_sold DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "product_id | product_name | units_sold\n14 | Vertex Nimbus | 1926"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' GROUP BY p.product_id, p.product_name ORDER BY units_sold DESC LIMIT 1"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' GROUP BY p.product_id, p.product_name ORDER BY units_sold DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "product_id",
+   "product_name",
+   "units_sold"
+  ],
+  "rows": [
+   [
+    14,
+    "Vertex Nimbus",
+    1926
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Our most popular product is Vertex Nimbus (product ID 14), with a total of 1926 units sold in completed orders.",
+ "key_numbers": [
+  "14",
+  "1926"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "ed94d134384391403c7a2c6cc9988c30e938129efc20121fddf6bd1a6ab535a7",
+   "cache_hit": false,
+   "latency_ms": 1292.6,
+   "input_tokens": 2993,
+   "output_tokens": 160,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "4bacc3384a91898594ee62a9179da57d8e44e693d3d569a3d4104ca064e24f24",
+   "cache_hit": false,
+   "latency_ms": 915.8,
+   "input_tokens": 542,
+   "output_tokens": 68,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 2.24,
+ "latency_live_s": 2.24,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "no interpretation matched (assumption stated: False; answer fits: none)"
+ }
+}

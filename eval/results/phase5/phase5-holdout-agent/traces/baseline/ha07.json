@@ -1,0 +1,230 @@
+{
+ "question_id": "ha07",
+ "type": "why",
+ "arch": "baseline",
+ "question": "Why did APAC's completed revenue fall so much more than other regions' from Q2 to Q3 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.category, p.product_name, r.region_name, SUBSTRING(o.order_date, 1, 7) AS order_month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date >= '2025-04-01' AND o.order_date <= '2025-09-30' GROUP BY r.region_name, p.category, p.product_name, SUBSTRING(o.order_date, 1, 7) ORDER BY r.region_name, revenue DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 500,
+   "preview": "category | product_name | region_name | order_month | revenue\nHardware | Lattice Ridge | APAC | 2025-05 | 52974.403999999995\nHardware | Anchor Summit | APAC | 2025-05 | 49576.7035\nHardware | Cascade Beacon | APAC | 2025-06 | 43771.805\nHardware | Lattice Ridge | APAC | 2025-06 | 37906.834\nHardware | Harbor Lumen | APAC | 2025-04 | 33450.94\n... 495 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.category, p.product_name, r.region_name, SUBSTRING(o.order_date, 1, 7) AS order_month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date >= '2025-04-01' AND o.order_date <= '2025-09-30' GROUP BY r.region_name, p.category, p.product_name, SUBSTRING(o.order_date, 1, 7) ORDER BY r.region_name, revenue DESC LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT p.category, p.product_name, r.region_name, SUBSTRING(o.order_date, 1, 7) AS order_month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date >= '2025-04-01' AND o.order_date <= '2025-09-30' GROUP BY r.region_name, p.category, p.product_name, SUBSTRING(o.order_date, 1, 7) ORDER BY r.region_name, revenue DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "category",
+   "product_name",
+   "region_name",
+   "order_month",
+   "revenue"
+  ],
+  "rows": [
+   [
+    "Hardware",
+    "Lattice Ridge",
+    "APAC",
+    "2025-05",
+    52974.403999999995
+   ],
+   [
+    "Hardware",
+    "Anchor Summit",
+    "APAC",
+    "2025-05",
+    49576.7035
+   ],
+   [
+    "Hardware",
+    "Cascade Beacon",
+    "APAC",
+    "2025-06",
+    43771.805
+   ],
+   [
+    "Hardware",
+    "Lattice Ridge",
+    "APAC",
+    "2025-06",
+    37906.834
+   ],
+   [
+    "Hardware",
+    "Harbor Lumen",
+    "APAC",
+    "2025-04",
+    33450.94
+   ],
+   [
+    "Hardware",
+    "Nimbus Quartz",
+    "APAC",
+    "2025-06",
+    31018.9565
+   ],
+   [
+    "Hardware",
+    "Cascade Beacon",
+    "APAC",
+    "2025-04",
+    28977.850000000002
+   ],
+   [
+    "Hardware",
+    "Harbor Ridge",
+    "APAC",
+    "2025-06",
+    28227.555
+   ],
+   [
+    "Hardware",
+    "Lattice Ridge",
+    "APAC",
+    "2025-04",
+    25456.263
+   ],
+   [
+    "Hardware",
+    "Nimbus Quartz",
+    "APAC",
+    "2025-05",
+    24008.2755
+   ],
+   [
+    "Hardware",
+    "Forge Lumen",
+    "APAC",
+    "2025-04",
+    20712.64
+   ],
+   [
+    "Hardware",
+    "Anchor Summit",
+    "APAC",
+    "2025-04",
+    20293.912
+   ],
+   [
+    "Services",
+    "Meridian Cascade",
+    "APAC",
+    "2025-05",
+    18541.440000000002
+   ],
+   [
+    "Hardware",
+    "Harbor Lumen",
+    "APAC",
+    "2025-06",
+    18280.232
+   ],
+   [
+    "Hardware",
+    "Anchor Summit",
+    "APAC",
+    "2025-06",
+    17812.3195
+   ],
+   [
+    "Hardware",
+    "Lattice Cobalt",
+    "APAC",
+    "2025-06",
+    16351.965
+   ],
+   [
+    "Hardware",
+    "Forge Lumen",
+    "APAC",
+    "2025-06",
+    15955.2055
+   ],
+   [
+    "Hardware",
+    "Cobalt Nimbus",
+    "APAC",
+    "2025-05",
+    15940.068
+   ],
+   [
+    "Hardware",
+    "Harbor Ridge",
+    "APAC",
+    "2025-04",
+    15627.429
+   ],
+   [
+    "Hardware",
+    "Lattice Cobalt",
+    "APAC",
+    "2025-05",
+    15235.878499999999
+   ]
+  ],
+  "row_count": 500
+ },
+ "answer": "Assuming the query results reflect completed revenue by region, product category, and month, the data shows APAC order revenues in months such as April, May, and June 2025 reaching highs like 52,974.40 for Lattice Ridge in May, whereas subsequent Q3 months like July, August, and September display lower figures, such as 12,963.15 for Nimbus Quartz in July.",
+ "key_numbers": [
+  "52974.40",
+  "12963.15"
+ ],
+ "caveats": [
+  "Only partial rows are shown in the result, so this is based on the visible data."
+ ],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "1b4119c643ceafa1fbc217a352667517210e3b0440b02a66826aa26e917bef84",
+   "cache_hit": false,
+   "latency_ms": 1753.1,
+   "input_tokens": 2946,
+   "output_tokens": 384,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "8c8c1cb44f6721d72d5813fb218edc2101323506968f8719bfc92ab3bb6c5772",
+   "cache_hit": false,
+   "latency_ms": 1511.0,
+   "input_tokens": 1810,
+   "output_tokens": 170,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 3.306,
+ "latency_live_s": 3.306,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "driver not named: [\"any_of: [{'pattern': 'fewer\\\\\\\\s+(completed\\\\\\\\s+)?orders'}, {'pattern': 'order\\\\\\\\s+(volume|count|counts|numbers)'}, {'pattern': '(number|count|volume)\\\\\\\\s+of\\\\\\\\s+(completed\\\\\\\\s+)?orders'}, {'pattern': 'orders\\\\\\\\s+(fell|dropped|declined|decreased|shrank)'}]\"]"
+ }
+}

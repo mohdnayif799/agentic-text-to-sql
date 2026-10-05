@@ -1,0 +1,86 @@
+{
+ "question_id": "he01",
+ "type": "easy",
+ "arch": "baseline",
+ "question": "How many customers does the LATAM region have?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT COUNT(*) FROM customers JOIN regions ON customers.region_id = regions.region_id WHERE regions.region_name = 'LATAM'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "COUNT(*)\n193"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT COUNT(*) FROM customers JOIN regions ON customers.region_id = regions.region_id WHERE regions.region_name = 'LATAM'"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT COUNT(*) FROM customers JOIN regions ON customers.region_id = regions.region_id WHERE regions.region_name = 'LATAM'",
+  "ok": true,
+  "columns": [
+   "COUNT(*)"
+  ],
+  "rows": [
+   [
+    193
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The LATAM region has a total of 193 customers.",
+ "key_numbers": [
+  "193"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "0af66016d25ced37cbbe875f47ef71b453834644f1220ac06b95a901ab0f6d48",
+   "cache_hit": false,
+   "latency_ms": 1300.0,
+   "input_tokens": 2598,
+   "output_tokens": 99,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "94a3a4af1b5b8518db21bfa1b5614ab7f8431cf7984e12921948218bba11431f",
+   "cache_hit": false,
+   "latency_ms": 954.9,
+   "input_tokens": 451,
+   "output_tokens": 46,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 3.301,
+ "latency_live_s": 3.301,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}
