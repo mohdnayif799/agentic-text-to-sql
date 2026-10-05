@@ -263,7 +263,7 @@ class TestSafety:
         period = H1_VS_H2.period_a
         for metric in METRICS.values():
             source = _source_of(metric)
-            aggregates = _aggregates_for({metric.factor})
+            aggregates = _aggregates_for([metric.factor])
             yield build_sql(source, aggregates, period, {})
             for dim in source.dimensions:
                 yield build_sql(source, aggregates, period, {dim: "x'; DROP TABLE t; --"})
@@ -319,3 +319,36 @@ class TestSafety:
 def test_every_factor_has_a_plain_label():
     assert set(LABELS) == set(FACTORS)
     assert all("_" not in label for label in LABELS.values())
+
+
+def test_generated_sql_is_the_same_under_any_string_hash_seed():
+    """The metric SQL is shown to the model (and keys the response cache), so
+    it must not depend on per-process string hashing (set order)."""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    script = (
+        "import sys; sys.path.insert(0, '.')\n"
+        "from agentcrew.compute.metrics import Comparison, decompose_change\n"
+        "from agentcrew.schemas import ExecutionResult\n"
+        "seen = []\n"
+        "def run(sql):\n"
+        "    seen.append(sql)\n"
+        "    import re\n"
+        "    names = re.findall(r' AS (\\w+)', sql)\n"
+        "    return ExecutionResult(ok=True, sql=sql, columns=names,\n"
+        "                           rows=[[1.0] * len(names)], row_count=1)\n"
+        "c = Comparison(group_dimension='channel', groups=['Online', 'Direct'])\n"
+        "decompose_change(run, 'revenue', c)\n"
+        "print(seen[0])\n"
+    )
+    outputs = set()
+    for seed in ("1", "2", "3"):
+        env = {**os.environ, "PYTHONHASHSEED": seed}
+        done = subprocess.run([sys.executable, "-c", script], cwd=root, env=env,
+                              capture_output=True, text=True, check=True)
+        outputs.add(done.stdout)
+    assert len(outputs) == 1

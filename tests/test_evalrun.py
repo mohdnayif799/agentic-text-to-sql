@@ -88,6 +88,35 @@ class TestBackoff:
             call_with_backoff(fn, sleep=slept.append, delays=(1.0, 2.0))
         assert slept == [1.0, 2.0]
 
+    def test_transient_overload_is_retried(self):
+        calls, slept = [], []
+
+        def flaky():
+            calls.append(1)
+            if len(calls) < 3:
+                raise LLMError("Gemini call failed: 503 UNAVAILABLE high demand")
+            return "ok"
+
+        assert call_with_backoff(flaky, sleep=slept.append) == ("ok", 40.0)
+        assert slept == [10.0, 30.0]
+
+    def test_persistent_overload_and_other_errors_are_raised(self):
+        def overloaded():
+            raise LLMError("503 UNAVAILABLE")
+
+        slept = []
+        with pytest.raises(LLMError):
+            call_with_backoff(overloaded, sleep=slept.append)
+        assert slept == [10.0, 30.0, 60.0]
+
+        def broken():
+            raise LLMError("400 invalid argument")
+
+        slept.clear()
+        with pytest.raises(LLMError):
+            call_with_backoff(broken, sleep=slept.append)
+        assert slept == []
+
     def test_daily_detection(self):
         assert is_daily_limit("quotaId: GenerateRequestsPerDay-FreeTier")
         assert not is_daily_limit("GenerateRequestsPerMinutePerProjectPerModel")
@@ -183,15 +212,56 @@ def test_daily_limit_stops_cleanly(cfg, tmp_path):
     assert {i["state"] for i in payload["items"]} == {"not_evaluated"}
 
 
-def test_provider_error_is_a_failed_run_not_a_stop(cfg, tmp_path):
+def test_persistent_overload_is_retried_then_recorded_as_an_error(cfg, tmp_path):
     class Overloaded(FakeClient):
         def complete(self, **kwargs):
             raise LLMError("503 overloaded")
 
-    runner = Runner(cfg, live_factory=lambda s: Overloaded(), log=lambda *_: None)
+    slept: list[float] = []
+    runner = Runner(cfg, live_factory=lambda s: Overloaded(), log=lambda *_: None,
+                    sleep=slept.append)
     payload = runner.run("showcase", ["baseline"], tmp_path / "run")
-    assert payload["complete"]
-    assert all(i["primary"] is False for i in payload["items"])
+    assert payload["complete"]  # an ERROR is a result, not a stop
+    assert slept == [10.0, 30.0, 60.0] * 5  # three retries per question
+    for item in payload["items"]:
+        assert item["status"] == "ERROR" and item["primary"] is False
+        assert item["path"] == "error"
+        assert item["error"]["type"] == "LLMError"
+        assert item["error"]["stage"] == "step 1: SQL"
+        assert item["first_failing_check"] == "ERROR LLMError at step 1: SQL"
+    assert payload["summary"]["baseline"]["errors"] == 5
+
+
+def test_exception_inside_an_architecture_is_an_error_with_its_stage(
+    cfg, tmp_path, monkeypatch
+):
+    import agentcrew.archs.router as router_module
+
+    def broken(*args, **kwargs):
+        raise KeyError("boom")
+
+    monkeypatch.setattr(router_module, "write_answer", broken)
+    runner = Runner(cfg, live_factory=lambda s: FakeClient(responder=router_responder),
+                    log=lambda *_: None)
+    payload = runner.run("showcase", ["router"], tmp_path / "run")
+    item = payload["items"][0]
+    assert item["status"] == "ERROR" and item["error"]["type"] == "KeyError"
+    assert item["error"]["stage"] == "final: answer"
+    assert item["error"]["where"].startswith("agentcrew/archs/router.py:")
+    trace = json.loads((tmp_path / "run" / item["trace"]).read_text("utf-8"))
+    assert trace["status"] == "ERROR" and trace["error_detail"] == item["error"]
+
+
+def test_a_provider_error_names_the_call_it_happened_in(cfg, tmp_path):
+    def failing_decision(system, user):
+        if "You check whether one query result" in system:
+            raise LLMError("500 internal")
+        return router_responder(system, user)
+
+    runner = Runner(cfg, live_factory=lambda s: FakeClient(responder=failing_decision),
+                    log=lambda *_: None, sleep=lambda s: None)
+    item = runner.run("showcase", ["router"], tmp_path / "run")["items"][0]
+    assert (item["status"], item["error"]["stage"]) == ("ERROR", "follow-up decision")
 
 
 def test_per_fact_judge_and_rejudge_from_stored_answers(cfg, tmp_path):
@@ -263,8 +333,10 @@ def test_missed_escalations():
     ]
     missed = missed_escalations(items)
     assert missed["baseline_failed"] == 2
-    assert missed["router"] == {"escalated": 0, "not_escalated": 1, "not_run": 1}
-    assert missed["full"] == {"escalated": 1, "not_escalated": 0, "not_run": 1}
+    assert missed["router"] == {"escalated": 0, "not_escalated": 1, "error": 0,
+                                "not_run": 1}
+    assert missed["full"] == {"escalated": 1, "not_escalated": 0, "error": 0,
+                              "not_run": 1}
     assert missed["questions"] == [
         {"id": "q1", "router": "direct (fail)", "full": "escalated (pass)"},
         {"id": "q3", "router": "not run", "full": "not run"},
@@ -301,3 +373,66 @@ def test_report_has_every_section(cfg, tmp_path):
                     "## Missed escalations (questions A failed)"):
         assert heading in text
     assert "| sc03 | why | A baseline | FAIL |" in text
+
+
+
+def router_responder(system: str, user: str):
+    """C: a clean step 0, then a follow-up decision that needs one."""
+    if "You check whether one query result" in system:
+        return {"needs_followup": True, "reason": "more"}
+    if "continuing an analysis" in system:
+        return {"done": True, "sql": "", "reason": ""}
+    return responder(system, user)
+
+
+def test_missed_escalations_report_errors_not_direct():
+    from evalrun.runner import missed_escalations
+
+    items = [
+        {"id": "q1", "arch": "baseline", "state": "evaluated", "primary": False,
+         "path": "direct"},
+        {"id": "q1", "arch": "router", "state": "evaluated", "primary": False,
+         "path": "escalated"},
+        {"id": "q1", "arch": "full", "state": "evaluated", "primary": False,
+         "path": "error", "status": "ERROR",
+         "error": {"type": "LLMError", "stage": "step 2: decide_next_action"}},
+    ]
+    missed = missed_escalations(items)
+    assert missed["full"]["error"] == 1 and missed["full"]["not_escalated"] == 0
+    assert missed["questions"][0]["full"] == \
+        "ERROR (LLMError at step 2: decide_next_action)"
+
+
+class TestForcedEscalation:
+    """A development-only switch: refused on holdout sets and for A, B, C."""
+
+    @pytest.mark.parametrize("set_name", ["holdout_agent", "holdout_easy"])
+    def test_refused_on_holdout_sets(self, set_name):
+        from evalrun.runner import check_force_escalation
+
+        with pytest.raises(ValueError, match="holdout"):
+            check_force_escalation(set_name, ["full"])
+
+    def test_d_only(self):
+        from evalrun.runner import check_force_escalation
+
+        check_force_escalation("dev2", ["full"])
+        with pytest.raises(ValueError, match="D only"):
+            check_force_escalation("dev2", ["baseline", "full"])
+
+    def test_runner_refuses_before_any_call(self, cfg, tmp_path):
+        made = []
+        runner = Runner(cfg, live_factory=lambda s: made.append(1),
+                        log=lambda *_: None, force_escalation=True)
+        with pytest.raises(ValueError, match="holdout"):
+            runner.run("holdout_easy", ["full"], tmp_path / "run")
+        assert made == [] and not (tmp_path / "run").exists()
+
+    def test_forced_and_normal_results_never_mix(self, cfg, tmp_path):
+        normal = Runner(cfg, live_factory=lambda s: FakeClient(responder=responder),
+                        log=lambda *_: None)
+        normal.run("showcase", ["baseline"], tmp_path / "run")
+        forced = Runner(cfg, live_factory=lambda s: FakeClient(responder=responder),
+                        log=lambda *_: None, force_escalation=True)
+        with pytest.raises(ValueError, match="mixes"):
+            forced.run("showcase", ["full"], tmp_path / "run")

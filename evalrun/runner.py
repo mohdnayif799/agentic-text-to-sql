@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import subprocess
 import time
+import traceback
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
@@ -23,11 +24,11 @@ from typing import Any
 
 import yaml
 
-from agentcrew.archs import ArchOutcome, run_architecture
+from agentcrew.archs import ArchOutcome, progress, run_architecture
 from agentcrew.config import Settings
 from agentcrew.context import ContextBuilder
 from agentcrew.db.engine import read_only_engine
-from agentcrew.llm import LLMClient, LLMError, StructuredOutputError
+from agentcrew.llm import LLMClient, StructuredOutputError
 from agentcrew.tools import ToolContext
 from agentcrew.tracer import Tracer
 from evalkit.answer_checks import check_answer
@@ -46,7 +47,7 @@ from evalkit.stats import wilson_interval
 from evalrun.backoff import DailyLimitReached
 from evalrun.cache import CacheMiss, CachingClient
 from evalrun.redact import redact, redact_text, secrets_of
-from evalrun.sets import ALL_GOLD_FILES, load_questions
+from evalrun.sets import ALL_GOLD_FILES, ALL_SET_FILES, load_questions
 
 RUN_CONFIG = ROOT / "eval" / "run_config.yaml"
 RESULT_ROWS = 20
@@ -62,6 +63,43 @@ CALL_ESTIMATE = {"baseline": (2, 3), "v1": (5, 20), "router": (3, 12), "full": (
 
 #: Architectures whose step 0 is A's first call, served from A's cache.
 SHARES_STEP0 = ("router", "full")
+
+#: Status of a run in which an exception escaped the architecture. Scored as
+#: not passing (protocol v2: "a run that errors fails"), but always reported
+#: as an ERROR with its type and stage, never as an ordinary failure.
+ERROR = "ERROR"
+
+HOLDOUT_SETS = ("holdout_agent", "holdout_easy")
+FREEZE_V2 = ROOT / "eval" / "FREEZE_v2.sha256"
+
+
+def check_force_escalation(set_name: str, archs: list[str]) -> None:
+    """Forced escalation is a development smoke test: never on a holdout (or
+    any frozen) set, and only for D."""
+    frozen = {line.split("*", 1)[1].strip()
+              for line in FREEZE_V2.read_text("utf-8").splitlines() if "*" in line}
+    path = ALL_SET_FILES[set_name].relative_to(ROOT).as_posix()
+    if set_name in HOLDOUT_SETS or path in frozen:
+        raise ValueError(f"forced escalation is a development-only switch; it is "
+                         f"refused on the holdout set {set_name!r}")
+    if list(archs) != ["full"]:
+        raise ValueError("forced escalation applies to D only: use --arch full")
+
+
+def _where(exc: BaseException) -> str:
+    """The innermost agentcrew/ frame of the exception, as 'path:line in fn'."""
+    frames = []
+    for frame in traceback.extract_tb(exc.__traceback__):
+        try:
+            rel = Path(frame.filename).resolve().relative_to(ROOT).as_posix()
+        except ValueError:
+            rel = Path(frame.filename).name
+        frames.append((rel, frame))
+    inside = [f for f in frames if f[0].startswith("agentcrew/")] or frames[-1:]
+    if not inside:
+        return "unknown"
+    rel, frame = inside[-1]
+    return f"{rel}:{frame.lineno} in {frame.name}"
 
 
 def judge_calls_per_answer(q: dict[str, Any]) -> int:
@@ -190,8 +228,10 @@ class Runner:
         live_factory: Callable[[Settings], LLMClient] | None,
         sleep: Callable[[float], None] = time.sleep,
         log: Callable[[str], None] = print,
+        force_escalation: bool = False,
     ) -> None:
         self.cfg = cfg
+        self.force_escalation = force_escalation
         self.settings = cfg.settings()
         self.secrets = secrets_of(self.settings)
         self._factory = live_factory
@@ -234,17 +274,25 @@ class Runner:
                    + ([("router (shared with C)", shared)] if shared else []))
         tracer = Tracer(f"{arch}-{q['id']}", trace_dir=None)
         started = time.perf_counter()
+        progress.reset()
+        error = None
         try:
             outcome = run_architecture(
                 arch, q["question"], settings=self.settings, llm=client,
                 tools=self.tools, context_builder=self.builder, tracer=tracer,
                 step0_llm=step0, shared_llm=shared,
+                force_escalation=self.force_escalation and arch == "full",
             )
-        except LLMError as exc:  # provider error (not quota): a failed run
-            message = redact_text(f"{type(exc).__name__}: {exc}", self.secrets)
-            outcome = ArchOutcome(arch=arch, question=q["question"],
-                                  status="failed", answer="", selected=None,
-                                  path="error", stop_reason="error", error=message)
+        except (DailyLimitReached, CacheMiss):
+            raise  # stop and resume later; not a result
+        except Exception as exc:  # noqa: BLE001 - recorded as an ERROR, not swallowed
+            error = {"type": type(exc).__name__, "stage": progress.current(),
+                     "where": _where(exc),
+                     "message": redact_text(str(exc), self.secrets)[:500]}
+            outcome = ArchOutcome(
+                arch=arch, question=q["question"], status=ERROR, answer="",
+                selected=None, path="error", stop_reason="error",
+                error=f"{error['type']} at {error['stage']}: {error['message']}")
         latency = (time.perf_counter() - started
                    - sum(c.slept_seconds for _, c in clients))
         # As if every call were live: replayed calls (including C's and D's
@@ -258,7 +306,7 @@ class Runner:
         selected = outcome.selected if ok else None
         judge = None
         judge_client = None
-        named = q["type"] == "why" and check_answer(
+        named = error is None and q["type"] == "why" and check_answer(
             outcome.answer, q["driver_checks"]
         ).passed
         if named:
@@ -299,6 +347,7 @@ class Runner:
             "latency_s": round(latency, 3),
             "latency_live_s": round(latency_live, 3),
             "latency_unmeasured_calls": unmeasured,
+            "error_detail": error,
             "score": asdict(score),
         }, self.secrets)
         path = trace_dir / arch / f"{q['id']}.json"
@@ -310,8 +359,11 @@ class Runner:
             "id": q["id"], "type": q["type"], "arch": arch, "state": "evaluated",
             "primary": score.primary, "answer_ok": score.answer_ok,
             "end_to_end": score.end_to_end,
-            "first_failing_check": "" if score.primary else score.detail,
+            "first_failing_check": (
+                f"ERROR {error['type']} at {error['stage']}" if error
+                else "" if score.primary else score.detail),
             "detail": score.detail, "status": outcome.status, "path": outcome.path,
+            "error": error,
             "judge": judge,
             "llm_calls": sum(c.calls for _, c in clients),
             "live_calls": sum(c.live_calls for _, c in clients),
@@ -390,6 +442,12 @@ class Runner:
                     if results_path.exists() else {"items": []})
         done = {(i["id"], i["arch"]): i for i in previous["items"]
                 if i["state"] == "evaluated"}
+        if self.force_escalation:
+            check_force_escalation(set_name, archs)
+        if previous["items"] and bool(previous.get("force_escalation")) \
+                != self.force_escalation:
+            raise ValueError(f"{run_dir.name} mixes forced-escalation and normal "
+                             "results; use a new run name")
         plan = planned_calls(questions, archs)
         self._log(
             f"Planned LLM calls for {len(questions)} question(s) x {archs}: "
@@ -407,6 +465,9 @@ class Runner:
             "code_commit": _git_commit(),
             "started_utc": datetime.now(UTC).isoformat(timespec="seconds"),
             "planned_calls": plan,
+            **({"force_escalation": True,
+                "note": "development smoke test: results do not count"}
+               if self.force_escalation else {}),
         }
         items: list[dict[str, Any]] = []
         stopped = None
@@ -539,12 +600,17 @@ def missed_escalations(items: list[dict[str, Any]]) -> dict[str, Any]:
     out: dict[str, Any] = {"baseline_failed": len(failed)}
     rows: list[dict[str, str]] = [{"id": qid} for qid in failed]
     for arch in SHARES_STEP0:
-        counts = {"escalated": 0, "not_escalated": 0, "not_run": 0}
+        counts = {"escalated": 0, "not_escalated": 0, "error": 0, "not_run": 0}
         for row in rows:
             item = evaluated.get((row["id"], arch))
             if item is None or item.get("primary") is None:
                 counts["not_run"] += 1
                 row[arch] = "not run"
+                continue
+            if item.get("status") == ERROR:
+                counts["error"] += 1
+                detail = item.get("error") or {}
+                row[arch] = f"ERROR ({detail.get('type')} at {detail.get('stage')})"
                 continue
             escalated = item.get("path") == "escalated"
             counts["escalated" if escalated else "not_escalated"] += 1
@@ -569,6 +635,7 @@ def summarise(items: list[dict[str, Any]], archs: list[str]) -> dict[str, Any]:
         out[arch] = {
             "primary": f"{k}/{n}", "wilson95": [round(lo, 3), round(hi, 3)],
             "pending": len(mine) - n,
+            "errors": sum(1 for i in mine if i.get("status") == ERROR),
             "answer_ok": sum(1 for i in mine if i.get("answer_ok")),
             "end_to_end": sum(1 for i in mine if i.get("end_to_end")),
             "avg_llm_calls": round(sum(i["llm_calls"] for i in mine) / len(mine), 2)

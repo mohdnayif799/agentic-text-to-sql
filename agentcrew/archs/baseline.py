@@ -9,6 +9,7 @@ the old numbers (eval/PROTOCOL.md, protocol v2).
 
 from __future__ import annotations
 
+from agentcrew.archs import progress
 from agentcrew.archs.answer import write_answer
 from agentcrew.archs.outcome import ArchOutcome, RepairEvent, SqlAttempt
 from agentcrew.config import Settings
@@ -78,11 +79,13 @@ def run_baseline(
     attempts: list[SqlAttempt] = []
     repairs: list[RepairEvent] = []
     try:
+        progress.enter("step 1: SQL")
         draft = _draft(llm, user, settings)
         result: ExecutionResult = execute_readonly_sql(tools, draft.sql)
         attempts.append(SqlAttempt.from_result(result, draft.sql))
         if not result.ok:
             first = result
+            progress.enter("step 1: retry")
             retry = RETRY_BLOCK.format(sql=result.sql or draft.sql,
                                        error=result.error_message)
             draft = _draft(llm, user + retry, settings)
@@ -101,6 +104,7 @@ def run_baseline(
             attempts,
         )
     try:
+        progress.enter("final: answer")
         final, _ = write_answer(
             llm, question, result,
             max_tokens=settings.max_output_tokens, temperature=settings.temperature,

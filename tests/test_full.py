@@ -415,3 +415,20 @@ class TestDriverSentence:
     def test_guidance_asks_for_plain_words_and_the_driver_first(self):
         assert "plain words" in METRIC_GUIDANCE
         assert "First sentence: the main driver" in METRIC_GUIDANCE
+
+
+
+def test_forced_escalation_escalates_a_clean_question(pinned, engine, builder):
+    from agentcrew.archs.full import FORCED_REASON
+
+    script = Script()  # clean step 0, follow-up decision says no
+    client = FakeClient(responder=script)
+    out = run_architecture("full", QUESTION, settings=pinned, llm=client,
+                           tools=ToolContext.create(engine), context_builder=builder,
+                           force_escalation=True)
+    assert out.path == "escalated"
+    assert script.calls == ["step0", "decision", "decide", "answer"]
+    assert out.plan == (FORCED_REASON,)
+    assert FORCED_REASON in script.prompts["decide"]
+    normal, _ = run_d(Script(), pinned, engine, builder)
+    assert normal.path == "direct"  # the switch is off by default

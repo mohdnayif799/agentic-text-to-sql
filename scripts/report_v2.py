@@ -81,6 +81,8 @@ def render(payload: dict[str, Any], run_dir: Path, cache_dir: Path) -> str:
         f"{payload['temperature']}, today {payload['today']}, max steps "
         f"{payload['max_steps']}, max attempts {payload['max_attempts_per_step']}; "
         f"code `{payload['code_commit']}`; complete: {payload['complete']}.",
+        *(["", "**Forced escalation (development smoke test): these results do "
+                "not count.**"] if payload.get("force_escalation") else []),
         "",
         "## Summary",
         "",
@@ -98,8 +100,9 @@ def render(payload: dict[str, Any], run_dir: Path, cache_dir: Path) -> str:
         avg_live = (f"{sum(mine) / len(mine):.2f}" if mine and None not in mine
                     else "n/a")
         by_type = ", ".join(f"{t} {v}" for t, v in s["by_type"].items())
+        errors = (f" ({s['errors']} ERROR)" if s.get("errors") else "")
         lines.append(
-            f"| {ARCH_LABEL[arch]} {arch} | {s['primary']} | "
+            f"| {ARCH_LABEL[arch]} {arch} | {s['primary']}{errors} | "
             f"{s['wilson95'][0]:.2f}-{s['wilson95'][1]:.2f} | {s['avg_llm_calls']} | "
             f"{s['avg_latency_s']} ({avg_live}) | {by_type} |")
 
@@ -117,7 +120,8 @@ def render(payload: dict[str, Any], run_dir: Path, cache_dir: Path) -> str:
             lines.append(f"| {item['id']} | {item['type']} | {arch} | not evaluated "
                          f"| {_cell(item.get('detail', ''))[:80]} | | | | | |")
             continue
-        result = "PASS" if item["primary"] else "FAIL"
+        result = ("ERROR" if item.get("status") == "ERROR"
+                  else "PASS" if item["primary"] else "FAIL")
         as_live = live[(item["id"], item["arch"])]
         shown = "n/a" if as_live is None else f"{as_live:.2f}"
         lines.append(
@@ -148,8 +152,9 @@ def render(payload: dict[str, Any], run_dir: Path, cache_dir: Path) -> str:
         lines += [
             f"A failed {missed['baseline_failed']} question(s). "
             + "; ".join(f"{ARCH_LABEL[a]} escalated {missed[a]['escalated']}, "
-                        f"did not escalate {missed[a]['not_escalated']}, not run "
-                        f"{missed[a]['not_run']}" for a in ("router", "full")) + ".",
+                        f"did not escalate {missed[a]['not_escalated']}, ERROR "
+                        f"{missed[a].get('error', 0)}, not run {missed[a]['not_run']}"
+                        for a in ("router", "full")) + ".",
             "",
             "| question | C | D |",
             "| --- | --- | --- |",

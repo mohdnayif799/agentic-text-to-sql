@@ -39,10 +39,12 @@ def run_architecture(
     tracer: Tracer | None = None,
     step0_llm: LLMClient | None = None,
     shared_llm: LLMClient | None = None,
+    force_escalation: bool = False,
 ) -> ArchOutcome:
     """`step0_llm` serves step 0 (A's first call) and the direct answer of C
     and D; `shared_llm` serves D's C-identical calls (step-0 repairs and the
-    follow-up decision). The eval runner points them at A's and C's caches."""
+    follow-up decision). The eval runner points them at A's and C's caches.
+    `force_escalation` (D only) is the development smoke-test switch."""
     if arch == "baseline":
         return run_baseline(
             question, llm=llm, tools=tools,
@@ -59,6 +61,7 @@ def run_architecture(
             question, llm=llm, tools=tools,
             context=context_builder.build(question), settings=settings,
             step0_llm=step0_llm, shared_llm=shared_llm,
+            force_escalation=force_escalation,
         )
     if arch == "v1":
         return run_v1(question, llm=llm, settings=settings,

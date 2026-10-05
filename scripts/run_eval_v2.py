@@ -5,6 +5,10 @@
     python scripts/run_eval_v2.py ... --offline       # cache only, no API calls
     python scripts/run_eval_v2.py --set showcase --run NAME --rejudge
                                    # re-judge a run's stored why-answers only
+    python scripts/run_eval_v2.py --set dev2 --arch full --run NAME --force-escalation
+                                   # development smoke test: D escalates on
+                                   # every question (refused on holdout sets;
+                                   # results do not count)
 
 Configuration (provider, model, fixed "today", budgets) comes from
 eval/run_config.yaml. Results: eval/runs/<run>/results.json; traces:
@@ -24,13 +28,19 @@ sys.path.insert(0, str(ROOT))
 
 from agentcrew.archs import ARCHS  # noqa: E402
 from agentcrew.llm import build_client  # noqa: E402
-from evalrun.runner import RunConfig, Runner, planned_calls  # noqa: E402
+from evalrun.runner import (  # noqa: E402
+    RunConfig,
+    Runner,
+    check_force_escalation,
+    planned_calls,
+)
 from evalrun.sets import ALL_SET_FILES, load_questions  # noqa: E402
 
 
 def _print_summary(payload: dict) -> None:
     for arch, s in payload["summary"].items():
-        print(f"{arch:9} primary {s['primary']} (Wilson {s['wilson95']}), "
+        errors = f", ERROR {s['errors']}" if s.get("errors") else ""
+        print(f"{arch:9} primary {s['primary']}{errors} (Wilson {s['wilson95']}), "
               f"pending {s['pending']}, avg calls {s['avg_llm_calls']}, "
               f"avg latency {s['avg_latency_s']}s "
               f"(as if live {s.get('avg_latency_live_s', '?')}s), "
@@ -42,7 +52,8 @@ def _print_summary(payload: dict) -> None:
     if missed:
         print(f"A failed {missed['baseline_failed']}: "
               + "; ".join(f"{arch} escalated {missed[arch]['escalated']}, "
-                          f"not escalated {missed[arch]['not_escalated']}"
+                          f"not escalated {missed[arch]['not_escalated']}, "
+                          f"error {missed[arch].get('error', 0)}"
                           for arch in ("router", "full")))
         for row in missed["questions"]:
             print(f"  {row['id']}: C {row['router']}, D {row['full']}")
@@ -57,9 +68,17 @@ def main() -> int:
     ap.add_argument("--plan-only", action="store_true")
     ap.add_argument("--rejudge", action="store_true",
                     help="re-judge the run's stored why-question answers only")
+    ap.add_argument("--force-escalation", action="store_true",
+                    help="development smoke test: D escalates on every question "
+                         "(refused on holdout sets; results do not count)")
     args = ap.parse_args()
     if not args.rejudge and not args.arch:
         ap.error("--arch is required unless --rejudge is given")
+    if args.force_escalation:
+        try:
+            check_force_escalation(args.set, args.arch or [])
+        except ValueError as exc:
+            ap.error(str(exc))
 
     cfg = RunConfig.load()
     if args.plan_only:
@@ -68,7 +87,8 @@ def main() -> int:
               f"{plan['per_arch']} + judge <= {plan['judge_max']}")
         return 0
 
-    runner = Runner(cfg, live_factory=None if args.offline else build_client)
+    runner = Runner(cfg, live_factory=None if args.offline else build_client,
+                    force_escalation=args.force_escalation)
     run_dir = ROOT / "eval" / "runs" / args.run
     if args.rejudge:
         _print_summary(runner.rejudge(args.set, run_dir))

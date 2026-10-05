@@ -32,7 +32,7 @@ including the components that do not move.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -356,7 +356,10 @@ def _where(source: Source, period: Period | None, filters: Mapping[str, str]) ->
     return ("WHERE " + " AND ".join(clauses)) if clauses else ""
 
 
-def _aggregates_for(names: set[str]) -> dict[str, str]:
+def _aggregates_for(names: Sequence[str]) -> dict[str, str]:
+    """Aggregates the factors need, in the factors' order. A sequence, never a
+    set: set order follows string hashing, which changes per process, and the
+    SQL text (shown to the model) must be the same in every run."""
     needed: dict[str, str] = {}
     for name in names:
         numerator, denominator = FACTORS[name]
@@ -505,9 +508,11 @@ def decompose_change(
         raise ComputeError(f"{metric.name} has no component decomposition; "
                            "use contribution_by_dimension")
     source = _check(metric, comparison)
-    factors = {metric.factor}
-    for parts in [*metric.products.values(), *metric.sums.values()]:
-        factors.update(name for name, _ in parts)
+    # Declaration order (the metric, then each decomposition's components).
+    factors = list(dict.fromkeys(
+        [metric.factor] + [name for parts in [*metric.products.values(),
+                                              *metric.sums.values()]
+                           for name, _ in parts]))
     aggregates = _aggregates_for(factors)
 
     sides, queries = [], []
@@ -557,7 +562,7 @@ def contribution_by_dimension(
                            "defined for additive metrics (sums and counts)")
     source = _check(metric, comparison)
     _dimension(source, dimension)
-    aggregates = _aggregates_for({metric.factor})
+    aggregates = _aggregates_for([metric.factor])
     tables, queries = [], []
     for label, period, filters in comparison.sides():
         sql = build_sql(source, aggregates, period, filters, dimension=dimension)

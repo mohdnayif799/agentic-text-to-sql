@@ -27,6 +27,11 @@ answer does not name the main driver (the largest contributor) in plain
 words, a sentence built from the table states it (driver_sentence).
 Other questions are assembled as in C.
 
+`force_escalation` is a development-only switch (the evaluation runner
+refuses it on holdout sets; the app never sets it): D escalates on every
+question, so a smoke test can exercise tools a direct answer never reaches.
+Its results do not count.
+
 Budgets are the live demo's: at most `max_steps` steps (step 0 counts as
 one; every tool call is one step) and `max_attempts_per_step` executions per
 query. The answer is written from the final result.
@@ -36,6 +41,7 @@ from __future__ import annotations
 
 import re
 
+from agentcrew.archs import progress
 from agentcrew.archs.answer import write_answer
 from agentcrew.archs.assemble import stack
 from agentcrew.archs.baseline import SQL_SYSTEM, SQL_USER
@@ -180,6 +186,13 @@ _WHY = re.compile(
 )
 _METRIC_STEPS = {f"compute:{name}" for name in METRIC_TOOLS}
 
+FORCED_REASON = (
+    "Forced escalation for a development smoke test: re-check the first result "
+    "with the tools (look up the values it filters on, recompute any statistic "
+    "with the compute functions, run any follow-up query the question implies) "
+    "before answering."
+)
+
 
 def is_why_question(question: str) -> bool:
     return _WHY.search(question) is not None
@@ -259,10 +272,12 @@ class Full(Router):
         settings: Settings,
         step0_llm: LLMClient | None = None,
         shared_llm: LLMClient | None = None,
+        force_escalation: bool = False,
     ) -> None:
         super().__init__(question, llm=llm, tools=tools, context=context,
                          settings=settings, step0_llm=step0_llm)
         self.shared_llm = shared_llm or llm
+        self.force_escalation = force_escalation
         self.formats = _date_formats(tools)
         self.why = is_why_question(question)
         # replace(), not format(): the prompts contain literal JSON braces.
@@ -289,6 +304,7 @@ class Full(Router):
         )
 
     def _next_action(self, steps: list[StepRun], reason: str) -> NextAction | None:
+        progress.enter(f"step {len(steps) + 1}: decide_next_action")
         try:
             return self._structured(NextAction, self.system,
                                     self._decide_prompt(steps, reason))
@@ -299,6 +315,7 @@ class Full(Router):
                      reason: str) -> StepRun | None:
         """A why-question's first exploration step: a metric analysis. If no
         valid plan comes back, the ordinary loop continues instead."""
+        progress.enter(f"step {number}: metric plan")
         try:
             plan: MetricPlan = self._structured(
                 MetricPlan, self.metric_system, self._decide_prompt(steps, reason))
@@ -320,6 +337,9 @@ class Full(Router):
 
     def _act(self, number: int, action: NextAction,
              steps: list[StepRun]) -> StepRun:
+        tool = (f"compute:{action.function}" if action.action == "compute"
+                else action.action)
+        progress.enter(f"step {number}: {tool}")
         if action.action == "run_sql":
             step = self.run_step(number, action.sql, action.reason,
                                  verify=self._verify)
@@ -344,6 +364,7 @@ class Full(Router):
         steps: list[StepRun] = []
         try:
             # Step 0 = A's first call; repairs and decision = C's own calls.
+            progress.enter("step 1: SQL (A's call)")
             draft: SqlDraft = self._structured(
                 SqlDraft, SQL_SYSTEM,
                 SQL_USER.format(context=self.context_text, question=self.question,
@@ -353,16 +374,21 @@ class Full(Router):
             first = self.run_step(1, draft.sql, repair_llm=self.shared_llm)
             steps.append(first)
             decision = self._followup_decision(first, llm=self.shared_llm)
-            explore = decision.needs_followup or first.signal is not None
-            escalated = explore or bool(first.repairs)
+            escalated = self.escalated(decision, first) or self.force_escalation
+            explore = (decision.needs_followup or first.signal is not None
+                       or self.force_escalation)
             if escalated and first.result.ok and first.signal is None:
+                progress.enter("step 1: verification")
                 first.signal = self._verify(first.sql, first.result)
                 self.repair(first, verify=self._verify)
                 # A failed check that repair could not resolve: explore.
                 explore = explore or first.signal is not None
             if explore:
-                reason = decision.reason or (
+                # The decision's reason only when it asked for a follow-up.
+                reason = (decision.reason if decision.needs_followup else "") or (
                     first.signal.detail if first.signal else "")
+                if self.force_escalation and not reason:
+                    reason = FORCED_REASON
                 if self.why and len(steps) < self.settings.max_steps:
                     opened = self._metric_step(len(steps) + 1, steps, reason)
                     if opened is not None:
@@ -377,6 +403,7 @@ class Full(Router):
                 failed = self._failed(steps, decision, "every query failed")
                 return self._as_full(failed)
             stacked = bool(plan_used and "stacked_steps" in plan_used)
+            progress.enter("final: answer")
             final, _ = write_answer(
                 self.llm if escalated else self.step0_llm, self.question, selected,
                 max_tokens=self.settings.max_output_tokens,
@@ -414,7 +441,8 @@ class Full(Router):
             arch="full", question=self.question, status="done",
             answer=answer, selected=selected,
             path="escalated" if escalated else "direct",
-            plan=tuple([decision.reason] if decision.needs_followup else []),
+            plan=tuple([decision.reason] if decision.needs_followup
+                       else [FORCED_REASON] if self.force_escalation else []),
             attempts=tuple(a for s in steps for a in s.attempts),
             steps=tuple(records),
             key_numbers=tuple(final.key_numbers), caveats=tuple(final.caveats),
@@ -438,6 +466,8 @@ def run_full(
     settings: Settings,
     step0_llm: LLMClient | None = None,
     shared_llm: LLMClient | None = None,
+    force_escalation: bool = False,
 ) -> ArchOutcome:
     return Full(question, llm=llm, tools=tools, context=context, settings=settings,
-                step0_llm=step0_llm, shared_llm=shared_llm).run()
+                step0_llm=step0_llm, shared_llm=shared_llm,
+                force_escalation=force_escalation).run()

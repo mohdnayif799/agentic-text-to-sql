@@ -35,6 +35,7 @@ from dataclasses import dataclass, field
 
 from pydantic import BaseModel, Field
 
+from agentcrew.archs import progress
 from agentcrew.archs.answer import write_answer
 from agentcrew.archs.assemble import AssemblyPlan, assemble, default_plan
 from agentcrew.archs.baseline import SQL_SYSTEM, SQL_USER
@@ -233,6 +234,14 @@ class Router:
             return self._decide(first, llm=llm)
         return FollowupDecision()
 
+    @staticmethod
+    def escalated(decision: FollowupDecision, first: StepRun) -> bool:
+        """The one escalation rule, shared by C and D: a follow-up is needed
+        (decision or question signal), or step 1 had a signal (and so was
+        repaired). Everything it reads comes before any D-only work."""
+        return (decision.needs_followup or bool(first.repairs)
+                or first.signal is not None)
+
     def _signal_record(self, number: int) -> dict:
         return ({"escalation_signal": self.question_signal.kind}
                 if self.question_signal is not None and number == 1 else {})
@@ -270,6 +279,7 @@ class Router:
     ) -> StepRun:
         """Execute, then repair on a signal. `verify` (architecture D's
         escalated path) adds verification checks to the signals."""
+        progress.enter(f"step {number}: query")
         result, signal = self._check(sql, verify)
         step = StepRun(number, result.sql or sql, result, signal, reason, sql)
         step.attempts.append(SqlAttempt.from_result(result, sql))
@@ -286,6 +296,7 @@ class Router:
         tries = len(step.attempts)
         while step.signal and tries < self.settings.max_attempts_per_step:
             tries += 1
+            progress.enter(f"step {step.number}: repair ({step.signal.kind})")
             prompt = REPAIR_USER.format(
                 context=self.context_text, question=self.question,
                 sql=step.model_sql, kind=step.signal.kind, detail=step.signal.detail,
@@ -317,6 +328,7 @@ class Router:
 
     def _decide(self, step: StepRun, llm: LLMClient | None = None) -> FollowupDecision:
         """Follow-up decision: only reached when step 0 gave a usable result."""
+        progress.enter("follow-up decision")
         prompt = DECISION_USER.format(
             question=self.question, sql=step.sql,
             row_count=step.result.row_count,
@@ -329,6 +341,7 @@ class Router:
         steps: list[StepRun] = []
         try:
             # Step 0 = A's first call, byte for byte.
+            progress.enter("step 1: SQL (A's call)")
             draft: SqlDraft = self._structured(
                 SqlDraft, SQL_SYSTEM,
                 SQL_USER.format(context=self.context_text, question=self.question,
@@ -340,6 +353,7 @@ class Router:
             decision = self._followup_decision(first)
             if decision.needs_followup:
                 while len(steps) < self.settings.max_steps:
+                    progress.enter(f"step {len(steps) + 1}: follow-up SQL")
                     nxt: FollowupDraft = self._structured(
                         FollowupDraft, FOLLOWUP_SYSTEM, FOLLOWUP_USER.format(
                             context=self.context_text, question=self.question,
@@ -352,7 +366,8 @@ class Router:
             selected, selected_step, plan_used = self._select(steps)
             if selected is None:
                 return self._failed(steps, decision, "every query failed")
-            direct = not decision.needs_followup and not first.repairs
+            direct = not self.escalated(decision, first)
+            progress.enter("final: answer")
             final, _ = write_answer(
                 self.step0_llm if direct else self.llm, self.question, selected,
                 max_tokens=self.settings.max_output_tokens,
@@ -406,6 +421,7 @@ class Router:
             (number, result), = usable.items()
             return result, number, None
         try:
+            progress.enter("final: assembly")
             plan: AssemblyPlan = self._structured(
                 AssemblyPlan, ASSEMBLY_SYSTEM, ASSEMBLY_USER.format(
                     question=self.question,

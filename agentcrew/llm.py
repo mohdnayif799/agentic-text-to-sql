@@ -52,8 +52,9 @@ class QuotaExhaustedError(LLMError):
     this to stop cleanly and mark the remaining questions as *not evaluated*
     rather than scoring them as failures.
 
-    Deliberately NOT raised for transient overload (503 / "high demand"). That
-    is a real failure of the run and should be counted as one.
+    Deliberately NOT raised for transient overload (503 / "high demand"): that
+    is not a quota stop. The evaluation harness retries it a few times
+    (evalrun/backoff.py) and records one that persists as an ERROR.
     """
 
 
