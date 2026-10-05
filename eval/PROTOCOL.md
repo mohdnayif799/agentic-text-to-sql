@@ -273,9 +273,19 @@ numbers.
 
 **Failures:**
 
-- A run that errors or produces no selected result fails.
+- A run that errors or produces no selected result fails. That includes
+  model-output problems (invalid JSON after the repair attempt, SQL that
+  cannot be used) and exceptions in our own code; such runs are reported as
+  ERROR with the exception type and the stage it happened in.
 - Quota exhaustion marks the question *not evaluated*, and the run resumes
   later.
+- A provider error that persists after the retries (HTTP 5xx, UNAVAILABLE,
+  or a transport timeout; retried after 10, 30 and 60 seconds) also marks
+  the question *not evaluated*, and a later run resumes it (pre-run
+  amendment 3). Every resumed question is listed in the report. If it still
+  fails this way on resumes made on two different days (calendar dates of
+  the attempts, the first run not counted as a resume), it is scored as a
+  fail.
 - A question counts only when every architecture in the comparison has an
   evaluated result for it.
 
@@ -305,7 +315,10 @@ numbers.
   - cache every LLM response on disk, keyed by architecture, question id,
     model and prompt hash;
   - on a per-minute 429, back off exponentially;
-  - on the daily limit, save progress and stop so the run can resume.
+  - on the daily limit, save progress and stop so the run can resume;
+  - on a provider error (5xx, UNAVAILABLE, transport timeout), retry after
+    10, 30 and 60 seconds, then mark the question not evaluated (see
+    Failures).
 - **Traces** for every question: plan text, every SQL attempt, result
   previews, the number of LLM calls and latency. Secrets are redacted.
 - **Phase 5:** one primary run of A, C and D on both holdouts, with B only
@@ -382,6 +395,22 @@ and reason, never made silently.
     validation), the rubrics of ha07, ha08 and ha09 in `holdout_agent.yaml`,
     and `gold/holdout_agent.json` (question hash only; gold values
     unchanged). `FREEZE_v2.sha256` was regenerated.
+- **2026-10-05, pre-run amendment 3 (no architecture had been run on either
+  holdout; approved by the author).** During development, a provider
+  overload (Gemini "503 UNAVAILABLE", "high demand") on one call was scored
+  as a failure of the architecture that happened to make the call, although
+  it says nothing about that architecture.
+  - **Rule:** a provider error that persists after the retries (HTTP 5xx,
+    UNAVAILABLE, or a transport timeout) marks the question *not
+    evaluated*, like quota exhaustion, and a later run resumes it. Every
+    resumed question is listed in the report. A question that still fails
+    this way on resumes made on two different days is scored as a fail.
+  - **Unchanged:** model-output problems (invalid JSON, unusable SQL), other
+    provider errors (4xx) and exceptions in our own code still count as
+    fails.
+  - **Files changed:** this protocol (Failures and Run configuration).
+    `FREEZE_v2.sha256` was regenerated. The runner (`evalrun/`, not
+    frozen) implements the rule.
 
 ## Archive: protocol v1 - expanded evaluation (52 questions)
 

@@ -44,9 +44,10 @@ METRIC_PLAN = {"metric": "revenue", "reason": "split revenue", "comparison": {
 class Script:
     def __init__(self, *, step0=COUNT, needs_followup=False, actions=(),
                  repairs=(), plan=None, metric_plans=(METRIC_PLAN,),
-                 answer="Scripted."):
+                 answer="Scripted.", trend_plans=()):
         self.step0, self.needs_followup = step0, needs_followup
         self.answer = answer
+        self.trend_plans = list(trend_plans)
         self.actions, self.repairs = list(actions), list(repairs)
         self.plan = plan or {"base_step": 1, "columns": []}
         self.metric_plans = list(metric_plans)
@@ -61,6 +62,9 @@ class Script:
         if "You check whether one query result" in system:
             note("decision")
             return {"needs_followup": self.needs_followup, "reason": "needs a breakdown"}
+        if "asks for a forecast, a projection or a fitted trend" in system:
+            note("trend_plan")
+            return self.trend_plans.pop(0) if self.trend_plans else {}
         if "You start the analysis of a question that asks why" in system:
             note("metric_plan")
             return self.metric_plans.pop(0) if self.metric_plans else {}
@@ -346,7 +350,9 @@ SERIES = ("SELECT substr(signup_date, 1, 7) AS month, COUNT(*) AS signups "
 FORECAST_Q = "Project monthly signups for the first two months of 2025 from a linear trend."
 
 
-def test_forecast_question_reaches_the_compute_tools(pinned, engine, builder):
+def test_without_a_trend_plan_the_loop_can_still_reach_the_tools(
+    pinned, engine, builder
+):
     forecast = {"action": "compute", "function": "linear_trend_forecast",
                 "params": {"step": 2, "value": "signups", "order": "month",
                            "periods_ahead": 2}}
@@ -432,3 +438,64 @@ def test_forced_escalation_escalates_a_clean_question(pinned, engine, builder):
     assert FORCED_REASON in script.prompts["decide"]
     normal, _ = run_d(Script(), pinned, engine, builder)
     assert normal.path == "direct"  # the switch is off by default
+
+
+
+TREND_PLAN = {"series_sql": SERIES, "period": "month", "value": "signups",
+              "function": "linear_trend_forecast", "periods": ["2025-01", "2025-02"],
+              "reason": "fit the 2023-2024 series"}
+
+
+class TestTrendPlan:
+    """A forecast / trend-fit question opens with a TrendPlan: the series
+    query, then the deterministic fit, whose table is the final result."""
+
+    def test_forecast_opens_with_the_series_and_the_fit(self, pinned, engine, builder):
+        script = Script(trend_plans=[TREND_PLAN])
+        out, _ = run_d(script, pinned, engine, builder, question=FORECAST_Q)
+        assert script.calls == ["step0", "trend_plan", "answer"]
+        assert [s["tools"] for s in out.steps] == [
+            ["run_sql"], ["run_sql"], ["compute:linear_trend_forecast"]]
+        assert out.selected_step == 3
+        cols = out.selected.columns
+        assert cols[0] == "month" and "x_convention" in cols
+        rows = out.selected.rows
+        assert [r[0] for r in rows] == ["2025-01", "2025-02"]
+        assert rows[0][cols.index("x_convention")] == "x = month number, 1 = 2023-01"
+        assert rows[0][cols.index("x")] == 25
+
+    def test_model_style_plan_with_wrong_case_and_extra_fields(
+        self, pinned, engine, builder
+    ):
+        plan = {**TREND_PLAN, "function": "Linear_Trend_Forecast", "value": "SIGNUPS",
+                "periods": "2025-03", "confidence": "high", "threshold": None}
+        out, _ = run_d(Script(trend_plans=[plan]), pinned, engine, builder,
+                       question=FORECAST_Q)
+        assert [r[0] for r in out.selected.rows] == ["2025-03"]
+
+    def test_trend_anomalies_against_the_line(self, pinned, engine, builder):
+        plan = {"series_sql": SERIES, "period": "month", "value": "signups",
+                "function": "zscore_anomalies", "threshold": 1.5,
+                "direction": "Both"}
+        out, _ = run_d(Script(trend_plans=[plan]), pinned, engine, builder,
+                       question="Which months sit far from the trend line of signups?")
+        assert [s["tools"] for s in out.steps][-1] == ["compute:zscore_anomalies"]
+        assert "x_convention" in out.selected.columns
+
+    def test_a_failing_series_query_falls_back_to_the_loop(
+        self, pinned, engine, builder
+    ):
+        bad = {**TREND_PLAN, "series_sql": "SELECT nope FROM customers"}
+        script = Script(trend_plans=[bad], repairs=["SELECT nope2 FROM customers"] * 2)
+        out, _ = run_d(script, pinned, engine, builder, question=FORECAST_Q)
+        assert out.status == "done" and out.selected.rows == [[1400]]
+        assert "decide" in script.calls  # the ordinary loop took the last step
+
+    def test_a_plan_without_periods_is_repaired_or_dropped(self):
+        from agentcrew.archs.explore import TrendPlan
+
+        with pytest.raises(ValueError, match="periods"):
+            TrendPlan(series_sql=SERIES, period="month", value="signups")
+        with pytest.raises(ValueError):
+            TrendPlan(series_sql=SERIES, period="month", value="signups",
+                      function="moving_average", periods_ahead=1)

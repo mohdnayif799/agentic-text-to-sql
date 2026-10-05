@@ -15,6 +15,12 @@ When the run escalates, D adds:
   one validated MetricPlan picks the metric and the comparison, and
   decompose_change splits the metric into its components (or, for a metric
   without components, contribution_by_dimension breaks it down);
+- for a question that asks for a forecast or a fitted trend (C's forecast
+  signal), a trend fit first: one validated TrendPlan gives the series query
+  (run and verified like any query) and the fit, which linear_trend_forecast
+  or zscore_anomalies (against the trend) computes. A first query that fitted
+  the line inside SQL is not trusted: added after a development failure
+  (dev2 dv03: the planner accepted A's one-query fit, wrong by an x offset);
 - an exploration loop: decide_next_action returns one validated NextAction
   (archs/explore.py) given the full shared context, the question verbatim,
   why more work is needed and capped previews of earlier steps. Tools:
@@ -25,7 +31,8 @@ schema), and the answer step is told how to read it and to state every
 component's comparison, including components that are about the same. If the
 answer does not name the main driver (the largest contributor) in plain
 words, a sentence built from the table states it (driver_sentence).
-Other questions are assembled as in C.
+A trend-fit question's final table is the fit's output. Other questions
+are assembled as in C.
 
 `force_escalation` is a development-only switch (the evaluation runner
 refuses it on holdout sets; the app never sets it): D escalates on every
@@ -47,8 +54,10 @@ from agentcrew.archs.assemble import stack
 from agentcrew.archs.baseline import SQL_SYSTEM, SQL_USER
 from agentcrew.archs.explore import (
     METRIC_TOOLS,
+    TREND_FUNCTIONS,
     MetricPlan,
     NextAction,
+    TrendPlan,
     compute,
     lookup,
 )
@@ -154,6 +163,30 @@ Metrics and their dimensions:
 {catalog}
 """
 
+TREND_PLAN_SYSTEM = """\
+You start the analysis of a question that asks for a forecast, a projection \
+or a fitted trend line. The fit is done by a deterministic tool, not in SQL. \
+Return its inputs as JSON:
+- series_sql: ONE read-only SQLite query that returns the series to fit: one \
+row per period over exactly the fitting window the question gives (all of it, \
+nothing after it), with a period label column and a numeric value column, \
+ordered by period. Label months 'YYYY-MM', quarters 'YYYY-Qn', years 'YYYY'. \
+Compute no trend, slope or forecast in SQL. Use only the tables and columns in \
+the schema, text values exactly as listed under allowed values, and the metric \
+definitions from the data dictionary.
+- period and value: the names of those two result columns.
+- function: linear_trend_forecast to forecast periods after the series, or \
+zscore_anomalies to find periods far from the trend line.
+- periods: for linear_trend_forecast, the labels of the periods the question \
+asks to forecast (["YYYY-MM", ...]); or periods_ahead, how many periods after \
+the last one.
+- threshold and direction (both, above or below): for zscore_anomalies.
+- reason: one sentence.
+
+The tool fits a least-squares line with x = 1, 2, 3, ... for consecutive \
+periods (1 = the first period of the series).
+"""
+
 #: Appended to the answer prompt when the final table is D's stacked metric
 #: analyses. It explains the tool's columns and asks for every component's
 #: comparison: a why-answer that names only the component that moved leaves
@@ -185,6 +218,7 @@ _WHY = re.compile(
     re.IGNORECASE,
 )
 _METRIC_STEPS = {f"compute:{name}" for name in METRIC_TOOLS}
+_TREND_STEPS = {f"compute:{name}" for name in TREND_FUNCTIONS}
 
 FORCED_REASON = (
     "Forced escalation for a development smoke test: re-check the first result "
@@ -283,6 +317,7 @@ class Full(Router):
         # replace(), not format(): the prompts contain literal JSON braces.
         self.system = DECIDE_SYSTEM.replace("{catalog}", catalog())
         self.metric_system = METRIC_PLAN_SYSTEM.replace("{catalog}", catalog())
+        self.trend_system = TREND_PLAN_SYSTEM
 
     def _verify(self, sql: str, result: ExecutionResult):
         return verify(sql, result, self.question, self.schema, self.formats,
@@ -323,9 +358,33 @@ class Full(Router):
             return None
         return self._act(number, plan.to_action(), steps)
 
+    def _trend_steps(self, number: int, steps: list[StepRun],
+                     reason: str) -> list[StepRun]:
+        """A trend-fit question's first exploration steps: the series query,
+        then the fit on it. Without a valid plan, or if the series query
+        fails, the ordinary loop continues instead."""
+        progress.enter(f"step {number}: trend plan")
+        try:
+            plan: TrendPlan = self._structured(
+                TrendPlan, self.trend_system, self._decide_prompt(steps, reason))
+        except StructuredOutputError:
+            return []
+        series = self.run_step(number, plan.series_sql, plan.reason,
+                               verify=self._verify)
+        if not (series.result.ok and series.result.rows):
+            return [series]
+        return [series, self._act(number + 1, plan.compute_action(number),
+                                  [*steps, series])]
+
     def _select(self, steps: list[StepRun]):
-        """A why-question's final table is its metric analyses, stacked; any
-        other question (or no successful analysis) is assembled as in C."""
+        """A trend-fit question's final table is the fit; a why-question's is
+        its metric analyses, stacked; any other question (or no successful
+        analysis) is assembled as in C."""
+        if self.question_signal is not None:
+            fits = [s for s in steps if s.tool in _TREND_STEPS
+                    and s.result.ok and s.result.rows]
+            if fits:
+                return fits[-1].result, fits[-1].number, None
         if self.why:
             metric = [s for s in steps if s.tool in _METRIC_STEPS
                       and s.result.ok and s.result.rows]
@@ -393,6 +452,9 @@ class Full(Router):
                     opened = self._metric_step(len(steps) + 1, steps, reason)
                     if opened is not None:
                         steps.append(opened)
+                elif (self.question_signal is not None
+                      and len(steps) + 2 <= self.settings.max_steps):
+                    steps += self._trend_steps(len(steps) + 1, steps, reason)
                 while len(steps) < self.settings.max_steps:
                     action = self._next_action(steps, reason)
                     if action is None or action.action == "answer":

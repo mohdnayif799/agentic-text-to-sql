@@ -24,7 +24,13 @@ from collections.abc import Callable
 from typing import Any, Literal
 
 import pandas as pd
-from pydantic import BaseModel, Field, ValidationError, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from sqlalchemy import Engine, text
 
 from agentcrew.compute.functions import FUNCTIONS, ComputeError
@@ -90,6 +96,11 @@ class MetricPlan(BaseModel):
                     "values may explain the difference.")
     reason: str = Field(default="", description="One sentence.")
 
+    @field_validator("metric", "dimension", mode="before")
+    @classmethod
+    def _names(cls, value: object) -> object:
+        return value.strip().lower() if isinstance(value, str) else value
+
     @model_validator(mode="after")
     def _allowed(self) -> MetricPlan:
         if self.metric not in METRICS:
@@ -113,6 +124,65 @@ class MetricPlan(BaseModel):
             function = "contribution_by_dimension"
             params["dimension"] = self.dimension
         return NextAction(action="compute", function=function, params=params,
+                          reason=self.reason)
+
+
+TREND_FUNCTIONS = ("linear_trend_forecast", "zscore_anomalies")
+
+
+class TrendPlan(BaseModel):
+    """The opening of a forecast or trend-fit question's exploration (D): the
+    series to fit (one query, run and verified like any other) and the fit,
+    done by a deterministic tool rather than inside SQL."""
+
+    series_sql: str = Field(description="One read-only query returning the series.")
+    period: str = Field(description="The series' period label column.")
+    value: str = Field(description="The series' numeric value column.")
+    function: Literal["linear_trend_forecast", "zscore_anomalies"] = \
+        "linear_trend_forecast"
+    periods: list[str] | None = Field(
+        default=None, description="linear_trend_forecast: the periods to forecast.")
+    periods_ahead: int | None = None
+    threshold: float | None = None
+    direction: Literal["both", "above", "below"] | None = None
+    reason: str = Field(default="", description="One sentence.")
+
+    @field_validator("function", "direction", mode="before")
+    @classmethod
+    def _lower(cls, value: object) -> object:
+        return value.strip().lower() if isinstance(value, str) else value
+
+    @field_validator("periods", mode="before")
+    @classmethod
+    def _listed(cls, value: object) -> object:
+        return [value] if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def _complete(self) -> TrendPlan:
+        if not self.series_sql.strip():
+            raise ValueError("series_sql is empty")
+        if self.function == "linear_trend_forecast" and not (
+                self.periods or self.periods_ahead):
+            raise ValueError("give periods (the labels to forecast) or periods_ahead")
+        return self
+
+    def compute_action(self, step: int) -> NextAction:
+        """The fit, on the series step's result."""
+        if self.function == "linear_trend_forecast":
+            params: dict[str, Any] = {"step": step, "value": self.value,
+                                      "order": self.period}
+            if self.periods:
+                params["periods"] = self.periods
+            else:
+                params["periods_ahead"] = self.periods_ahead
+        else:
+            params = {"step": step, "value": self.value, "label": self.period,
+                      "against": "trend"}
+            if self.threshold is not None:
+                params["threshold"] = self.threshold
+            if self.direction is not None:
+                params["direction"] = self.direction
+        return NextAction(action="compute", function=self.function, params=params,
                           reason=self.reason)
 
 
@@ -190,39 +260,52 @@ def value_index(tools: ToolContext) -> ValueIndex:
     return _INDEXES[url]
 
 
-def _known(tools: ToolContext, table: str, column: str | None = None) -> str | None:
-    if table not in tools.catalog.tables:
-        return f"no table {table!r}; tables: {sorted(tools.catalog.tables)}"
-    if column is not None:
-        names = [c.name for c in tools.catalog.tables[table].columns]
-        if column not in names:
-            return f"no column {column!r} in {table}; columns: {names}"
-    return None
+def _resolve(tools: ToolContext, table: str, column: str | None = None
+             ) -> tuple[str | None, str | None, str | None]:
+    """(table, column, problem): names matched case-insensitively against the
+    catalog (SQLite identifiers are case-insensitive) and returned as the
+    catalog spells them, or a problem naming what exists."""
+    tables = {name.lower(): name for name in tools.catalog.tables}
+    real = tables.get(str(table).strip().lower())
+    if real is None:
+        return None, None, f"no table {table!r}; tables: {sorted(tools.catalog.tables)}"
+    if column is None:
+        return real, None, None
+    columns = {c.name.lower(): c.name for c in tools.catalog.tables[real].columns}
+    col = columns.get(str(column).strip().lower())
+    if col is None:
+        known = list(columns.values())
+        return real, None, f"no column {column!r} in {real}; columns: {known}"
+    return real, col, None
 
 
 def lookup(action: NextAction, tools: ToolContext) -> ExecutionResult:
     """get_distinct_values, search_values and sample_rows."""
     if action.action == "get_distinct_values":
-        problem = _known(tools, action.table, action.column)
+        table, column, problem = _resolve(tools, action.table, action.column)
         if problem:
             return _error(problem)
-        sql = (f'SELECT DISTINCT "{action.column}" FROM "{action.table}" '  # noqa: S608
+        # Names come from the catalog (introspection), never from the model.
+        sql = (f'SELECT DISTINCT "{column}" FROM "{table}" '  # noqa: S608
                f'ORDER BY 1 LIMIT 100')
         with tools.engine.connect() as conn:
             rows = [[v] for v in conn.execute(text(sql)).scalars()]
-        return _result([action.column], rows, f"-- get_distinct_values\n{sql}")
+        return _result([column], rows, f"-- get_distinct_values\n{sql}")
     if action.action == "search_values":
-        if action.table and _known(tools, action.table, action.column):
-            return _error(_known(tools, action.table, action.column))
-        rows = value_index(tools).search(action.term, action.table, action.column)
+        table = column = None
+        if action.table:
+            table, column, problem = _resolve(tools, action.table, action.column)
+            if problem:
+                return _error(problem)
+        rows = value_index(tools).search(action.term, table, column)
         return _result(["table", "column", "value", "score"], rows,
                        f"-- search_values({action.term!r})")
-    problem = _known(tools, action.table)
+    table, _, problem = _resolve(tools, action.table)
     if problem:
         return _error(problem)
-    sample = get_sample_rows(tools, action.table, limit=5)
+    sample = get_sample_rows(tools, table, limit=5)
     return _result(sample["columns"], sample["rows"],
-                   f"-- sample_rows({action.table})")
+                   f"-- sample_rows({table})")
 
 
 def compute(
@@ -258,5 +341,7 @@ def compute(
                                f"{name} takes {sorted(allowed)}")
         df = pd.DataFrame(source.rows, columns=source.columns)
         return frame_result(function(df, **params), f"{label} on step {step}"), []
-    except (ComputeError, ValidationError, TypeError) as exc:
+    # Argument-shaped errors (bad names, types or values from the model) are
+    # observations for the planner, never exceptions.
+    except (ComputeError, ValidationError, TypeError, ValueError, KeyError) as exc:
         return _error(f"{name}: {exc}", label), []

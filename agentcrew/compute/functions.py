@@ -10,8 +10,14 @@ raises ComputeError with a message the agent can act on.
   share_of_total         each row's share of the column total, in percent
   zscore_anomalies       rows whose z-score passes a threshold, measured
                          against the mean or against a fitted linear trend
-  linear_trend_forecast  least-squares line over row order, extended ahead,
+  linear_trend_forecast  least-squares line over the series, extended ahead,
                          each forecast labelled with its period
+
+Trend fits (zscore_anomalies against="trend", linear_trend_forecast) use x =
+evenly spaced period numbers, 1 = the first period, when the labels are months
+('YYYY-MM' or first-of-month dates), quarters or years, so a missing period
+keeps its place; otherwise x = 1..n in period order. The output states the
+convention used (x_convention).
   correlation            Pearson correlation of two columns
 """
 
@@ -132,10 +138,39 @@ def share_of_total(df: pd.DataFrame, value: str, label: str) -> pd.DataFrame:
     return out
 
 
-def _trend(values: pd.Series) -> tuple[np.ndarray, float, float]:
-    x = np.arange(1, len(values) + 1, dtype=float)
+def _period_number(label: object) -> tuple[str, int] | None:
+    text = str(label)
+    if m := _YEAR_MONTH.fullmatch(text):
+        return "month", int(m[1]) * 12 + int(m[2]) - 1
+    if m := _YEAR_QUARTER.fullmatch(text):
+        return "quarter", int(m[1]) * 4 + int(m[2]) - 1
+    if _YEAR.fullmatch(text):
+        return "year", int(text)
+    if re.fullmatch(r"\d{4}-\d{2}-01", text):
+        return "month", int(text[:4]) * 12 + int(text[5:7]) - 1
+    return None
+
+
+def period_x(labels: pd.Series) -> tuple[np.ndarray, str]:
+    """x for a trend fit over labels in ascending order, and its convention.
+
+    Months, quarters or years: evenly spaced period numbers, 1 = the first
+    period (a gap keeps its place). Anything else: 1..n in row order.
+    """
+    numbers = [_period_number(v) for v in labels]
+    units = {n[0] for n in numbers if n}
+    if numbers and all(numbers) and len(units) == 1:
+        index = np.array([n[1] for n in numbers], dtype=float)
+        x = index - index[0] + 1
+        if (np.diff(x) > 0).all():
+            return x, f"x = {units.pop()} number, 1 = {labels.iloc[0]}"
+    return (np.arange(1, len(labels) + 1, dtype=float),
+            "x = row number 1..n in period order")
+
+
+def _fit(x: np.ndarray, values: pd.Series) -> tuple[float, float]:
     slope, intercept = np.polyfit(x, values.to_numpy(), 1)
-    return x, float(slope), float(intercept)
+    return float(slope), float(intercept)
 
 
 def zscore_anomalies(
@@ -150,15 +185,22 @@ def zscore_anomalies(
     """Rows whose z-score passes `threshold`.
 
     against="mean": z = (value - mean) / sd. against="trend": a least-squares
-    line over row order (x = 1..n) is the expectation and z is the residual
-    over the residuals' sd. direction: "both", "above" or "below".
+    line over the rows sorted by `label` (x = period_x) is the expectation and
+    z is the residual over the residuals' sd. direction: "both", "above" or
+    "below".
     """
     _require_rows(df, 3)
+    label_col = _column(df, label)
+    direction, against = str(direction).strip().lower(), str(against).strip().lower()
+    convention = None
+    if against == "trend":
+        df = df.sort_values(label_col).reset_index(drop=True)
     values = _numbers(df, value)
     if against == "mean":
         expected = np.full(len(values), values.mean())
     elif against == "trend":
-        x, slope, intercept = _trend(values)
+        x, convention = period_x(df[label_col])
+        slope, intercept = _fit(x, values)
         expected = intercept + slope * x
     else:
         raise ComputeError("against must be 'mean' or 'trend'")
@@ -172,10 +214,12 @@ def zscore_anomalies(
     if keep is None:
         raise ComputeError("direction must be 'both', 'above' or 'below'")
     out = pd.DataFrame({
-        _column(df, label): df[_column(df, label)].to_numpy(),
+        label_col: df[label_col].to_numpy(),
         "value": values.to_numpy(), "expected": expected,
         "residual": residual, "z_score": z,
     })
+    if convention:
+        out["x_convention"] = convention
     return out[keep].reset_index(drop=True)
 
 
@@ -219,34 +263,65 @@ def next_periods(labels: pd.Series, k: int) -> list[Any] | None:
     return None
 
 
+MAX_AHEAD = 24
+
+
+def _steps_for(labels: pd.Series, periods: list[Any]) -> np.ndarray:
+    """Steps ahead of the named periods (they must follow the series)."""
+    ahead = next_periods(labels, MAX_AHEAD)
+    if ahead is None:
+        raise ComputeError("periods can only be named when the order column holds "
+                           "periods ('YYYY-MM', 'YYYY-Qn', dates or years)")
+    steps = []
+    for period in periods:
+        found = [i for i, lab in enumerate(ahead) if str(lab) == str(period)]
+        if not found:
+            raise ComputeError(
+                f"period {period!r} is not one of the {MAX_AHEAD} periods after "
+                f"{labels.iloc[-1]!r} (expected labels like {ahead[0]!r})")
+        steps.append(found[0] + 1)
+    return np.array(sorted(set(steps)))
+
+
 def linear_trend_forecast(
-    df: pd.DataFrame, value: str, order: str, periods_ahead: int = 1
+    df: pd.DataFrame,
+    value: str,
+    order: str,
+    periods_ahead: int = 1,
+    periods: list[Any] | str | None = None,
 ) -> pd.DataFrame:
-    """Least-squares line with x = 1..n over rows sorted by `order`.
+    """Least-squares line over the rows sorted by `order` (x = period_x),
+    extended `periods_ahead` periods, or to exactly the named `periods`.
 
     Each forecast row carries the period it forecasts (next_periods) in a
-    column named after `order`, so the table can be read, shown and graded
-    without counting steps ahead.
+    column named after `order`, and the x convention, so the table can be
+    read, shown and graded without counting steps ahead.
     """
     _require_rows(df, 3)
-    if not 1 <= int(periods_ahead) <= 24:
-        raise ComputeError("periods_ahead must be between 1 and 24")
     order_col = _column(df, order)
     data = df.sort_values(order_col).reset_index(drop=True)
     values = _numbers(data, value)
-    _, slope, intercept = _trend(values)
-    n = len(values)
-    steps = np.arange(1, int(periods_ahead) + 1)
+    x, convention = period_x(data[order_col])
+    slope, intercept = _fit(x, values)
+    if periods:
+        steps = _steps_for(data[order_col],
+                           [periods] if isinstance(periods, str) else list(periods))
+    else:
+        if not 1 <= int(periods_ahead) <= MAX_AHEAD:
+            raise ComputeError(f"periods_ahead must be between 1 and {MAX_AHEAD}")
+        steps = np.arange(1, int(periods_ahead) + 1)
+    x_ahead = x[-1] + steps
     out = pd.DataFrame({
-        "steps_ahead": steps, "x": n + steps,
-        "forecast": intercept + slope * (n + steps),
-        "slope": slope, "intercept": intercept, "points": n,
+        "steps_ahead": steps, "x": x_ahead,
+        "forecast": intercept + slope * x_ahead,
+        "slope": slope, "intercept": intercept, "points": len(values),
+        "x_convention": convention,
     })
-    labels = next_periods(data[order_col], int(periods_ahead))
+    labels = next_periods(data[order_col], int(steps.max()))
     if labels is None:
         return out
     name = order_col if order_col not in out.columns else f"{order_col}_period"
-    out.insert(0, name, labels)
+    out.insert(0, name, [labels[s - 1] for s in steps])
     return out
 
 

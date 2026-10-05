@@ -31,6 +31,7 @@ from evalrun.runner import (  # noqa: E402
     RunConfig,
     escalation_effects,
     missed_escalations,
+    provider_resumes,
 )
 
 ARCH_LABEL = {"baseline": "A", "v1": "B", "router": "C", "full": "D"}
@@ -163,6 +164,19 @@ def render(payload: dict[str, Any], run_dir: Path, cache_dir: Path) -> str:
                   for r in missed["questions"]]
     else:
         lines.append("A failed no question.")
+
+    resumes = payload.get("provider_resumes") or provider_resumes(items)
+    lines += ["", "## Provider errors and resumes (pre-run amendment 3)", ""]
+    if resumes:
+        lines += ["| question | arch | now | provider errors on | last stage |",
+                  "| --- | --- | --- | --- | --- |"]
+        for r in resumes:
+            now = ("not evaluated (resumes later)" if r["state"] != "evaluated"
+                   else "resumed: " + ("PASS" if r["primary"] else "FAIL"))
+            lines.append(f"| {r['id']} | {ARCH_LABEL[r['arch']]} {r['arch']} | {now} | "
+                         f"{', '.join(r['dates'])} | {r['last_stage']} |")
+    else:
+        lines.append("No question hit a persistent provider error.")
     return "\n".join(lines) + "\n"
 
 

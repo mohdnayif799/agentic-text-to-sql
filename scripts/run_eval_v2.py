@@ -41,7 +41,8 @@ def _print_summary(payload: dict) -> None:
     for arch, s in payload["summary"].items():
         errors = f", ERROR {s['errors']}" if s.get("errors") else ""
         print(f"{arch:9} primary {s['primary']}{errors} (Wilson {s['wilson95']}), "
-              f"pending {s['pending']}, avg calls {s['avg_llm_calls']}, "
+              f"pending {s['pending']}, not evaluated {s.get('not_evaluated', 0)}, "
+              f"avg calls {s['avg_llm_calls']}, "
               f"avg latency {s['avg_latency_s']}s "
               f"(as if live {s.get('avg_latency_live_s', '?')}s), "
               f"by type {s['by_type']}")
@@ -57,6 +58,9 @@ def _print_summary(payload: dict) -> None:
                           for arch in ("router", "full")))
         for row in missed["questions"]:
             print(f"  {row['id']}: C {row['router']}, D {row['full']}")
+    for row in payload.get("provider_resumes", []):
+        print(f"provider errors: {row['id']}/{row['arch']} on {row['dates']} "
+              f"({row['state']})")
 
 
 def main() -> int:

@@ -8,7 +8,13 @@ from dataclasses import replace
 import pytest
 
 from agentcrew.llm import FakeClient, LLMError, QuotaExhaustedError
-from evalrun.backoff import DailyLimitReached, call_with_backoff, is_daily_limit
+from evalrun.backoff import (
+    DailyLimitReached,
+    ProviderUnavailable,
+    call_with_backoff,
+    is_daily_limit,
+    is_provider_error,
+)
 from evalrun.cache import CacheMiss, CachingClient, prompt_hash
 from evalrun.redact import redact
 from evalrun.runner import RunConfig, Runner, planned_calls
@@ -105,7 +111,7 @@ class TestBackoff:
             raise LLMError("503 UNAVAILABLE")
 
         slept = []
-        with pytest.raises(LLMError):
+        with pytest.raises(ProviderUnavailable):
             call_with_backoff(overloaded, sleep=slept.append)
         assert slept == [10.0, 30.0, 60.0]
 
@@ -212,24 +218,95 @@ def test_daily_limit_stops_cleanly(cfg, tmp_path):
     assert {i["state"] for i in payload["items"]} == {"not_evaluated"}
 
 
-def test_persistent_overload_is_retried_then_recorded_as_an_error(cfg, tmp_path):
-    class Overloaded(FakeClient):
-        def complete(self, **kwargs):
-            raise LLMError("503 overloaded")
+class Overloaded(FakeClient):
+    def complete(self, **kwargs):
+        raise LLMError("Gemini call failed: 503 UNAVAILABLE high demand")
 
+
+def test_persistent_provider_error_is_not_evaluated_and_resumed(cfg, tmp_path):
+    """Pre-run amendment 3."""
     slept: list[float] = []
-    runner = Runner(cfg, live_factory=lambda s: Overloaded(), log=lambda *_: None,
-                    sleep=slept.append)
-    payload = runner.run("showcase", ["baseline"], tmp_path / "run")
-    assert payload["complete"]  # an ERROR is a result, not a stop
+    run_dir = tmp_path / "run"
+    day1 = Runner(cfg, live_factory=lambda s: Overloaded(), log=lambda *_: None,
+                  sleep=slept.append, clock=lambda: "2026-10-06")
+    payload = day1.run("showcase", ["baseline"], run_dir)
+    assert not payload["complete"]  # waiting for a resume, not a result
     assert slept == [10.0, 30.0, 60.0] * 5  # three retries per question
     for item in payload["items"]:
-        assert item["status"] == "ERROR" and item["primary"] is False
-        assert item["path"] == "error"
-        assert item["error"]["type"] == "LLMError"
-        assert item["error"]["stage"] == "step 1: SQL"
-        assert item["first_failing_check"] == "ERROR LLMError at step 1: SQL"
-    assert payload["summary"]["baseline"]["errors"] == 5
+        assert item["state"] == "not_evaluated" and item["primary"] is None
+        assert item["provider_errors"][0]["date"] == "2026-10-06"
+        assert item["provider_errors"][0]["stage"] == "step 1: SQL"
+    assert payload["summary"]["baseline"]["not_evaluated"] == 5
+    assert len(payload["provider_resumes"]) == 5
+
+    # Day 2: the provider is back; every question resumes and is listed.
+    day2 = Runner(cfg, live_factory=lambda s: FakeClient(responder=responder),
+                  log=lambda *_: None, clock=lambda: "2026-10-07")
+    again = day2.run("showcase", ["baseline"], run_dir)
+    assert again["complete"]
+    for item in again["items"]:
+        assert item["state"] == "evaluated" and item["resumed"] is True
+        assert [e["date"] for e in item["provider_errors"]] == ["2026-10-06"]
+    assert {r["state"] for r in again["provider_resumes"]} == {"evaluated"}
+
+
+def test_provider_error_on_resumes_on_two_days_is_a_fail(cfg, tmp_path):
+    run_dir = tmp_path / "run"
+
+    def attempt(day):
+        return Runner(cfg, live_factory=lambda s: Overloaded(), log=lambda *_: None,
+                      sleep=lambda s: None, clock=lambda: day).run(
+            "showcase", ["baseline"], run_dir)
+
+    attempt("2026-10-06")                        # original run
+    attempt("2026-10-07")                        # resume, day 1
+    same_day = attempt("2026-10-07")             # resume, same day again
+    assert {i["state"] for i in same_day["items"]} == {"not_evaluated"}
+    final = attempt("2026-10-08")                # resume, a second day
+    for item in final["items"]:
+        assert item["state"] == "evaluated" and item["primary"] is False
+        assert item["status"] == "ERROR"
+        assert item["error"]["type"] == "ProviderUnavailable"
+        assert len(item["provider_errors"]) == 4
+    assert final["complete"]
+
+
+def test_model_and_code_errors_still_count_as_fails(cfg, tmp_path):
+    class BadRequest(FakeClient):
+        def complete(self, **kwargs):
+            raise LLMError("Gemini call failed: 400 INVALID_ARGUMENT bad schema")
+
+    payload = Runner(cfg, live_factory=lambda s: BadRequest(), log=lambda *_: None,
+                     sleep=lambda s: None).run("showcase", ["baseline"],
+                                               tmp_path / "run")
+    assert payload["complete"]
+    assert all(i["status"] == "ERROR" and i["primary"] is False
+               for i in payload["items"])
+
+
+@pytest.mark.parametrize(("error", "expected"), [
+    (LLMError("Gemini call failed: 503 UNAVAILABLE. high demand"), True),
+    (LLMError("Gemini call failed: 500 INTERNAL. error"), True),
+    (LLMError("Gemini call failed: request timed out"), True),
+    (LLMError("Gemini call failed: 400 INVALID_ARGUMENT"), False),
+    (LLMError("model returned LIMIT 500 rows"), False),
+])
+def test_provider_error_classification(error, expected):
+    assert is_provider_error(error) is expected
+
+
+def test_provider_error_classification_reads_the_cause():
+    class ServerError(Exception):
+        code = 502
+
+    for cause in (ServerError("bad gateway?"), TimeoutError("read")):
+        try:
+            try:
+                raise cause
+            except Exception as inner:
+                raise LLMError("call failed") from inner
+        except LLMError as exc:
+            assert is_provider_error(exc)
 
 
 def test_exception_inside_an_architecture_is_an_error_with_its_stage(

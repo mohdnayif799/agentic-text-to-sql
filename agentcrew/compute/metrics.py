@@ -288,6 +288,18 @@ class Comparison(BaseModel):
     period: Period | None = None
     filters: dict[str, str] = {}
 
+    @model_validator(mode="before")
+    @classmethod
+    def _dimension_keys(cls, data: object) -> object:
+        """Dimension names are allowlist keys: match them case-insensitively."""
+        if isinstance(data, dict):
+            data = dict(data)
+            if isinstance(data.get("group_dimension"), str):
+                data["group_dimension"] = _key(data["group_dimension"])
+            if isinstance(data.get("filters"), dict):
+                data["filters"] = {_key(k): v for k, v in data["filters"].items()}
+        return data
+
     @model_validator(mode="after")
     def _one_mode(self) -> Comparison:
         periods = self.period_a is not None and self.period_b is not None
@@ -337,7 +349,14 @@ def _bounds(source: Source, period: Period) -> tuple[str, str]:
     return period.start.isoformat(), period.end.isoformat()
 
 
+def _key(name: object) -> str:
+    """Allowlist key of a model-supplied metric or dimension name: case and
+    surrounding spaces do not matter; the key must still be listed."""
+    return str(name).strip().lower()
+
+
 def _dimension(source: Source, name: str) -> str:
+    name = _key(name)
     if name not in source.dimensions:
         raise ComputeError(
             f"dimension {name!r} is not available for {source.name}; "
@@ -404,6 +423,7 @@ def _run(run: Runner, sql: str) -> list[dict[str, float]]:
 
 
 def _metric(name: str) -> Metric:
+    name = _key(name)
     if name not in METRICS:
         raise ComputeError(f"unknown metric {name!r}; choose from {sorted(METRICS)}")
     return METRICS[name]
@@ -561,6 +581,7 @@ def contribution_by_dimension(
         raise ComputeError(f"{metric.name} is a ratio; contributions are only "
                            "defined for additive metrics (sums and counts)")
     source = _check(metric, comparison)
+    dimension = _key(dimension)
     _dimension(source, dimension)
     aggregates = _aggregates_for([metric.factor])
     tables, queries = [], []

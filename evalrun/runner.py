@@ -44,7 +44,7 @@ from evalkit.judge import (
 from evalkit.questions import ROOT
 from evalkit.scoring import result_verdict, score_question
 from evalkit.stats import wilson_interval
-from evalrun.backoff import DailyLimitReached
+from evalrun.backoff import DailyLimitReached, ProviderUnavailable
 from evalrun.cache import CacheMiss, CachingClient
 from evalrun.redact import redact, redact_text, secrets_of
 from evalrun.sets import ALL_GOLD_FILES, ALL_SET_FILES, load_questions
@@ -229,9 +229,11 @@ class Runner:
         sleep: Callable[[float], None] = time.sleep,
         log: Callable[[str], None] = print,
         force_escalation: bool = False,
+        clock: Callable[[], str] = lambda: datetime.now(UTC).date().isoformat(),
     ) -> None:
         self.cfg = cfg
         self.force_escalation = force_escalation
+        self._clock = clock  # the real date of an attempt (amendment 3)
         self.settings = cfg.settings()
         self.secrets = secrets_of(self.settings)
         self._factory = live_factory
@@ -283,8 +285,8 @@ class Runner:
                 step0_llm=step0, shared_llm=shared,
                 force_escalation=self.force_escalation and arch == "full",
             )
-        except (DailyLimitReached, CacheMiss):
-            raise  # stop and resume later; not a result
+        except (DailyLimitReached, CacheMiss, ProviderUnavailable):
+            raise  # not a result: stop or skip, and resume later
         except Exception as exc:  # noqa: BLE001 - recorded as an ERROR, not swallowed
             error = {"type": type(exc).__name__, "stage": progress.current(),
                      "where": _where(exc),
@@ -442,6 +444,7 @@ class Runner:
                     if results_path.exists() else {"items": []})
         done = {(i["id"], i["arch"]): i for i in previous["items"]
                 if i["state"] == "evaluated"}
+        earlier = {(i["id"], i["arch"]): i for i in previous["items"]}
         if self.force_escalation:
             check_force_escalation(set_name, archs)
         if previous["items"] and bool(previous.get("force_escalation")) \
@@ -479,14 +482,33 @@ class Runner:
                 if stopped:
                     items.append(_not_evaluated(q, arch, stopped))
                     continue
+                history = list(earlier.get((q["id"], arch), {})
+                               .get("provider_errors", []))
                 try:
                     item = self.run_one(q, arch, gold[q["id"]], run_dir / "traces")
                 except (DailyLimitReached, CacheMiss) as exc:
                     text = f"{type(exc).__name__}: {exc}"
                     stopped = redact_text(text, self.secrets)[:300]
                     self._log(f"STOPPED at {q['id']}/{arch}: {stopped}")
-                    items.append(_not_evaluated(q, arch, stopped))
+                    items.append(_not_evaluated(q, arch, stopped, history))
                     continue
+                except ProviderUnavailable as exc:
+                    history.append({
+                        "date": self._clock(), "stage": progress.current(),
+                        "message": redact_text(str(exc), self.secrets)[:300]})
+                    item = (_provider_fail(q, arch, history)
+                            if resumed_on_two_days(history)
+                            else _not_evaluated(q, arch, "provider error (resumes "
+                                                "later)", history))
+                    self._log(f"  {q['id']:5} {arch:9} "
+                              f"{'FAIL' if item['state'] == 'evaluated' else 'PEND'}"
+                              f"    provider error #{len(history)}: "
+                              f"{history[-1]['message'][:80]}")
+                    items.append(item)
+                    self._save(results_path, meta, items, None, questions, archs)
+                    continue
+                if history:
+                    item = {**item, "resumed": True, "provider_errors": history}
                 items.append(item)
                 self._log(
                     f"  {q['id']:5} {arch:9} {_flag(item['primary']):7} "
@@ -500,11 +522,16 @@ class Runner:
         payload = {
             **meta,
             "finished_utc": datetime.now(UTC).isoformat(timespec="seconds"),
-            "complete": stopped is None and len(items) == len(questions) * len(archs),
+            # Complete only when every pair has a result: questions waiting
+            # on a resume (quota stop or provider error) keep it open.
+            "complete": stopped is None
+            and len(items) == len(questions) * len(archs)
+            and all(i["state"] == "evaluated" for i in items),
             "stopped_reason": stopped,
             "summary": summarise(items, archs),
             "escalation": escalation_effects(items),
             "missed_escalations": missed_escalations(items),
+            "provider_resumes": provider_resumes(items),
             "items": items,
         }
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -554,9 +581,51 @@ def _repair_effect(q: dict[str, Any], gold_entry: dict[str, Any], r: Any,
     return "fix" if after else "break"
 
 
-def _not_evaluated(q: dict[str, Any], arch: str, reason: str) -> dict[str, Any]:
-    return {"id": q["id"], "type": q["type"], "arch": arch,
+def _not_evaluated(q: dict[str, Any], arch: str, reason: str,
+                   provider_errors: list[dict[str, str]] | None = None
+                   ) -> dict[str, Any]:
+    item = {"id": q["id"], "type": q["type"], "arch": arch,
             "state": "not_evaluated", "primary": None, "detail": reason}
+    if provider_errors:
+        item["provider_errors"] = provider_errors
+    return item
+
+
+def resumed_on_two_days(history: list[dict[str, str]]) -> bool:
+    """Amendment 3: a question that still hits a persistent provider error on
+    resumes made on two different days is scored as a fail. The first entry
+    is the original run; every later one is a resume."""
+    return len({entry["date"] for entry in history[1:]}) >= 2
+
+
+def _provider_fail(q: dict[str, Any], arch: str,
+                   history: list[dict[str, str]]) -> dict[str, Any]:
+    days = sorted({entry["date"] for entry in history})
+    return {
+        "id": q["id"], "type": q["type"], "arch": arch, "state": "evaluated",
+        "primary": False, "answer_ok": False, "end_to_end": False,
+        "first_failing_check": "ERROR provider unavailable on resumes on two days",
+        "detail": f"provider error persisted on {', '.join(days)}",
+        "status": ERROR, "path": "error",
+        "error": {"type": "ProviderUnavailable", "stage": history[-1]["stage"],
+                  "where": "provider", "message": history[-1]["message"]},
+        "judge": None, "llm_calls": 0, "live_calls": 0, "cache_hits": 0,
+        "judge_calls": 0, "latency_s": 0.0, "latency_live_s": 0.0,
+        "latency_unmeasured_calls": 0, "repairs": 0, "repair_fixes": 0,
+        "repair_breaks": 0, "tools": [], "resumed": True,
+        "provider_errors": history,
+    }
+
+
+def provider_resumes(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Every question that hit a persistent provider error (amendment 3)."""
+    return [
+        {"id": i["id"], "arch": i["arch"], "state": i["state"],
+         "primary": i.get("primary"),
+         "dates": [e["date"] for e in i["provider_errors"]],
+         "last_stage": i["provider_errors"][-1]["stage"]}
+        for i in items if i.get("provider_errors")
+    ]
 
 
 def escalation_effects(items: list[dict[str, Any]]) -> dict[str, Any]:
@@ -636,6 +705,8 @@ def summarise(items: list[dict[str, Any]], archs: list[str]) -> dict[str, Any]:
             "primary": f"{k}/{n}", "wilson95": [round(lo, 3), round(hi, 3)],
             "pending": len(mine) - n,
             "errors": sum(1 for i in mine if i.get("status") == ERROR),
+            "not_evaluated": sum(1 for i in items if i["arch"] == arch
+                                 and i["state"] != "evaluated"),
             "answer_ok": sum(1 for i in mine if i.get("answer_ok")),
             "end_to_end": sum(1 for i in mine if i.get("end_to_end")),
             "avg_llm_calls": round(sum(i["llm_calls"] for i in mine) / len(mine), 2)
