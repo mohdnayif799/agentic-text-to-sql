@@ -1,12 +1,113 @@
-# Phase 4 report (interim): showcase run, sc03 diagnosis and fix, dev2
+# Phase 4 report (final)
 
-Status: interim. Sections 1-5 cover `phase4-showcase` (code 1cfa440, before
-the sc03 fix); 6-7 the runs on d3275c5 and the round-2 fixes; 8-9 the runs on
-70d5089 and the round-3 fixes; 10-11 the runs on 9d23f5f (with the
-forced-escalation smoke test) and the round-4 fixes. Section 12 holds every
-run's tables. Pending: D on dv03 after the TrendPlan fix.
+Final code: `b07f4f1` on branch `agent-v2`. The final results below are an
+offline replay at that commit: every call is served from the responses that
+the live development runs cached, and every question/architecture pair hit
+the cache. No holdout question has been run.
 
-## 1. Results of `phase4-showcase` (before the fix)
+## Final results (development sets only)
+
+| set | A baseline | B v1 | C router | D full |
+| --- | --- | --- | --- | --- |
+| showcase (5) | 4/5 | 2/5 | 4/5 | **5/5** |
+| dev2 (6) | 4/6 | not run | 4/6 | **6/6** |
+
+- **Escalation against A:**
+  - D escalated 3 questions (sc03, dv01, dv03) and **helped on all 3**,
+    harming none.
+  - C escalated the same 3 (identical escalation rule) and changed none of
+    them.
+- **Missed escalations:** none. A failed sc03, dv01 and dv03, and C and D
+  escalated all three.
+- **Paired against A:** D passes 3 questions A fails and fails none that A
+  passes. That gives exact McNemar p = 1.0 on the showcase (1-0) and 0.5 on
+  dev2 (2-0): development sets, far too small for significance and tuned
+  on, so they say nothing about the holdouts.
+- **Repairs:** 2 on dv01 for C and D (neither accepted), so no fixes and no
+  breaks.
+- **Errors:** none in the final runs. One provider 503 during development
+  (D, dv03) led to ERROR recording, retries and amendment 3.
+- **Latency, as if live, average per question:**
+
+  | set | A | B | C | D |
+  | --- | --- | --- | --- | --- |
+  | showcase | 3.1 s | 8.7 s | 4.9 s | 5.1 s |
+  | dev2 | 3.0 s | not run | 6.2 s | 7.3 s |
+
+- **Live calls spent in Phase 4:** 57 over nine runs, including 9 judge
+  calls.
+
+Per-question tables for both final runs are in section F at the end.
+
+## What D is at the end of Phase 4
+
+D is C until escalation (same step 0, signals, repairs and follow-up
+decision; one shared escalation rule, `Router.escalated`). When it
+escalates:
+
+- **Why-questions** (`is_why_question`) open with a validated MetricPlan.
+  `decompose_change` splits the metric into components, each labelled
+  higher, lower or about the same (within 5%). The final table is the
+  stacked metric analyses, the answer gets reading guidance, and a
+  deterministic driver sentence is added if the answer omits the main
+  driver.
+- **Forecast and trend-fit questions** (the forecast signal) open with a
+  validated TrendPlan. The model writes the series query; the deterministic
+  `linear_trend_forecast` (named periods) or `zscore_anomalies` (against the
+  trend) does the fit. x is evenly spaced period numbers, stated in the
+  output. The fit's table is the final result.
+- **Everything else** goes through the `decide_next_action` loop:
+  lookups, run_sql, compute functions, metric tools, and verification on
+  every query.
+- **Never worse than A when escalation fails:** A's retry comes first on an
+  SQL error at step 1. An invalid reply ends only that part of the work.
+  With nothing usable, the final table is step 1's. A final table that is
+  A's own result is answered with A's answer call, and a failed escalated
+  answer falls back to A's.
+- **Budgets:** the demo's limits, 3 steps (step 0 counts) and 3 attempts per
+  step.
+
+**Added after a development failure** (recorded so Phase 5 can report it):
+
+| addition | after |
+| --- | --- |
+| `decompose_change`, `contribution_by_dimension` | showcase sc03 (why-question gap, before Phase 4 was built) |
+| why-questions open with MetricPlan; stacked tables; every component labelled; answer guidance | showcase sc03 (D computed AOV by hand, assembly dropped it) |
+| plain-language component names; driver sentence | showcase sc03 (answer named the driver only as `order_count`) |
+| forecast signal (C and D) | dev2 dv03 (A's one-query fit wrong, not escalated) |
+| TrendPlan; period-number x; labelled forecasts | dev2 dv03 (planner trusted A's fit) |
+| ERROR records, 503 retries, amendment 3 | dev2 dv03 (provider 503 scored as a failure) |
+| deterministic metric SQL | found while building the parity test (set order changed per process) |
+| fallback safety | review of failure paths (4 gaps proven by tests on the old code) |
+
+## Known limitations going into Phase 5
+
+- **Small samples.** Development n = 11. Every improvement above was
+  measured on the questions that motivated it.
+- **Few tools exercised live.** Only run_sql, search_values,
+  decompose_change and (in the last run) linear_trend_forecast have run with
+  model-chosen arguments. get_distinct_values, sample_rows,
+  contribution_by_dimension, the other compute functions and the
+  conditional-branch path are covered offline only (`tests/test_dispatch.py`).
+  The forced smoke test showed that Flash-Lite's planner answers straight
+  away when step 1 looks right.
+- **C has no compute tools.** On a forecast question it escalates but keeps
+  A's result.
+- **Answer-text check for conditional branches.** On dv05, A's query takes
+  the right branch but its answer names the other one, and still passes
+  (the check only needs the word "Partner"). The holdout's ha19-ha21 may
+  share this; Phase 5 analyses it separately (see the Phase 5 plan).
+- **The date-format check runs only after escalation.** It stayed there
+  because dv06 passed for every architecture.
+- **Authorship.** The questions, gold and agent share an author (as
+  recorded in the protocol).
+
+## Development log
+
+The sections below are the record of each round, in order. Section numbers
+are kept as written at the time.
+
+### 1. Results of `phase4-showcase` (before the fix)
 
 A 4/5, B 2/5, C 4/5, D 4/5. Every architecture fails sc03 (why-question) on
 the same judge fact: none states that average order value is about the same
@@ -23,7 +124,7 @@ section 12.
   from the traces of the runs that made those calls). It is the comparable
   figure: A 3.1 s, B 8.6 s, C 4.9 s, D 5.0 s per question on average.
 
-## 2. Diagnosis of D on sc03
+### 2. Diagnosis of D on sc03
 
 Question: why does Online bring in so much more completed revenue than Direct
 and Partner over 2024 and 2025? Trace: `eval/runs/phase4-showcase/traces/full/sc03.json`.
@@ -52,7 +153,7 @@ and Partner over 2024 and 2025? Trace: `eval/runs/phase4-showcase/traces/full/sc
 C (Phase 3 and 4) failed the same way. Its follow-up computed only product
 mix, and its assembly also kept step 1.
 
-## 3. Fix (general rules, no question-set facts)
+### 3. Fix (general rules, no question-set facts)
 
 - **Why-questions start with a metric analysis.** When D escalates on a
   question that asks for a cause (`is_why_question`, an English-phrasing
@@ -88,7 +189,7 @@ average unit price and discount are all "about the same". This is the
 evidence the judge's fact 2 needs, now in the table the answer is written
 from.
 
-## 4. Safety of the metric layer (confirmed, tests added)
+### 4. Safety of the metric layer (confirmed, tests added)
 
 - **Names are allowlisted, not just quoted.**
   - A metric name must be a key of `METRICS`, which a test pins to the
@@ -113,7 +214,7 @@ from.
   - New test: during a D run, a spy on `guard_sql` sees every metric query
     of the final table.
 
-## 5. dev2 (development set, not frozen; tuning allowed)
+### 5. dev2 (development set, not frozen; tuning allowed)
 
 `eval/dev2.yaml`, gold `eval/gold/dev2.json`, built by
 `scripts/build_dev_gold.py`. Gold is SQL run through the frozen builder's
@@ -153,7 +254,7 @@ measured first):
 - **dv03:** `linear_trend_forecast` returns steps ahead without month labels,
   so a compute table cannot match a gold that has a month column.
 
-## 6. Runs on d3275c5: `phase4b-showcase` and `phase4-dev2`
+### 6. Runs on d3275c5: `phase4b-showcase` and `phase4-dev2`
 
 Live calls spent: 4 on the showcase (D on sc03; everything else replayed
 from the cache) and 22 on dev2. No judge call was live.
@@ -239,7 +340,7 @@ it is: on D's escalated path only, not a step-0 signal. If a holdout shows a
 silent date-format error that is not escalated, that will show up as a
 missed escalation.
 
-## 7. Round-2 fixes (after the d3275c5 runs)
+### 7. Round-2 fixes (after the d3275c5 runs)
 
 - **The driver is always stated in plain words (sc03, answer step).**
   - The metric tools now name items in plain words: "number of orders",
@@ -287,7 +388,7 @@ missed escalation.
   on dv03. Every other pair replays from the cache with the same result as
   before.
 
-## 8. Runs on 70d5089: `phase4c-showcase` and `phase4b-dev2`
+### 8. Runs on 70d5089: `phase4c-showcase` and `phase4b-dev2`
 
 **Showcase: A 4/5, C 4/5, D 5/5.**
 
@@ -330,7 +431,7 @@ with:
     other than "escalated" as "direct".
 - **Answer to item 3:** yes, it was a swallowed exception.
 
-## 9. Round-3 fixes (after the 70d5089 runs)
+### 9. Round-3 fixes (after the 70d5089 runs)
 
 - **Exceptions are recorded as ERROR.**
   - Any exception that escapes an architecture is recorded as status `ERROR`,
@@ -376,7 +477,7 @@ with:
     count", and so is the report.
   - The app never sets the switch; it exists only as a runner option.
 
-## 10. Runs on 9d23f5f: `phase4c-dev2`, `phase4d-showcase`, `phase4-dev2-forced`
+### 10. Runs on 9d23f5f: `phase4c-dev2`, `phase4d-showcase`, `phase4-dev2-forced`
 
 **Showcase: A 4/5, C 4/5, D 5/5.**
 
@@ -462,7 +563,7 @@ structured-output path parses it):
 - **Invalid replies:** 5 malformed replies are rejected at validation, so
   the structured-output path asks the model once to fix them.
 
-## 11. Round-4 fixes (after the 9d23f5f runs)
+### 11. Round-4 fixes (after the 9d23f5f runs)
 
 - **Trend-fit questions open with a TrendPlan (D).**
   - When the forecast signal fires, D's escalated path starts with one
@@ -515,13 +616,13 @@ structured-output path parses it):
   - 4xx errors, invalid model output and exceptions in our code still count
     as fails.
 
-## 12. Run tables
+### 12. Run tables
 
-### phase4-showcase (code 1cfa440, before the fix)
+#### phase4-showcase (code 1cfa440, before the fix)
 
 Set `showcase`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04, max steps 3, max attempts 3; code `1cfa440`; complete: True.
 
-#### Summary
+##### Summary
 
 | arch | primary | Wilson 95% | avg LLM calls | avg latency s (as if live) | by type |
 | --- | --- | --- | --- | --- | --- |
@@ -530,7 +631,7 @@ Set `showcase`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04
 | C router | 4/5 | 0.38-0.96 | 3.6 | 0.03 (4.85) | multi_hop 1/1, recovery 1/1, statistics 1/1, term_matching 1/1, why 0/1 |
 | D full | 4/5 | 0.38-0.96 | 3.6 | 1.15 (4.96) | multi_hop 1/1, recovery 1/1, statistics 1/1, term_matching 1/1, why 0/1 |
 
-#### Per question
+##### Per question
 
 | question | type | arch | result | first failing check | LLM calls (live) | latency s (as if live) | path | tools by step | repairs fix/break |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -555,14 +656,14 @@ Set `showcase`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04
 | sc05 | recovery | C router | PASS | - | 3 (0) | 0.02 (4.08) | direct | run_sql | 0: 0/0 |
 | sc05 | recovery | D full | PASS | - | 3 (0) | 0.02 (4.08) | direct | run_sql | 0: 0/0 |
 
-#### Escalation against A (help / harm)
+##### Escalation against A (help / harm)
 
 | arch | escalated | helped | harmed | no change | unknown | questions |
 | --- | --- | --- | --- | --- | --- | --- |
 | C router | 1 | 0 | 0 | 1 | 0 | sc03 no change |
 | D full | 1 | 0 | 0 | 1 | 0 | sc03 no change |
 
-#### Missed escalations (questions A failed)
+##### Missed escalations (questions A failed)
 
 A failed 1 question(s). C escalated 1, did not escalate 0, not run 0; D escalated 1, did not escalate 0, not run 0.
 
@@ -570,10 +671,10 @@ A failed 1 question(s). C escalated 1, did not escalate 0, not run 0; D escalate
 | --- | --- | --- |
 | sc03 | escalated (fail) | escalated (fail) |
 
-### phase4b-showcase (code d3275c5)
+#### phase4b-showcase (code d3275c5)
 Set `showcase`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04, max steps 3, max attempts 3; code `d3275c5`; complete: True.
 
-#### Summary
+##### Summary
 
 | arch | primary | Wilson 95% | avg LLM calls | avg latency s (as if live) | by type |
 | --- | --- | --- | --- | --- | --- |
@@ -581,7 +682,7 @@ Set `showcase`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04
 | C router | 4/5 | 0.38-0.96 | 3.6 | 0.03 (4.86) | multi_hop 1/1, recovery 1/1, statistics 1/1, term_matching 1/1, why 0/1 |
 | D full | 4/5 | 0.38-0.96 | 3.6 | 1.53 (5.34) | multi_hop 1/1, recovery 1/1, statistics 1/1, term_matching 1/1, why 0/1 |
 
-#### Per question
+##### Per question
 
 | question | type | arch | result | first failing check | LLM calls (live) | latency s (as if live) | path | tools by step | repairs fix/break |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -601,14 +702,14 @@ Set `showcase`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04
 | sc05 | recovery | C router | PASS | - | 3 (0) | 0.02 (4.07) | direct | run_sql | 0: 0/0 |
 | sc05 | recovery | D full | PASS | - | 3 (0) | 0.02 (4.08) | direct | run_sql | 0: 0/0 |
 
-#### Escalation against A (help / harm)
+##### Escalation against A (help / harm)
 
 | arch | escalated | helped | harmed | no change | unknown | questions |
 | --- | --- | --- | --- | --- | --- | --- |
 | C router | 1 | 0 | 0 | 1 | 0 | sc03 no change |
 | D full | 1 | 0 | 0 | 1 | 0 | sc03 no change |
 
-#### Missed escalations (questions A failed)
+##### Missed escalations (questions A failed)
 
 A failed 1 question(s). C escalated 1, did not escalate 0, not run 0; D escalated 1, did not escalate 0, not run 0.
 
@@ -616,10 +717,10 @@ A failed 1 question(s). C escalated 1, did not escalate 0, not run 0; D escalate
 | --- | --- | --- |
 | sc03 | escalated (fail) | escalated (fail) |
 
-### phase4-dev2 (code d3275c5)
+#### phase4-dev2 (code d3275c5)
 Set `dev2`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04, max steps 3, max attempts 3; code `d3275c5`; complete: True.
 
-#### Summary
+##### Summary
 
 | arch | primary | Wilson 95% | avg LLM calls | avg latency s (as if live) | by type |
 | --- | --- | --- | --- | --- | --- |
@@ -627,7 +728,7 @@ Set `dev2`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04, ma
 | C router | 4/6 | 0.30-0.90 | 3.17 | 1.23 (4.39) | recovery 1/1, segment_comparison 1/1, statistics 1/2, term_matching 1/2 |
 | D full | 5/6 | 0.44-0.97 | 3.5 | 0.59 (4.80) | recovery 1/1, segment_comparison 1/1, statistics 1/2, term_matching 2/2 |
 
-#### Per question
+##### Per question
 
 | question | type | arch | result | first failing check | LLM calls (live) | latency s (as if live) | path | tools by step | repairs fix/break |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -650,14 +751,14 @@ Set `dev2`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04, ma
 | dv06 | recovery | C router | PASS | - | 3 (1) | 0.87 (3.23) | direct | run_sql | 0: 0/0 |
 | dv06 | recovery | D full | PASS | - | 3 (0) | 0.01 (3.23) | direct | run_sql | 0: 0/0 |
 
-#### Escalation against A (help / harm)
+##### Escalation against A (help / harm)
 
 | arch | escalated | helped | harmed | no change | unknown | questions |
 | --- | --- | --- | --- | --- | --- | --- |
 | C router | 1 | 0 | 0 | 1 | 0 | dv01 no change |
 | D full | 1 | 1 | 0 | 0 | 0 | dv01 helped |
 
-#### Missed escalations (questions A failed)
+##### Missed escalations (questions A failed)
 
 A failed 2 question(s). C escalated 1, did not escalate 1, not run 0; D escalated 1, did not escalate 1, not run 0.
 
@@ -666,10 +767,10 @@ A failed 2 question(s). C escalated 1, did not escalate 1, not run 0; D escalate
 | dv01 | escalated (fail) | escalated (pass) |
 | dv03 | direct (fail) | direct (fail) |
 
-### phase4c-showcase (code 70d5089)
+#### phase4c-showcase (code 70d5089)
 Set `showcase`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04, max steps 3, max attempts 3; code `70d5089`; complete: True.
 
-#### Summary
+##### Summary
 
 | arch | primary | Wilson 95% | avg LLM calls | avg latency s (as if live) | by type |
 | --- | --- | --- | --- | --- | --- |
@@ -677,7 +778,7 @@ Set `showcase`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04
 | C router | 4/5 | 0.38-0.96 | 3.6 | 0.09 (4.92) | multi_hop 1/1, recovery 1/1, statistics 1/1, term_matching 1/1, why 0/1 |
 | D full | 5/5 | 0.57-1.00 | 3.6 | 1.27 (5.65) | multi_hop 1/1, recovery 1/1, statistics 1/1, term_matching 1/1, why 1/1 |
 
-#### Per question
+##### Per question
 
 | question | type | arch | result | first failing check | LLM calls (live) | latency s (as if live) | path | tools by step | repairs fix/break |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -697,14 +798,14 @@ Set `showcase`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04
 | sc05 | recovery | C router | PASS | - | 3 (0) | 0.04 (4.09) | direct | run_sql | 0: 0/0 |
 | sc05 | recovery | D full | PASS | - | 3 (0) | 0.04 (4.09) | direct | run_sql | 0: 0/0 |
 
-#### Escalation against A (help / harm)
+##### Escalation against A (help / harm)
 
 | arch | escalated | helped | harmed | no change | unknown | questions |
 | --- | --- | --- | --- | --- | --- | --- |
 | C router | 1 | 0 | 0 | 1 | 0 | sc03 no change |
 | D full | 1 | 1 | 0 | 0 | 0 | sc03 helped |
 
-#### Missed escalations (questions A failed)
+##### Missed escalations (questions A failed)
 
 A failed 1 question(s). C escalated 1, did not escalate 0, ERROR 0, not run 0; D escalated 1, did not escalate 0, ERROR 0, not run 0.
 
@@ -712,10 +813,10 @@ A failed 1 question(s). C escalated 1, did not escalate 0, ERROR 0, not run 0; D
 | --- | --- | --- |
 | sc03 | escalated (fail) | escalated (pass) |
 
-### phase4b-dev2 (code 70d5089)
+#### phase4b-dev2 (code 70d5089)
 Set `dev2`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04, max steps 3, max attempts 3; code `70d5089`; complete: True.
 
-#### Summary
+##### Summary
 
 | arch | primary | Wilson 95% | avg LLM calls | avg latency s (as if live) | by type |
 | --- | --- | --- | --- | --- | --- |
@@ -723,7 +824,7 @@ Set `dev2`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04, ma
 | C router | 4/6 | 0.30-0.90 | 3.17 | 3.64 (7.68) | recovery 1/1, segment_comparison 1/1, statistics 1/2, term_matching 1/2 |
 | D full | 5/6 | 0.44-0.97 | 3.17 | 0.39 (4.86) | recovery 1/1, segment_comparison 1/1, statistics 1/2, term_matching 2/2 |
 
-#### Per question
+##### Per question
 
 | question | type | arch | result | first failing check | LLM calls (live) | latency s (as if live) | path | tools by step | repairs fix/break |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -746,14 +847,14 @@ Set `dev2`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04, ma
 | dv06 | recovery | C router | PASS | - | 3 (0) | 0.01 (3.22) | direct | run_sql | 0: 0/0 |
 | dv06 | recovery | D full | PASS | - | 3 (0) | 0.01 (3.22) | direct | run_sql | 0: 0/0 |
 
-#### Escalation against A (help / harm)
+##### Escalation against A (help / harm)
 
 | arch | escalated | helped | harmed | no change | unknown | questions |
 | --- | --- | --- | --- | --- | --- | --- |
 | C router | 2 | 0 | 0 | 2 | 0 | dv01 no change, dv03 no change |
 | D full | 1 | 1 | 0 | 0 | 0 | dv01 helped |
 
-#### Missed escalations (questions A failed)
+##### Missed escalations (questions A failed)
 
 A failed 2 question(s). C escalated 2, did not escalate 0, ERROR 0, not run 0; D escalated 1, did not escalate 1, ERROR 0, not run 0.
 
@@ -762,10 +863,10 @@ A failed 2 question(s). C escalated 2, did not escalate 0, ERROR 0, not run 0; D
 | dv01 | escalated (fail) | escalated (pass) |
 | dv03 | escalated (fail) | direct (fail) |
 
-### phase4d-showcase (code 9d23f5f)
+#### phase4d-showcase (code 9d23f5f)
 Set `showcase`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04, max steps 3, max attempts 3; code `9d23f5f`; complete: True.
 
-#### Summary
+##### Summary
 
 | arch | primary | Wilson 95% | avg LLM calls | avg latency s (as if live) | by type |
 | --- | --- | --- | --- | --- | --- |
@@ -773,7 +874,7 @@ Set `showcase`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04
 | C router | 4/5 | 0.38-0.96 | 3.6 | 0.06 (4.88) | multi_hop 1/1, recovery 1/1, statistics 1/1, term_matching 1/1, why 0/1 |
 | D full | 5/5 | 0.57-1.00 | 3.6 | 1.05 (5.43) | multi_hop 1/1, recovery 1/1, statistics 1/1, term_matching 1/1, why 1/1 |
 
-#### Per question
+##### Per question
 
 | question | type | arch | result | first failing check | LLM calls (live) | latency s (as if live) | path | tools by step | repairs fix/break |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -793,14 +894,14 @@ Set `showcase`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04
 | sc05 | recovery | C router | PASS | - | 3 (0) | 0.05 (4.10) | direct | run_sql | 0: 0/0 |
 | sc05 | recovery | D full | PASS | - | 3 (0) | 0.04 (4.10) | direct | run_sql | 0: 0/0 |
 
-#### Escalation against A (help / harm)
+##### Escalation against A (help / harm)
 
 | arch | escalated | helped | harmed | no change | unknown | questions |
 | --- | --- | --- | --- | --- | --- | --- |
 | C router | 1 | 0 | 0 | 1 | 0 | sc03 no change |
 | D full | 1 | 1 | 0 | 0 | 0 | sc03 helped |
 
-#### Missed escalations (questions A failed)
+##### Missed escalations (questions A failed)
 
 A failed 1 question(s). C escalated 1, did not escalate 0, ERROR 0, not run 0; D escalated 1, did not escalate 0, ERROR 0, not run 0.
 
@@ -808,14 +909,14 @@ A failed 1 question(s). C escalated 1, did not escalate 0, ERROR 0, not run 0; D
 | --- | --- | --- |
 | sc03 | escalated (fail) | escalated (pass) |
 
-#### Provider errors and resumes (pre-run amendment 3)
+##### Provider errors and resumes (pre-run amendment 3)
 
 No question hit a persistent provider error.
 
-### phase4c-dev2 (code 9d23f5f)
+#### phase4c-dev2 (code 9d23f5f)
 Set `dev2`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04, max steps 3, max attempts 3; code `9d23f5f`; complete: True.
 
-#### Summary
+##### Summary
 
 | arch | primary | Wilson 95% | avg LLM calls | avg latency s (as if live) | by type |
 | --- | --- | --- | --- | --- | --- |
@@ -823,7 +924,7 @@ Set `dev2`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04, ma
 | C router | 4/6 | 0.30-0.90 | 3.17 | 0.03 (7.46) | recovery 1/1, segment_comparison 1/1, statistics 1/2, term_matching 1/2 |
 | D full | 5/6 | 0.44-0.97 | 3.5 | 0.74 (5.21) | recovery 1/1, segment_comparison 1/1, statistics 1/2, term_matching 2/2 |
 
-#### Per question
+##### Per question
 
 | question | type | arch | result | first failing check | LLM calls (live) | latency s (as if live) | path | tools by step | repairs fix/break |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -846,14 +947,14 @@ Set `dev2`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04, ma
 | dv06 | recovery | C router | PASS | - | 3 (0) | 0.01 (3.23) | direct | run_sql | 0: 0/0 |
 | dv06 | recovery | D full | PASS | - | 3 (0) | 0.01 (3.23) | direct | run_sql | 0: 0/0 |
 
-#### Escalation against A (help / harm)
+##### Escalation against A (help / harm)
 
 | arch | escalated | helped | harmed | no change | unknown | questions |
 | --- | --- | --- | --- | --- | --- | --- |
 | C router | 2 | 0 | 0 | 2 | 0 | dv01 no change, dv03 no change |
 | D full | 2 | 1 | 0 | 1 | 0 | dv01 helped, dv03 no change |
 
-#### Missed escalations (questions A failed)
+##### Missed escalations (questions A failed)
 
 A failed 2 question(s). C escalated 2, did not escalate 0, ERROR 0, not run 0; D escalated 2, did not escalate 0, ERROR 0, not run 0.
 
@@ -862,22 +963,22 @@ A failed 2 question(s). C escalated 2, did not escalate 0, ERROR 0, not run 0; D
 | dv01 | escalated (fail) | escalated (pass) |
 | dv03 | escalated (fail) | escalated (fail) |
 
-#### Provider errors and resumes (pre-run amendment 3)
+##### Provider errors and resumes (pre-run amendment 3)
 
 No question hit a persistent provider error.
 
-### phase4-dev2-forced (code 9d23f5f; smoke test, does not count)
+#### phase4-dev2-forced (code 9d23f5f; smoke test, does not count)
 Set `dev2`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04, max steps 3, max attempts 3; code `9d23f5f`; complete: True.
 
 **Forced escalation (development smoke test): these results do not count.**
 
-#### Summary
+##### Summary
 
 | arch | primary | Wilson 95% | avg LLM calls | avg latency s (as if live) | by type |
 | --- | --- | --- | --- | --- | --- |
 | D full | 5/6 | 0.44-0.97 | 4.17 | 1.82 (6.06) | recovery 1/1, segment_comparison 1/1, statistics 1/2, term_matching 2/2 |
 
-#### Per question
+##### Per question
 
 | question | type | arch | result | first failing check | LLM calls (live) | latency s (as if live) | path | tools by step | repairs fix/break |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -888,15 +989,154 @@ Set `dev2`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04, ma
 | dv05 | segment_comparison | D full | PASS | - | 4 (2) | 2.31 (5.56) | escalated | run_sql | 0: 0/0 |
 | dv06 | recovery | D full | PASS | - | 4 (2) | 2.07 (4.44) | escalated | run_sql | 0: 0/0 |
 
-#### Escalation against A (help / harm)
+##### Escalation against A (help / harm)
 
 | arch | escalated | helped | harmed | no change | unknown | questions |
 | --- | --- | --- | --- | --- | --- | --- |
 | D full | 6 | 0 | 0 | 0 | 6 | dv01 unknown, dv02 unknown, dv03 unknown, dv04 unknown, dv05 unknown, dv06 unknown |
 
-#### Missed escalations (questions A failed)
+##### Missed escalations (questions A failed)
 
 A failed no question.
+
+##### Provider errors and resumes (pre-run amendment 3)
+
+No question hit a persistent provider error.
+
+#### dv03 re-run (`phase4d-dev2`, code d2cf7e0)
+
+D escalated on the forecast signal and its validated TrendPlan was:
+`series_sql` = monthly signups for 2023-01..2024-12 (strftime('%Y-%m'),
+one row per month, 24 rows), `period` = period, `value` = value,
+`function` = linear_trend_forecast, `periods` = ["2025-01", "2025-02",
+"2025-03"]. The tool fitted slope 0.11957, intercept 43.04710 with
+x = month number (1 = 2023-01) and returned 46.0362, 46.1558, 46.2754 for
+x = 25, 26, 27: equal to the gold (46.03623188405797, 46.155797101449274,
+46.27536231884058). **PASS** (3 rows match; answer checks pass). A and C
+still fail (A's x offset). 2 live calls.
+
+## F. Final run tables (code b07f4f1, offline replay)
+
+### showcase: A, B, C, D
+Set `showcase`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04, max steps 3, max attempts 3; code `b07f4f1`; complete: True.
+
+#### Summary
+
+| arch | primary | Wilson 95% | avg LLM calls | avg latency s (as if live) | by type |
+| --- | --- | --- | --- | --- | --- |
+| A baseline | 4/5 | 0.38-0.96 | 2.0 | 0.03 (3.11) | multi_hop 1/1, recovery 1/1, statistics 1/1, term_matching 1/1, why 0/1 |
+| B v1 | 2/5 | 0.12-0.77 | 6.8 | 0.1 (8.68) | multi_hop 1/1, recovery 0/1, statistics 0/1, term_matching 1/1, why 0/1 |
+| C router | 4/5 | 0.38-0.96 | 3.6 | 0.04 (4.86) | multi_hop 1/1, recovery 1/1, statistics 1/1, term_matching 1/1, why 0/1 |
+| D full | 5/5 | 0.57-1.00 | 3.6 | 0.05 (5.10) | multi_hop 1/1, recovery 1/1, statistics 1/1, term_matching 1/1, why 1/1 |
+
+#### Paired comparison against A
+
+| arch | questions | both pass | neither | only A | only this arch | exact McNemar p | not worse than A |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| B v1 | 5 | 2 | 1 | 2 | 0 | 0.500 | no |
+| C router | 5 | 4 | 1 | 0 | 0 | 1.000 | yes |
+| D full | 5 | 4 | 0 | 0 | 1 | 1.000 | yes |
+
+#### Per question
+
+| question | type | arch | result | first failing check | LLM calls (live) | latency s (as if live) | path | tools by step | repairs fix/break |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| sc01 | multi_hop | A baseline | PASS | - | 2 (0) | 0.03 (3.18) | direct | run_sql | 0: 0/0 |
+| sc01 | multi_hop | B v1 | PASS | - | 6 (0) | 0.08 (6.92) | v1 | run_sql > run_sql | 0: 0/0 |
+| sc01 | multi_hop | C router | PASS | - | 3 (0) | 0.03 (4.42) | direct | run_sql | 0: 0/0 |
+| sc01 | multi_hop | D full | PASS | - | 3 (0) | 0.05 (4.44) | direct | run_sql | 0: 0/0 |
+| sc02 | term_matching | A baseline | PASS | - | 2 (0) | 0.01 (2.65) | direct | run_sql | 0: 0/0 |
+| sc02 | term_matching | B v1 | PASS | - | 4 (0) | 0.05 (4.73) | v1 | run_sql | 0: 0/0 |
+| sc02 | term_matching | C router | PASS | - | 3 (0) | 0.01 (3.56) | direct | run_sql | 0: 0/0 |
+| sc02 | term_matching | D full | PASS | - | 3 (0) | 0.02 (3.57) | direct | run_sql | 0: 0/0 |
+| sc03 | why | A baseline | FAIL | driver named; judge fail | 2 (0) | 0.03 (2.39) | direct | run_sql | 0: 0/0 |
+| sc03 | why | B v1 | FAIL | driver named; judge fail | 11 (0) | 0.23 (15.59) | v1 | run_sql > run_sql > run_sql | 0: 0/0 |
+| sc03 | why | C router | FAIL | driver named; judge fail | 6 (0) | 0.06 (7.15) | escalated | run_sql > run_sql > assemble | 0: 0/0 |
+| sc03 | why | D full | PASS | - | 6 (0) | 0.08 (8.33) | escalated | run_sql > compute:decompose_change > stack | 0: 0/0 |
+| sc04 | statistics | A baseline | PASS | - | 2 (0) | 0.06 (4.18) | direct | run_sql | 0: 0/0 |
+| sc04 | statistics | B v1 | FAIL | expected 1 row(s), got 24; answer missing ['number: 0.1400200523481476'] | 7 (0) | 0.04 (9.15) | v1 | run_sql | 0: 0/0 |
+| sc04 | statistics | C router | PASS | - | 3 (0) | 0.06 (5.08) | direct | run_sql | 0: 0/0 |
+| sc04 | statistics | D full | PASS | - | 3 (0) | 0.07 (5.09) | direct | run_sql | 0: 0/0 |
+| sc05 | recovery | A baseline | PASS | - | 2 (0) | 0.02 (3.15) | direct | run_sql | 0: 0/0 |
+| sc05 | recovery | B v1 | FAIL | result has 1 column(s); gold needs 2 | 6 (0) | 0.09 (7.01) | v1 | run_sql > run_sql | 0: 0/0 |
+| sc05 | recovery | C router | PASS | - | 3 (0) | 0.03 (4.09) | direct | run_sql | 0: 0/0 |
+| sc05 | recovery | D full | PASS | - | 3 (0) | 0.03 (4.09) | direct | run_sql | 0: 0/0 |
+
+#### Escalation against A (help / harm)
+
+| arch | escalated | helped | harmed | no change | unknown | questions |
+| --- | --- | --- | --- | --- | --- | --- |
+| C router | 1 | 0 | 0 | 1 | 0 | sc03 no change |
+| D full | 1 | 1 | 0 | 0 | 0 | sc03 helped |
+
+#### Missed escalations (questions A failed)
+
+A failed 1 question(s). C escalated 1, did not escalate 0, ERROR 0, not run 0; D escalated 1, did not escalate 0, ERROR 0, not run 0.
+
+| question | C | D |
+| --- | --- | --- |
+| sc03 | escalated (fail) | escalated (pass) |
+
+#### Provider errors and resumes (pre-run amendment 3)
+
+No question hit a persistent provider error.
+
+### dev2: A, C, D
+Set `dev2`; model `gemini-3.5-flash-lite`, temperature 0.0, today 2026-10-04, max steps 3, max attempts 3; code `b07f4f1`; complete: True.
+
+#### Summary
+
+| arch | primary | Wilson 95% | avg LLM calls | avg latency s (as if live) | by type |
+| --- | --- | --- | --- | --- | --- |
+| A baseline | 4/6 | 0.30-0.90 | 2.0 | 0.02 (3.01) | recovery 1/1, segment_comparison 1/1, statistics 1/2, term_matching 1/2 |
+| C router | 4/6 | 0.30-0.90 | 3.17 | 0.03 (6.22) | recovery 1/1, segment_comparison 1/1, statistics 1/2, term_matching 1/2 |
+| D full | 6/6 | 0.61-1.00 | 3.5 | 0.04 (7.29) | recovery 1/1, segment_comparison 1/1, statistics 2/2, term_matching 2/2 |
+
+#### Paired comparison against A
+
+| arch | questions | both pass | neither | only A | only this arch | exact McNemar p | not worse than A |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| C router | 6 | 4 | 2 | 0 | 0 | 1.000 | yes |
+| D full | 6 | 4 | 0 | 0 | 2 | 0.500 | yes |
+
+#### Per question
+
+| question | type | arch | result | first failing check | LLM calls (live) | latency s (as if live) | path | tools by step | repairs fix/break |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| dv01 | term_matching | A baseline | FAIL | expected 1 row(s), got 0; answer missing ['text: Idris Rossi', 'text: 1133', 'number: 33475.845'] | 2 (0) | 0.01 (2.80) | direct | run_sql | 0: 0/0 |
+| dv01 | term_matching | C router | FAIL | expected 1 row(s), got 0; answer missing ['text: Idris Rossi', 'text: 1133', 'number: 33475.845'] | 4 (0) | 0.04 (6.88) | escalated | run_sql+repair | 2: 0/0 |
+| dv01 | term_matching | D full | PASS | - | 6 (0) | 0.10 (9.24) | escalated | run_sql+repair > search_values > run_sql | 2: 0/0 |
+| dv02 | term_matching | A baseline | PASS | - | 2 (0) | 0.01 (2.23) | direct | run_sql | 0: 0/0 |
+| dv02 | term_matching | C router | PASS | - | 3 (0) | 0.02 (3.06) | direct | run_sql | 0: 0/0 |
+| dv02 | term_matching | D full | PASS | - | 3 (0) | 0.02 (3.06) | direct | run_sql | 0: 0/0 |
+| dv03 | statistics | A baseline | FAIL | no result column matches gold column(s) [1]; first gold row ['2025-01', 46.03623188405797]; answer missing ['number: 46.03623188405797', 'number: 46.155797101449274', 'number: 46.27536231884058'] | 2 (0) | 0.02 (3.65) | direct | run_sql | 0: 0/0 |
+| dv03 | statistics | C router | FAIL | no result column matches gold column(s) [1]; first gold row ['2025-01', 46.03623188405797]; answer missing ['number: 46.03623188405797', 'number: 46.155797101449274', 'number: 46.27536231884058'] | 3 (0) | 0.03 (15.30) | escalated | run_sql | 0: 0/0 |
+| dv03 | statistics | D full | PASS | - | 3 (0) | 0.05 (19.40) | escalated | run_sql > run_sql > compute:linear_trend_forecast | 0: 0/0 |
+| dv04 | statistics | A baseline | PASS | - | 2 (0) | 0.01 (3.43) | direct | run_sql | 0: 0/0 |
+| dv04 | statistics | C router | PASS | - | 3 (0) | 0.02 (4.39) | direct | run_sql | 0: 0/0 |
+| dv04 | statistics | D full | PASS | - | 3 (0) | 0.02 (4.40) | direct | run_sql | 0: 0/0 |
+| dv05 | segment_comparison | A baseline | PASS | - | 2 (0) | 0.03 (3.57) | direct | run_sql | 0: 0/0 |
+| dv05 | segment_comparison | C router | PASS | - | 3 (0) | 0.04 (4.43) | direct | run_sql | 0: 0/0 |
+| dv05 | segment_comparison | D full | PASS | - | 3 (0) | 0.04 (4.43) | direct | run_sql | 0: 0/0 |
+| dv06 | recovery | A baseline | PASS | - | 2 (0) | 0.01 (2.37) | direct | run_sql | 0: 0/0 |
+| dv06 | recovery | C router | PASS | - | 3 (0) | 0.01 (3.22) | direct | run_sql | 0: 0/0 |
+| dv06 | recovery | D full | PASS | - | 3 (0) | 0.01 (3.22) | direct | run_sql | 0: 0/0 |
+
+#### Escalation against A (help / harm)
+
+| arch | escalated | helped | harmed | no change | unknown | questions |
+| --- | --- | --- | --- | --- | --- | --- |
+| C router | 2 | 0 | 0 | 2 | 0 | dv01 no change, dv03 no change |
+| D full | 2 | 2 | 0 | 0 | 0 | dv01 helped, dv03 helped |
+
+#### Missed escalations (questions A failed)
+
+A failed 2 question(s). C escalated 2, did not escalate 0, ERROR 0, not run 0; D escalated 2, did not escalate 0, ERROR 0, not run 0.
+
+| question | C | D |
+| --- | --- | --- |
+| dv01 | escalated (fail) | escalated (pass) |
+| dv03 | escalated (fail) | escalated (pass) |
 
 #### Provider errors and resumes (pre-run amendment 3)
 
