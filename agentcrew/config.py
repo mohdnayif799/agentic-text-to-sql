@@ -42,9 +42,11 @@ class Settings(BaseSettings):
     """Hard cap injected as LIMIT when the model omits one."""
 
     # ---- Architecture (eval protocol v2) ---------------------------------
-    arch: Literal["baseline", "v1", "router", "full"] = "v1"
+    arch: Literal["baseline", "v1", "router", "full"] = "full"
     """Which control flow answers a question: baseline (A), v1 (B, the
-    original agent), router (C) or full (D). See agentcrew/archs."""
+    original agent), router (C) or full (D, the default: the architecture
+    that did best on the frozen holdouts). See agentcrew/archs and
+    eval/results/phase5_report.md."""
     today: date | None = None
     """Pinned "today". None means the real current date; evaluation runs pin
     it (eval/run_config.yaml) so prompts and the response cache are stable."""
