@@ -1,0 +1,165 @@
+{
+ "question_id": "ha19",
+ "type": "segment_comparison",
+ "arch": "v1",
+ "question": "Compare the 2025 average completed order value of Enterprise and SMB customers. If Enterprise's is more than 20% higher than SMB's, break down Enterprise's 2025 completed revenue by product category; otherwise, break down SMB's 2025 completed revenue by product category.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Calculate the 2025 average completed order value for Enterprise and SMB customers.",
+  "Break down the 2025 completed revenue by product category for the appropriate customer segment based on the 20% comparison threshold."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT c.segment, AVG(order_totals.order_value) AS avg_order_value FROM (SELECT o.order_id, o.customer_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS order_value FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY o.order_id, o.customer_id) AS order_totals JOIN customers AS c ON order_totals.customer_id = c.customer_id WHERE c.segment IN ('Enterprise', 'SMB') GROUP BY c.segment LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 2,
+   "preview": "segment | avg_order_value\nEnterprise | 2854.422516536965\nSMB | 2838.8915096365636"
+  },
+  {
+   "sql": "SELECT p.category, SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) AS completed_revenue FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE c.segment = 'SMB' AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.category ORDER BY completed_revenue DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "category | completed_revenue\nHardware | 3171929.6655\nServices | 979587.305\nSoftware | 869276.058\nAccessories | 134633.953"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Calculate the 2025 average completed order value for Enterprise and SMB customers.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT c.segment, AVG(order_totals.order_value) AS avg_order_value FROM (SELECT o.order_id, o.customer_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS order_value FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY o.order_id, o.customer_id) AS order_totals JOIN customers AS c ON order_totals.customer_id = c.customer_id WHERE c.segment IN ('Enterprise', 'SMB') GROUP BY c.segment LIMIT 500"
+  },
+  {
+   "step": 2,
+   "goal": "Break down the 2025 completed revenue by product category for the appropriate customer segment based on the 20% comparison threshold.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.category, SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) AS completed_revenue FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE c.segment = 'SMB' AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.category ORDER BY completed_revenue DESC LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT p.category, SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) AS completed_revenue FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE c.segment = 'SMB' AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.category ORDER BY completed_revenue DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "category",
+   "completed_revenue"
+  ],
+  "rows": [
+   [
+    "Hardware",
+    3171929.6655
+   ],
+   [
+    "Services",
+    979587.305
+   ],
+   [
+    "Software",
+    869276.058
+   ],
+   [
+    "Accessories",
+    134633.953
+   ]
+  ],
+  "row_count": 4
+ },
+ "answer": "The 2025 average completed order value for Enterprise customers is 2854.42, while for SMB customers it is 2838.89. Because Enterprise's average order value is not more than 20% higher than SMB's, SMB's 2025 completed revenue is broken down by product category: Hardware generated 3171929.67, Services generated 979587.31, Software generated 869276.06, and Accessories generated 134633.95.",
+ "key_numbers": [
+  "Enterprise average order value: 2854.42",
+  "SMB average order value: 2838.89",
+  "SMB Hardware completed revenue: 3171929.67",
+  "SMB Services completed revenue: 979587.31",
+  "SMB Software completed revenue: 869276.06",
+  "SMB Accessories completed revenue: 134633.95"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "02eccdd6e5be3718d99a2b51df1a1823c9cd02a0169663fa3cfcdcaf83b3ccc4",
+   "cache_hit": false,
+   "latency_ms": 1122.4,
+   "input_tokens": 666,
+   "output_tokens": 153,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "79105ddb1017c17ca0590260acfaefd3010579291a72b29bb16970320409a9a5",
+   "cache_hit": false,
+   "latency_ms": 1716.6,
+   "input_tokens": 1148,
+   "output_tokens": 272,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "68fc246cc2c008b7665af34eb7598f4b274bfc9c51855d7afa3ef5c23e126bc2",
+   "cache_hit": false,
+   "latency_ms": 1030.9,
+   "input_tokens": 784,
+   "output_tokens": 51,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "a671389ec9e095fb9c7d57c26139f880630259c745ab3881ba96a6f834e42ae1",
+   "cache_hit": false,
+   "latency_ms": 2647.5,
+   "input_tokens": 1237,
+   "output_tokens": 291,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "99e0a42031bfce012896218fc38a4e32dda1f9af6fe900f401df5762d5cf19d4",
+   "cache_hit": false,
+   "latency_ms": 1492.1,
+   "input_tokens": 776,
+   "output_tokens": 83,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "1320d51d59ea54eeca00298a00aa4856e47044f546ce290da6e4f565cb1f15cf",
+   "cache_hit": false,
+   "latency_ms": 1678.5,
+   "input_tokens": 942,
+   "output_tokens": 268,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 9.871,
+ "latency_live_s": 9.871,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "4 row(s) match"
+ }
+}

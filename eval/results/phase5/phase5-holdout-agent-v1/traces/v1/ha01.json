@@ -1,0 +1,153 @@
+{
+ "question_id": "ha01",
+ "type": "multi_hop",
+ "arch": "v1",
+ "question": "Which customer segment had the most customers churn in 2025, and who was that segment's top customer by completed revenue in 2025? Give the customer's ID, name and 2025 completed revenue.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Identify which customer segment had the most churned customers in 2025 (defining churn based on customer status or lack of activity in 2025).",
+  "Find the top customer by completed revenue in 2025 within that specific customer segment, returning their customer ID, name, and 2025 completed revenue."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT segment, COUNT(*) AS churned_count FROM customers WHERE STRFTIME('%Y', churn_date) = '2025' GROUP BY segment ORDER BY churned_count DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "segment | churned_count\nMid-Market | 61"
+  },
+  {
+   "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) AS completed_revenue_2025 FROM customers AS c JOIN orders AS o ON c.customer_id = o.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id WHERE c.segment = 'Mid-Market' AND o.status = 'completed' AND STRFTIME('%Y', o.order_date) = '2025' GROUP BY c.customer_id, c.customer_name ORDER BY completed_revenue_2025 DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "customer_id | customer_name | completed_revenue_2025\n84 | Jonas Duarte | 34461.23"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Identify which customer segment had the most churned customers in 2025 (defining churn based on customer status or lack of activity in 2025).",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT segment, COUNT(*) AS churned_count FROM customers WHERE STRFTIME('%Y', churn_date) = '2025' GROUP BY segment ORDER BY churned_count DESC LIMIT 1"
+  },
+  {
+   "step": 2,
+   "goal": "Find the top customer by completed revenue in 2025 within that specific customer segment, returning their customer ID, name, and 2025 completed revenue.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) AS completed_revenue_2025 FROM customers AS c JOIN orders AS o ON c.customer_id = o.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id WHERE c.segment = 'Mid-Market' AND o.status = 'completed' AND STRFTIME('%Y', o.order_date) = '2025' GROUP BY c.customer_id, c.customer_name ORDER BY completed_revenue_2025 DESC LIMIT 1"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) AS completed_revenue_2025 FROM customers AS c JOIN orders AS o ON c.customer_id = o.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id WHERE c.segment = 'Mid-Market' AND o.status = 'completed' AND STRFTIME('%Y', o.order_date) = '2025' GROUP BY c.customer_id, c.customer_name ORDER BY completed_revenue_2025 DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "customer_id",
+   "customer_name",
+   "completed_revenue_2025"
+  ],
+  "rows": [
+   [
+    84,
+    "Jonas Duarte",
+    34461.23
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The Mid-Market customer segment had the most customer churn in 2025 with 61 churned customers, and its top customer by completed revenue that year was Jonas Duarte (Customer ID 84) with 34461.23 in completed revenue.",
+ "key_numbers": [
+  "Mid-Market segment churned count: 61",
+  "Customer ID: 84",
+  "Customer Name: Jonas Duarte",
+  "2025 Completed Revenue: 34461.23"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "2922c8bc5bb94f6213702f7ea1fe824c6204a63c3cea9b9b90428d9edadeffc1",
+   "cache_hit": false,
+   "latency_ms": 1330.3,
+   "input_tokens": 649,
+   "output_tokens": 152,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "6b5801ea75ba175181518ee5dea6c49d4808c79bf7b671ffb365249ed32e99e6",
+   "cache_hit": false,
+   "latency_ms": 1227.3,
+   "input_tokens": 1255,
+   "output_tokens": 102,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "5744d079beb2375adcf11a2961d4986f32a9656890bde13aae23e989c72dbb1e",
+   "cache_hit": false,
+   "latency_ms": 1021.1,
+   "input_tokens": 613,
+   "output_tokens": 64,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "de794c09d50d181991d92167163e70d65bd62b648ae40fce5054f39eb4fc9513",
+   "cache_hit": false,
+   "latency_ms": 1522.8,
+   "input_tokens": 1315,
+   "output_tokens": 263,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "69fc3efa50a8dab67326e1d489008b2af0cfb20f3cea26d2964feb8fe392a90d",
+   "cache_hit": false,
+   "latency_ms": 1439.3,
+   "input_tokens": 756,
+   "output_tokens": 100,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "a2521f7bf8d5bf2ccc97f8da60d4d863208cd9e6d4aacd269d301ba7544d9327",
+   "cache_hit": false,
+   "latency_ms": 1180.3,
+   "input_tokens": 733,
+   "output_tokens": 137,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 9.361,
+ "latency_live_s": 9.361,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

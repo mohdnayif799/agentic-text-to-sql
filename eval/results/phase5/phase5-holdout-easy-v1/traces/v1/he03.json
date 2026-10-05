@@ -1,0 +1,109 @@
+{
+ "question_id": "he03",
+ "type": "easy",
+ "arch": "v1",
+ "question": "How many critical-severity support tickets were created in 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Count the total number of support tickets where the severity is critical and the creation date falls within the year 2025."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT COUNT(*) AS critical_tickets_2025 FROM support_tickets WHERE severity = 'critical' AND created_date LIKE '2025%'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "critical_tickets_2025\n211"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Count the total number of support tickets where the severity is critical and the creation date falls within the year 2025.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT COUNT(*) AS critical_tickets_2025 FROM support_tickets WHERE severity = 'critical' AND created_date LIKE '2025%'"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT COUNT(*) AS critical_tickets_2025 FROM support_tickets WHERE severity = 'critical' AND created_date LIKE '2025%'",
+  "ok": true,
+  "columns": [
+   "critical_tickets_2025"
+  ],
+  "rows": [
+   [
+    211
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "There were 211 critical-severity support tickets created in 2025.",
+ "key_numbers": [
+  "211 critical tickets in 2025"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "caaf3efe2adbbb5f0ac879ec50f05375db649a42c5fe0745c2449a150a682ce4",
+   "cache_hit": false,
+   "latency_ms": 1154.2,
+   "input_tokens": 614,
+   "output_tokens": 90,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "ceb18d960445191df616abf631dabc5d283b2f8a81ef53df17cab5329a060e47",
+   "cache_hit": false,
+   "latency_ms": 1402.0,
+   "input_tokens": 953,
+   "output_tokens": 133,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "a70474984db238be55439a3905e2c385c888175502d892a1b0732feaf46ccf6d",
+   "cache_hit": false,
+   "latency_ms": 941.7,
+   "input_tokens": 604,
+   "output_tokens": 60,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "a4d49aa8abe5313e79138a4f2b797c4d45c93b7ed7056bb76f075f5d6cd83329",
+   "cache_hit": false,
+   "latency_ms": 976.4,
+   "input_tokens": 453,
+   "output_tokens": 66,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.582,
+ "latency_live_s": 4.582,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

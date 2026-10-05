@@ -1,0 +1,109 @@
+{
+ "question_id": "he10",
+ "type": "easy",
+ "arch": "v1",
+ "question": "How many customers signed up in 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Count the number of customers in the customers table whose signup date falls within the year 2025."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT COUNT(*) AS customer_count FROM customers WHERE signup_date >= '2025-01-01' AND signup_date <= '2025-12-31'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "customer_count\n331"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Count the number of customers in the customers table whose signup date falls within the year 2025.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT COUNT(*) AS customer_count FROM customers WHERE signup_date >= '2025-01-01' AND signup_date <= '2025-12-31'"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT COUNT(*) AS customer_count FROM customers WHERE signup_date >= '2025-01-01' AND signup_date <= '2025-12-31'",
+  "ok": true,
+  "columns": [
+   "customer_count"
+  ],
+  "rows": [
+   [
+    331
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "A total of 331 customers signed up in the year 2025.",
+ "key_numbers": [
+  "331 customers"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "96fb357883086b65d3ee47ce873fb0ab7da1579f0885ea3d08c61a8cf44d5189",
+   "cache_hit": false,
+   "latency_ms": 1349.2,
+   "input_tokens": 610,
+   "output_tokens": 84,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "3beba86340af8672a8ae14aef76408bb755172705381fe491a3e1dc2dcd29d29",
+   "cache_hit": false,
+   "latency_ms": 1132.2,
+   "input_tokens": 945,
+   "output_tokens": 133,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "472b9e67fd8f319fda55ce24974406bb5f89d606b25d84f02328c0a0e579f00d",
+   "cache_hit": false,
+   "latency_ms": 959.1,
+   "input_tokens": 596,
+   "output_tokens": 48,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "15c5e81204c2d7b6fd3a8b4748814948ad4497b277707cd9b00312dcb2fe246b",
+   "cache_hit": false,
+   "latency_ms": 992.8,
+   "input_tokens": 450,
+   "output_tokens": 59,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.576,
+ "latency_live_s": 4.576,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

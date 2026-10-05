@@ -1,0 +1,111 @@
+{
+ "question_id": "he08",
+ "type": "easy",
+ "arch": "v1",
+ "question": "Which region has the most customers, and how many customers does it have?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Query the database to count the number of customers in each region, order the results in descending order by customer count, and return the top region with its count."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT r.region_name, COUNT(c.customer_id) AS customer_count FROM regions AS r JOIN customers AS c ON r.region_id = c.region_id GROUP BY r.region_id, r.region_name ORDER BY customer_count DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "region_name | customer_count\nNorth America | 545"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Query the database to count the number of customers in each region, order the results in descending order by customer count, and return the top region with its count.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT r.region_name, COUNT(c.customer_id) AS customer_count FROM regions AS r JOIN customers AS c ON r.region_id = c.region_id GROUP BY r.region_id, r.region_name ORDER BY customer_count DESC LIMIT 1"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT r.region_name, COUNT(c.customer_id) AS customer_count FROM regions AS r JOIN customers AS c ON r.region_id = c.region_id GROUP BY r.region_id, r.region_name ORDER BY customer_count DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "region_name",
+   "customer_count"
+  ],
+  "rows": [
+   [
+    "North America",
+    545
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "North America has the most customers, with a total of 545 customers.",
+ "key_numbers": [
+  "North America region: 545 customers"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "8c6f8dbde3df140c5adcb75817470801da524a1ec89ca23ea5597ccf50c726d5",
+   "cache_hit": false,
+   "latency_ms": 1024.1,
+   "input_tokens": 613,
+   "output_tokens": 91,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "daa832397ec8940a1edff9422d2f8697247195f2b46b6c83ffd807f3828ef44a",
+   "cache_hit": false,
+   "latency_ms": 1142.8,
+   "input_tokens": 1217,
+   "output_tokens": 128,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "d626d95849d871a651dfd951d03de08013f7552a075f20cd10c1b6a696a5357b",
+   "cache_hit": false,
+   "latency_ms": 1213.7,
+   "input_tokens": 631,
+   "output_tokens": 60,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "11e4cc5ceb579ad0c171f20eaf0e13dc17270f2cca09d935d1c9e529d8413235",
+   "cache_hit": false,
+   "latency_ms": 1414.2,
+   "input_tokens": 489,
+   "output_tokens": 62,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.909,
+ "latency_live_s": 4.909,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

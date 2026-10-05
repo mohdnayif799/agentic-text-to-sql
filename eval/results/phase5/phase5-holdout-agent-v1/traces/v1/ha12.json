@@ -1,0 +1,113 @@
+{
+ "question_id": "ha12",
+ "type": "statistics",
+ "arch": "v1",
+ "question": "Using a straight-line trend fitted to monthly completed revenue from January 2024 to December 2025, what is the forecast for January 2026?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "failed",
+ "path": "v1",
+ "stop_reason": "attempts_exhausted",
+ "error": null,
+ "plan": [
+  "Calculate total monthly completed revenue for each month from January 2024 through December 2025.",
+  "Compute the linear regression coefficients (slope and intercept) over the monthly revenue time series and project the value for January 2026."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT SUBSTRING(month, 1, 7) AS month, SUM(amount) AS total_revenue FROM marketing_spend WHERE month BETWEEN '2024-01' AND '2025-12' GROUP BY month ORDER BY month LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 24,
+   "preview": "month | total_revenue\n2024-01 | 185283.63999999998\n2024-02 | 184833.12\n2024-03 | 173717.58000000002\n2024-04 | 182196.93\n2024-05 | 177190.01\n... 19 more row(s)"
+  },
+  {
+   "sql": "SELECT STRFTIME('%Y-%m', o.order_date) AS month, SUM(o.total_amount) AS total_revenue FROM orders AS o WHERE o.status = 'Completed' AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31' GROUP BY month ORDER BY month LIMIT 500",
+   "ok": false,
+   "failure": "missing_object",
+   "error": "(sqlite3.OperationalError) no such column: o.total_amount",
+   "row_count": 0,
+   "preview": "ERROR (missing_object): (sqlite3.OperationalError) no such column: o.total_amount"
+  },
+  {
+   "sql": "SELECT STRFTIME('%Y-%m', o.order_date) AS month, SUM(o.amount) AS total_revenue FROM orders AS o WHERE o.status = 'Completed' AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31' GROUP BY month ORDER BY month LIMIT 500",
+   "ok": false,
+   "failure": "missing_object",
+   "error": "(sqlite3.OperationalError) no such column: o.amount",
+   "row_count": 0,
+   "preview": "ERROR (missing_object): (sqlite3.OperationalError) no such column: o.amount"
+  }
+ ],
+ "steps": [],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": null,
+ "answer": "I could not produce a query that correctly answers this question while working on: Calculate total monthly completed revenue for each month from January 2024 through December 2025.. I tried several times and each attempt either failed to run or did not measure the right thing. Rather than guess, I am stopping here.\n\nLast database error: (sqlite3.OperationalError) no such column: o.amount",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "8fdb319a761ec1167b6ee22a2e99259f02f6f4d0052b3f1be24bfb52d0de75cd",
+   "cache_hit": false,
+   "latency_ms": 1106.4,
+   "input_tokens": 636,
+   "output_tokens": 135,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "5cb7faa7454e1e0044e8eb629af7311e1dc46ab2aae88d7dbca95a3ce6e48f77",
+   "cache_hit": false,
+   "latency_ms": 1412.2,
+   "input_tokens": 687,
+   "output_tokens": 172,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "17f93415783240311c582b4c7aa542fa1163843f0d719f2d9e3db0047c43bf7b",
+   "cache_hit": false,
+   "latency_ms": 1778.2,
+   "input_tokens": 893,
+   "output_tokens": 108,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the repair stage of an analytics agent. A previous query failed. Write a",
+   "prompt_hash": "382dfa3846492db463f0872cf247b0ea6aabc468e55f16448754083eb33cdff6",
+   "cache_hit": false,
+   "latency_ms": 1427.5,
+   "input_tokens": 930,
+   "output_tokens": 186,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the repair stage of an analytics agent. A previous query failed. Write a",
+   "prompt_hash": "355b23b2af3314c15582d596c80440e09b15685a6c86110a6c709752ee752751",
+   "cache_hit": false,
+   "latency_ms": 1232.1,
+   "input_tokens": 1048,
+   "output_tokens": 182,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 7.04,
+ "latency_live_s": 7.04,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "no selected result; answer missing ['number: 1220726.8511123192']"
+ }
+}

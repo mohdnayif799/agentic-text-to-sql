@@ -1,0 +1,194 @@
+{
+ "question_id": "ha20",
+ "type": "segment_comparison",
+ "arch": "v1",
+ "question": "Compare the 2025 refund rate (refunded orders as a percentage of all orders) of the Online and Direct channels. If the gap is more than 1.5 percentage points, show the 2025 refund rate by region for whichever of the two channels is higher; otherwise, give the overall 2025 refund rate across all channels.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Calculate the total number of orders and the refund rate (percentage of refunded orders) for both the Online and Direct channels in 2025.",
+  "Calculate the 2025 refund rate by region specifically for the channel with the higher refund rate if the gap between Online and Direct exceeds 1.5 percentage points, or otherwise calculate the overall 2025 refund rate across all channels."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT channel, COUNT(*) AS total_orders, SUM(CASE WHEN status = 'refunded' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS refund_rate FROM orders WHERE STRFTIME('%Y', order_date) = '2025' AND channel IN ('Online', 'Direct') GROUP BY channel LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 2,
+   "preview": "channel | total_orders | refund_rate\nDirect | 2108 | 14.990512333965844\nOnline | 3048 | 16.99475065616798"
+  },
+  {
+   "sql": "SELECT r.region_name, COUNT(o.order_id) AS total_orders, 100.0 * SUM(CASE WHEN o.status = 'refunded' THEN 1 ELSE 0 END) / COUNT(o.order_id) AS refund_rate FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE STRFTIME('%Y', o.order_date) = '2025' AND o.channel = 'Online' GROUP BY r.region_name ORDER BY refund_rate DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "region_name | total_orders | refund_rate\nLATAM | 411 | 19.221411192214113\nEMEA | 771 | 17.639429312581065\nAPAC | 614 | 16.286644951140065\nNorth America | 1252 | 16.21405750798722"
+  },
+  {
+   "sql": "WITH channel_rates AS (SELECT channel, 100.0 * SUM(CASE WHEN status = 'refunded' THEN 1 ELSE 0 END) / COUNT(*) AS refund_rate FROM orders WHERE STRFTIME('%Y', order_date) = '2025' AND channel IN ('Online', 'Direct') GROUP BY channel), online_rate AS (SELECT refund_rate FROM channel_rates WHERE channel = 'Online'), direct_rate AS (SELECT refund_rate FROM channel_rates WHERE channel = 'Direct'), higher_channel AS (SELECT CASE WHEN (SELECT refund_rate FROM online_rate) > (SELECT refund_rate FROM direct_rate) AND (SELECT refund_rate FROM online_rate) - (SELECT refund_rate FROM direct_rate) > 1.5 THEN 'Online' WHEN (SELECT refund_rate FROM direct_rate) > (SELECT refund_rate FROM online_rate) AND (SELECT refund_rate FROM direct_rate) - (SELECT refund_rate FROM online_rate) > 1.5 THEN 'None' ELSE 'Overall' END AS decision, CASE WHEN (SELECT refund_rate FROM online_rate) >= (SELECT refund_rate FROM direct_rate) THEN 'Online' ELSE 'Direct' END AS higher_chan) SELECT r.region_name, 100.0 * SUM(CASE WHEN o.status = 'refunded' THEN 1 ELSE 0 END) / COUNT(o.order_id) AS refund_rate FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE STRFTIME('%Y', o.order_date) = '2025' AND ((SELECT ABS((SELECT refund_rate FROM online_rate) - (SELECT refund_rate FROM direct_rate))) > 1.5 AND o.channel = (SELECT higher_chan FROM higher_channel)) OR ((SELECT ABS((SELECT refund_rate FROM online_rate) - (SELECT refund_rate FROM direct_rate))) <= 1.5) GROUP BY r.region_name LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "region_name | refund_rate\nAPAC | 16.286644951140065\nEMEA | 17.639429312581065\nLATAM | 19.221411192214113\nNorth America | 16.21405750798722"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Calculate the total number of orders and the refund rate (percentage of refunded orders) for both the Online and Direct channels in 2025.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT channel, COUNT(*) AS total_orders, SUM(CASE WHEN status = 'refunded' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS refund_rate FROM orders WHERE STRFTIME('%Y', order_date) = '2025' AND channel IN ('Online', 'Direct') GROUP BY channel LIMIT 500"
+  },
+  {
+   "step": 2,
+   "goal": "Calculate the 2025 refund rate by region specifically for the channel with the higher refund rate if the gap between Online and Direct exceeds 1.5 percentage points, or otherwise calculate the overall 2025 refund rate across all channels.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH channel_rates AS (SELECT channel, 100.0 * SUM(CASE WHEN status = 'refunded' THEN 1 ELSE 0 END) / COUNT(*) AS refund_rate FROM orders WHERE STRFTIME('%Y', order_date) = '2025' AND channel IN ('Online', 'Direct') GROUP BY channel), online_rate AS (SELECT refund_rate FROM channel_rates WHERE channel = 'Online'), direct_rate AS (SELECT refund_rate FROM channel_rates WHERE channel = 'Direct'), higher_channel AS (SELECT CASE WHEN (SELECT refund_rate FROM online_rate) > (SELECT refund_rate FROM direct_rate) AND (SELECT refund_rate FROM online_rate) - (SELECT refund_rate FROM direct_rate) > 1.5 THEN 'Online' WHEN (SELECT refund_rate FROM direct_rate) > (SELECT refund_rate FROM online_rate) AND (SELECT refund_rate FROM direct_rate) - (SELECT refund_rate FROM online_rate) > 1.5 THEN 'None' ELSE 'Overall' END AS decision, CASE WHEN (SELECT refund_rate FROM online_rate) >= (SELECT refund_rate FROM direct_rate) THEN 'Online' ELSE 'Direct' END AS higher_chan) SELECT r.region_name, 100.0 * SUM(CASE WHEN o.status = 'refunded' THEN 1 ELSE 0 END) / COUNT(o.order_id) AS refund_rate FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE STRFTIME('%Y', o.order_date) = '2025' AND ((SELECT ABS((SELECT refund_rate FROM online_rate) - (SELECT refund_rate FROM direct_rate))) > 1.5 AND o.channel = (SELECT higher_chan FROM higher_channel)) OR ((SELECT ABS((SELECT refund_rate FROM online_rate) - (SELECT refund_rate FROM direct_rate))) <= 1.5) GROUP BY r.region_name LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "WITH channel_rates AS (SELECT channel, 100.0 * SUM(CASE WHEN status = 'refunded' THEN 1 ELSE 0 END) / COUNT(*) AS refund_rate FROM orders WHERE STRFTIME('%Y', order_date) = '2025' AND channel IN ('Online', 'Direct') GROUP BY channel), online_rate AS (SELECT refund_rate FROM channel_rates WHERE channel = 'Online'), direct_rate AS (SELECT refund_rate FROM channel_rates WHERE channel = 'Direct'), higher_channel AS (SELECT CASE WHEN (SELECT refund_rate FROM online_rate) > (SELECT refund_rate FROM direct_rate) AND (SELECT refund_rate FROM online_rate) - (SELECT refund_rate FROM direct_rate) > 1.5 THEN 'Online' WHEN (SELECT refund_rate FROM direct_rate) > (SELECT refund_rate FROM online_rate) AND (SELECT refund_rate FROM direct_rate) - (SELECT refund_rate FROM online_rate) > 1.5 THEN 'None' ELSE 'Overall' END AS decision, CASE WHEN (SELECT refund_rate FROM online_rate) >= (SELECT refund_rate FROM direct_rate) THEN 'Online' ELSE 'Direct' END AS higher_chan) SELECT r.region_name, 100.0 * SUM(CASE WHEN o.status = 'refunded' THEN 1 ELSE 0 END) / COUNT(o.order_id) AS refund_rate FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE STRFTIME('%Y', o.order_date) = '2025' AND ((SELECT ABS((SELECT refund_rate FROM online_rate) - (SELECT refund_rate FROM direct_rate))) > 1.5 AND o.channel = (SELECT higher_chan FROM higher_channel)) OR ((SELECT ABS((SELECT refund_rate FROM online_rate) - (SELECT refund_rate FROM direct_rate))) <= 1.5) GROUP BY r.region_name LIMIT 500",
+  "ok": true,
+  "columns": [
+   "region_name",
+   "refund_rate"
+  ],
+  "rows": [
+   [
+    "APAC",
+    16.286644951140065
+   ],
+   [
+    "EMEA",
+    17.639429312581065
+   ],
+   [
+    "LATAM",
+    19.221411192214113
+   ],
+   [
+    "North America",
+    16.21405750798722
+   ]
+  ],
+  "row_count": 4
+ },
+ "answer": "In 2025, the Online channel had a refund rate of 16.99% while the Direct channel had a refund rate of 14.99%. Because the gap between them was 2.00 percentage points (which exceeds 1.5 percentage points), the refund rate for the higher channel (Online) is broken down by region: APAC at 16.29%, EMEA at 17.64%, LATAM at 19.22%, and North America at 16.21%.",
+ "key_numbers": [
+  "Online refund rate: 16.99%",
+  "Direct refund rate: 14.99%",
+  "Gap: 2.00 percentage points",
+  "APAC refund rate: 16.29%",
+  "EMEA refund rate: 17.64%",
+  "LATAM refund rate: 19.22%",
+  "North America refund rate: 16.21%"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "f25dd85e00ef042588d359baea2623423d99beb3933a9068aef8bb2a83fa890a",
+   "cache_hit": false,
+   "latency_ms": 1651.9,
+   "input_tokens": 674,
+   "output_tokens": 164,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "7089b664879588345069b463d22d0fd82cb977611b85c0dc40df350d44035442",
+   "cache_hit": false,
+   "latency_ms": 1370.2,
+   "input_tokens": 1276,
+   "output_tokens": 149,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "e07970458548eeaa86707f6122d47448eed9d6fcca8a488c58ee5f8065237aee",
+   "cache_hit": false,
+   "latency_ms": 1200.5,
+   "input_tokens": 709,
+   "output_tokens": 66,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "46b0588035bc0e0d0c26b7721aac73c88ec9dc108e27e97ebdba9404c8f34712",
+   "cache_hit": false,
+   "latency_ms": 1562.5,
+   "input_tokens": 1402,
+   "output_tokens": 267,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "d184eb24c35d5da31013dec1e8c436c1d2d0e66c7e0468842866eec68b7ed054",
+   "cache_hit": false,
+   "latency_ms": 1368.3,
+   "input_tokens": 855,
+   "output_tokens": 172,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the repair stage of an analytics agent. A previous query failed. Write a",
+   "prompt_hash": "50ceff0dc4dc0e2aef5a155b9fed07269c67c413e09e7669a5edfedd204e78dd",
+   "cache_hit": false,
+   "latency_ms": 2453.1,
+   "input_tokens": 1680,
+   "output_tokens": 558,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "93e9e2ccb8f5e8d1cc86677488d08afccde90272a54a1dac70b55ef5b59c77c3",
+   "cache_hit": false,
+   "latency_ms": 1051.3,
+   "input_tokens": 1204,
+   "output_tokens": 106,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "2b773daf26de1cb0105beb1a6bc71e609a724bbe8c3fa2117951430a7b84b67c",
+   "cache_hit": false,
+   "latency_ms": 1309.4,
+   "input_tokens": 1236,
+   "output_tokens": 249,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 12.216,
+ "latency_live_s": 12.216,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "4 row(s) match"
+ }
+}

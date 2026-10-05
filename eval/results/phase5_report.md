@@ -10,74 +10,128 @@ redacted traces, generated reports): `eval/results/phase5/`.
 | --- | --- | --- | --- | --- | --- | --- |
 | `phase5-holdout-agent` | holdout_agent (21) | A, C, D | b868f38 | 2026-10-05 01:55 | yes | 103 + 16 judge |
 | `phase5-holdout-easy` | holdout_easy (12) | A, C, D | b868f38 | 2026-10-05 02:03 | yes | 36 |
+| `phase5-holdout-agent-v1` | holdout_agent (21) | B | adff209 | 2026-10-05 05:02 | yes | 124 + 6 judge |
+| `phase5-holdout-easy-v1` | holdout_easy (12) | B | adff209 | 2026-10-05 05:11 | yes | 48 |
 
-- **Primary result:** one primary run of each set, on one day, at a clean
-  commit. No ERROR, no provider error, no resumes.
-- **Cost:** 155 live calls in total, against about 200 planned (typical).
+- **Primary result:** one primary run of A, C and D on each set, at a clean
+  commit. B ran afterwards in its own folders, at a commit that differs
+  only in documents (no change under `agentcrew/`, `evalrun/`, `evalkit/`,
+  `scripts/` or the run configuration).
+- **Errors:** no ERROR, no provider error, no resumes in any run.
+- **Cost:** 333 live calls in total (155 for A, C and D; 178 for B).
 - **Configuration:** gemini-3.5-flash-lite, temperature 0, today
-  2026-10-04, at most 3 steps and 3 attempts per step.
-- **B (v1):** not run.
+  2026-10-04, at most 3 steps and 3 attempts per step, for every
+  architecture.
+
+## Pre-registered rules, as applied
+
+Quoted from `eval/PROTOCOL.md`:
+
+> **Primary comparison:** D vs A on `holdout_agent`, using the two-sided
+> exact McNemar test on the primary metric.
+
+> **Easy set:** D must not be worse than A on `holdout_easy`. That means
+> the number of questions only A passes is no larger than the number only
+> D passes. McNemar p is reported as well.
+
+> **Power:** with 21 questions, significance needs a lopsided split of
+> discordant pairs: at least 6-0 (p = 0.031) or 8-1 (p = 0.039). A smaller
+> win is reported as a win in this sample without significance, in those
+> words.
+
+> These answer-text conditions are part of the primary grade for every
+> architecture, A included [...] naming the gold item(s) on which/top-N
+> questions, and stating the assumption and naming the metric on ambiguous
+> questions.
+
+> A run that errors or produces no selected result fails.
+
+> A question counts only when every architecture in the comparison has an
+> evaluated result for it.
+
+> one primary run of A, C and D on both holdouts, with B only if quota
+> allows. [...] the primary result is never replaced by a better run.
+
+Every architecture was evaluated on every question, so all 21 + 12 count.
+B's one ordinary failure (ha12: its loop gave up after its attempts, "no
+selected result") is scored as a fail under the rule above.
 
 ## Verdict
 
-**On holdout_agent, D beats A in this sample: 16/21 vs 13/21. The win is
-not statistically significant.** D passes 3 questions A fails (ha06, ha09,
-ha11) and fails none that A passes. Exact McNemar p = 0.25; significance
-would need at least 6-0 or 8-1.
+**Primary: on holdout_agent, D beats A in this sample, 16/21 vs 13/21,
+without significance.** D passes 3 questions A fails (ha06, ha09, ha11) and
+fails none that A passes. The split is 3-0 and the exact McNemar p is 0.25,
+short of the 6-0 or 8-1 needed.
 
-**On holdout_easy, D is not worse than A.** All three architectures score
-12/12 (no discordant pairs, p = 1.0).
+**Easy set: D is not worse than A.** A, B, C and D all score 12/12 (no
+discordant pairs, p = 1.0).
 
-Two of D's three wins over A (ha06, ha11) come from C's repair step, which
-D shares. Only one (ha09) comes from D's own tools: **D vs C is 1-0**
-(p = 1.0).
+**Secondary comparisons** (not pre-registered as decisions; reported for
+context):
+
+- **C vs A:** 2-0, p = 0.50.
+- **D vs C:** 1-0 (ha09), p = 1.0. Two of D's three wins over A come from
+  C's repair step, which D shares.
+- **B vs A:** B 9/21 vs A 13/21. A passes 5 that B fails, B passes 1 that A
+  fails (ha20), p = 0.22.
+- **D vs B:** D passes 8 that B fails, B passes 1 that D fails (ha20),
+  p = 0.039. This 8-1 split meets the protocol's significance threshold,
+  but B is a reference arm and this comparison was not the pre-registered
+  decision. Read it as secondary.
 
 ## Primary comparison: holdout_agent
 
 | arch | primary | Wilson 95% | avg LLM calls | avg latency, as if live |
 | --- | --- | --- | --- | --- |
 | A baseline | 13/21 | 0.41-0.79 | 2.14 | 3.8 s |
+| B v1 (reference) | 9/21 | 0.24-0.63 | 5.90 | 11.0 s |
 | C router | 15/21 | 0.50-0.86 | 3.86 | 6.1 s |
 | D full | 16/21 | 0.55-0.89 | 3.67 | 5.7 s |
 
-| paired with A | both pass | neither | only A | only this arch | exact McNemar p |
-| --- | --- | --- | --- | --- | --- |
-| C router | 13 | 6 | 0 | 2 (ha06, ha11) | 0.500 |
-| D full | 13 | 5 | 0 | 3 (ha06, ha09, ha11) | 0.250 |
+| paired comparison | both pass | neither | only first | only second | exact McNemar p | role |
+| --- | --- | --- | --- | --- | --- | --- |
+| D vs A | 13 | 5 | 3 (ha06, ha09, ha11) | 0 | 0.250 | **primary** |
+| C vs A | 13 | 6 | 2 (ha06, ha11) | 0 | 0.500 | secondary |
+| D vs C | 15 | 5 | 1 (ha09) | 0 | 1.000 | secondary |
+| B vs A | 8 | 7 | 1 (ha20) | 5 (ha02, ha03, ha12, ha16, ha21) | 0.219 | secondary |
+| D vs B | 8 | 4 | 8 (ha02, ha03, ha06, ha09, ha11, ha12, ha16, ha21) | 1 (ha20) | 0.039 | secondary |
 
 **By type** (3 questions each; descriptive only):
 
-| type | A | C | D |
-| --- | --- | --- | --- |
-| multi_hop | 3/3 | 3/3 | 3/3 |
-| term_matching | 2/3 | 3/3 | 3/3 |
-| why | 0/3 | 0/3 | 1/3 |
-| statistics | 2/3 | 3/3 | 3/3 |
-| recovery | 3/3 | 3/3 | 3/3 |
-| ambiguous | 1/3 | 1/3 | 1/3 |
-| segment_comparison | 2/3 | 2/3 | 2/3 |
+| type | A | B | C | D |
+| --- | --- | --- | --- | --- |
+| multi_hop | 3/3 | 1/3 | 3/3 | 3/3 |
+| term_matching | 2/3 | 2/3 | 3/3 | 3/3 |
+| why | 0/3 | 0/3 | 0/3 | 1/3 |
+| statistics | 2/3 | 1/3 | 3/3 | 3/3 |
+| recovery | 3/3 | 3/3 | 3/3 | 3/3 |
+| ambiguous | 1/3 | 0/3 | 1/3 | 1/3 |
+| segment_comparison | 2/3 | 2/3 | 2/3 | 2/3 |
+
+**Repairs** (fix = wrong to right, break = right to wrong, on the step
+whose result is graded; why-questions are not counted):
+
+| arch | holdout_agent repairs | fixes | breaks | holdout_easy repairs | fixes | breaks |
+| --- | --- | --- | --- | --- | --- | --- |
+| A baseline | 1 (ha10, its retry) | 1 | 0 | 0 | 0 | 0 |
+| B v1 | not recorded (B retries inside its own loop) | - | - | not recorded | - | - |
+| C router | 4 | 3 (ha06, ha10, ha11) | 0 | 0 | 0 | 0 |
+| D full | 4 | 2 (ha06, ha10) | 0 | 0 | 0 | 0 |
+
+D's other two repairs (ha07, ha11) were not on the graded step.
 
 **Escalation against A:**
 
 - C escalated 8 questions: helped 2 (ha06, ha11), harmed 0, no change 6.
 - D escalated the same 8: helped 3 (ha06, ha09, ha11), harmed 0, no change 5
   (ha03, ha07, ha08, ha10, ha12).
+- B has no direct path; every B run is its own loop.
 
-**Missed escalations.** A failed 8 questions. C and D escalated 5 of them
+**Missed escalations:** A failed 8 questions. C and D escalated 5 of them
 (ha06, ha07, ha08, ha09, ha11) and missed 3 (ha17, ha18, ha20). Those three
-fail for all three architectures; see the error analysis.
+fail for A, C and D; see the error analysis.
 
-**Repairs:**
-
-- **ha06:** C's repair of an empty result fixed the misspelled product name
-  for C and D (fix 1, break 0 each).
-- **ha10:** A's own retry fixed an SQL error. C and D took A's retry first
-  (fallback-safety rule) and got the same fix.
-- **ha11:** C's repair fixed an empty result (fix 1).
-
-There were no breaks.
-
-**How the wins happened:**
+**How D's wins happened:**
 
 - **ha06 (C and D):** A matched 'Cobolt Nimbus' exactly and got no rows.
   The empty-result signal triggered C's repair, which found Cobalt Nimbus.
@@ -89,14 +143,32 @@ There were no breaks.
   it in SQL. D's repair did the same, and D's trend plan with
   `zscore_anomalies` against the trend returned exactly the gold months
   2025-07..09 (x = month number, 1 = 2024-01).
-- **ha12 (no change):** all three pass. D used its trend plan and
+- **ha12 (no change):** all of A, C and D pass. D used its trend plan and
   `linear_trend_forecast`, which agrees with A's SQL.
+- **ha10:** A's own retry fixed an SQL error. C and D took A's retry first
+  (the fallback-safety rule) and got the same result.
+
+**B's failures, briefly:**
+
+- **Wrong figures:** ha02 reports July's marketing spend (145,145) as the
+  revenue, ha03 reports 1,542 units instead of 1,075, and ha06 reports 2,739
+  units instead of 913.
+- **Never reached the answering query:** on ha21 B ran only the
+  condition query. On ha11 its attempts degenerated into schema probes
+  (`SELECT SQLITE_VERSION()`, a list of tables) and it ended on a table
+  list.
+- **Gave up:** ha12 ended after B's attempts with no result.
+- **Ambiguous questions:** ha16, ha17 and ha18 state no assumption (ha18
+  also uses a different reading: quantity ordered across all statuses).
+- **Why-questions:** ha07's driver is not named, and ha08 and ha09 fail the
+  judge.
 
 ## Easy set: holdout_easy
 
 | arch | primary | Wilson 95% | avg LLM calls | avg latency, as if live |
 | --- | --- | --- | --- | --- |
 | A baseline | 12/12 | 0.76-1.00 | 2.0 | 3.9 s |
+| B v1 (reference) | 12/12 | 0.76-1.00 | 4.0 | 5.1 s |
 | C router | 12/12 | 0.76-1.00 | 3.0 | 4.9 s |
 | D full | 12/12 | 0.76-1.00 | 3.0 | 4.9 s |
 
@@ -107,8 +179,8 @@ and answer. Their extra cost is the one follow-up decision call per question
 ## Conditional branches (ha19-ha21): what the answers name
 
 A known limitation of the answer-text check. This is reported separately and
-changes no score. The method was fixed in the plan before the run, and no
-holdout check was opened or amended.
+changes no primary score. The method was fixed in the plan before the run,
+and no holdout check was opened or amended.
 
 The supported branch comes from running the condition part of each gold
 query on the database:
@@ -122,20 +194,43 @@ query on the database:
 C and D answered all three directly with A's answer call, so their answers
 are word for word A's.
 
-| question | branch the data supports | branch the answer names (A = C = D) | match | graded table |
+| question | supported branch | A = C = D: branch named | match | B: branch named | match | graded (A, C, D / B) |
+| --- | --- | --- | --- | --- | --- | --- |
+| ha19 | SMB | Enterprise: "Assuming Enterprise's average completed order value was more than 20% higher than SMB's, Enterprise's 2025 completed revenue by product category consists of ..." | **no** | SMB: "Because Enterprise's average order value is not more than 20% higher than SMB's, SMB's 2025 completed revenue is broken down by product category ..." | yes | PASS / PASS |
+| ha20 | Online, by region | by region, channel unnamed: "... the 2025 refund rate for the higher channel is broken down by region ..." | branch yes, channel not named | Online by region: "Because the gap between them was 2.00 percentage points ... the refund rate for the higher channel (Online) is broken down by region ..." | yes | FAIL (extra NULL row) / PASS |
+| ha21 | APAC, by month | APAC by month, as an assumption: "Assuming APAC opened more than 1.5 times as many tickets as EMEA in 2025, APAC's tickets are broken down by month ..." | yes (as an assumption) | APAC by month: "... APAC opened more than 1.5 times as many tickets as EMEA. Consequently, APAC's 2025 tickets are broken down by month ..." | yes, but its table is the condition, not the breakdown | PASS / FAIL |
+
+On these three questions B names every branch correctly, because it
+evaluates the condition in a separate step before answering. A, C and D
+answer from one query whose table does not carry the condition, and on ha19
+the answer guesses the wrong branch while the table is right.
+
+### Sensitivity: strict branch naming on ha19
+
+Not part of the primary scores, which stay as pre-registered and graded
+above. If ha19 required the answer to name the supported branch (SMB), A,
+C and D would fail it and B would still pass:
+
+| | A | B | C | D |
 | --- | --- | --- | --- | --- |
-| ha19 | SMB | Enterprise: "Assuming Enterprise's average completed order value was more than 20% higher than SMB's, Enterprise's 2025 completed revenue by product category consists of ..." | **no** | SMB's breakdown: PASS |
-| ha20 | Online, by region | the by-region branch, channel unnamed: "Since the gap between the Online and Direct channels exceeded 1.5 percentage points, the 2025 refund rate for the higher channel is broken down by region ..." | branch yes, channel not named | extra NULL row: FAIL |
-| ha21 | APAC, by month | APAC by month, as an assumption: "Assuming APAC opened more than 1.5 times as many tickets as EMEA in 2025, APAC's tickets are broken down by month ..." | yes (stated as an assumption) | PASS |
+| holdout_agent, as graded | 13/21 | 9/21 | 15/21 | 16/21 |
+| with strict branch naming on ha19 | 12/21 (0.37-0.76) | 9/21 (0.24-0.63) | 14/21 (0.45-0.83) | 15/21 (0.50-0.86) |
 
-So ha19 passes for all three architectures although every answer names the
-wrong branch: the SQL chose correctly, but the result table does not carry
-the condition, and the answer guessed. The scores stand as graded; this row
-is the limitation the plan flagged.
+| comparison | as graded | with strict ha19 |
+| --- | --- | --- |
+| D vs A | 3-0, p = 0.250 | 3-0, p = 0.250 (unchanged: both lose ha19) |
+| D vs B | 8-1, p = 0.039 | 8-2, p = 0.109 (no longer under 0.05) |
+| C vs A | 2-0, p = 0.500 | 2-0, p = 0.500 |
+| B vs A | 1-5, p = 0.219 | 2-5, p = 0.453 |
 
-## Error analysis: questions all three architectures failed
+The D-vs-B secondary result depends on how ha19's answer text is graded.
+The primary D-vs-A result does not.
 
-ha07, ha08, ha17, ha18 and ha20. **The fixes below are future work. They
+## Error analysis: questions A, C and D all failed
+
+ha07, ha08, ha17, ha18 and ha20. B also fails ha07, ha08, ha17 and ha18;
+it passes ha20, because it evaluates the condition in its own step and
+then runs only the branch query. **The fixes below are future work. They
 were not applied to this holdout, and they would have to be measured on a
 new holdout.**
 
@@ -295,12 +390,15 @@ in the result.
   the reading of an ambiguous question (ha17, ha18), and leftover NULL rows
   from conditional queries (ha20).
 - **Answer-text checks for conditional branches:** they can pass a wrong
-  branch name (ha19).
+  branch name (ha19). The strict-naming sensitivity above shows the
+  primary comparison is unaffected and the D-vs-B secondary one is not
+  robust to it.
 - **Same model as judge:** the judge is the model under test, behind
   rule-based driver checks. Verdicts were spot-checked (ha07, ha08, ha09);
   no verdict changed an outcome.
 
 ## Per-question tables
 
-Generated by `scripts/report_v2.py`: `eval/results/phase5/phase5-holdout-agent/report.md`
-and `eval/results/phase5/phase5-holdout-easy/report.md`.
+Generated by `scripts/report_v2.py`, one per run, in `eval/results/phase5/`:
+`phase5-holdout-agent/report.md`, `phase5-holdout-easy/report.md`,
+`phase5-holdout-agent-v1/report.md` and `phase5-holdout-easy-v1/report.md`.

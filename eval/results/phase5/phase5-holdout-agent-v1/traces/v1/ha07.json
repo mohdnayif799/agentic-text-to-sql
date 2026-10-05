@@ -1,0 +1,205 @@
+{
+ "question_id": "ha07",
+ "type": "why",
+ "arch": "v1",
+ "question": "Why did APAC's completed revenue fall so much more than other regions' from Q2 to Q3 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Calculate the quarter-over-quarter revenue growth/decline percentage from Q2 2025 to Q3 2025 for all regions to confirm and size the discrepancy.",
+  "Break down APAC's revenue decline from Q2 to Q3 2025 by product categories or top product lines to identify specific product drivers.",
+  "Break down APAC's revenue decline from Q2 to Q3 2025 by customer segments or specific major countries/markets within the region to isolate geographic or customer-specific factors."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT r.region_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date < '2025-07-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date < '2025-10-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue, (SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date < '2025-10-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date < '2025-07-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END)) * 100.0 / NULLIF(SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date < '2025-07-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END), 0) AS q_o_q_pct_change FROM regions AS r JOIN customers AS c ON r.region_id = c.region_id JOIN orders AS o ON c.customer_id = o.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' GROUP BY r.region_name ORDER BY q_o_q_pct_change ASC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "region_name | q2_revenue | q3_revenue | q_o_q_pct_change\nAPAC | 852708.85 | 394310.9855 | -53.757840615820975\nNorth America | 1553120.8955 | 846059.792 | -45.52518130099423\nLATAM | 521614.8735 | 310267.066 | -40.5179794973772\nEMEA | 936226.49 | 577142.5145 | -38.354391734846125"
+  },
+  {
+   "sql": "SELECT p.category, p.product_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue, (SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END)) AS revenue_change FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE r.region_name = 'APAC' AND o.status = 'completed' GROUP BY p.category, p.product_name ORDER BY revenue_change ASC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 36,
+   "preview": "category | product_name | q2_revenue | q3_revenue | revenue_change\nHardware | Lattice Ridge | 116337.50099999999 | 28311.171 | -88026.32999999999\nHardware | Anchor Summit | 87682.935 | 13566.039 | -74116.896\nHardware | Cascade Beacon | 83349.44750000001 | 16166.590000000002 | -67182.85750000001\nHardware | Nimbus Quartz | 65212.561 | 25595.5995 | -39616.961500000005\nHardware | Harbor Lumen | 51731.172 | 17149.496 | -34581.676\n... 31 more row(s)"
+  },
+  {
+   "sql": "SELECT r.country, c.segment, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_change FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE r.region_name = 'APAC' AND o.status = 'completed' GROUP BY r.country, c.segment ORDER BY revenue_change ASC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "country | segment | q2_revenue | q3_revenue | revenue_change\nSingapore | SMB | 314880.515 | 131757.135 | -183123.38\nSingapore | Mid-Market | 350322.4825 | 169267.281 | -181055.2015\nSingapore | Enterprise | 187505.8525 | 93286.5695 | -94219.28300000001"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Calculate the quarter-over-quarter revenue growth/decline percentage from Q2 2025 to Q3 2025 for all regions to confirm and size the discrepancy.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT r.region_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date < '2025-07-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date < '2025-10-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue, (SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date < '2025-10-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date < '2025-07-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END)) * 100.0 / NULLIF(SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date < '2025-07-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END), 0) AS q_o_q_pct_change FROM regions AS r JOIN customers AS c ON r.region_id = c.region_id JOIN orders AS o ON c.customer_id = o.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' GROUP BY r.region_name ORDER BY q_o_q_pct_change ASC LIMIT 500"
+  },
+  {
+   "step": 2,
+   "goal": "Break down APAC's revenue decline from Q2 to Q3 2025 by product categories or top product lines to identify specific product drivers.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.category, p.product_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue, (SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END)) AS revenue_change FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE r.region_name = 'APAC' AND o.status = 'completed' GROUP BY p.category, p.product_name ORDER BY revenue_change ASC LIMIT 500"
+  },
+  {
+   "step": 3,
+   "goal": "Break down APAC's revenue decline from Q2 to Q3 2025 by customer segments or specific major countries/markets within the region to isolate geographic or customer-specific factors.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT r.country, c.segment, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_change FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE r.region_name = 'APAC' AND o.status = 'completed' GROUP BY r.country, c.segment ORDER BY revenue_change ASC LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT r.country, c.segment, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_change FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE r.region_name = 'APAC' AND o.status = 'completed' GROUP BY r.country, c.segment ORDER BY revenue_change ASC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "country",
+   "segment",
+   "q2_revenue",
+   "q3_revenue",
+   "revenue_change"
+  ],
+  "rows": [
+   [
+    "Singapore",
+    "SMB",
+    314880.515,
+    131757.135,
+    -183123.38
+   ],
+   [
+    "Singapore",
+    "Mid-Market",
+    350322.4825,
+    169267.281,
+    -181055.2015
+   ],
+   [
+    "Singapore",
+    "Enterprise",
+    187505.8525,
+    93286.5695,
+    -94219.28300000001
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "APAC's completed revenue fell by -53.76% from Q2 to Q3 2025, which was driven by significant drops in hardware product sales across Singapore's SMB, Mid-Market, and Enterprise customer segments.",
+ "key_numbers": [
+  "APAC Q-o-Q revenue change: -53.76%"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "083cb43859691cd7c842503a0e58863da0e4019ee1059758b9eba0973efeb33d",
+   "cache_hit": false,
+   "latency_ms": 1623.2,
+   "input_tokens": 625,
+   "output_tokens": 184,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "efc82739dfcc6be51b60c4d8e6addae00d86756b4cc5acee044a33af4e5ba66e",
+   "cache_hit": false,
+   "latency_ms": 2290.5,
+   "input_tokens": 1236,
+   "output_tokens": 569,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "dc6ced12096ceaad533df56d579320c6b8e5a4259f13da3555afaac83791627c",
+   "cache_hit": false,
+   "latency_ms": 1058.5,
+   "input_tokens": 1255,
+   "output_tokens": 80,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "a7cbab60f09d502bf0f9a32a264ef9993f5e22ac940e0719dcad3f630098543f",
+   "cache_hit": false,
+   "latency_ms": 2176.0,
+   "input_tokens": 1488,
+   "output_tokens": 482,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "18176bdf0cb4e3e4ff588280514d41a171ba8e2aed78d7dd5f7faebb29d953d5",
+   "cache_hit": false,
+   "latency_ms": 1361.0,
+   "input_tokens": 1602,
+   "output_tokens": 78,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "85e5a3c544b76aeb097d751117e7d50eb647009476931246fd2673905846f5cd",
+   "cache_hit": false,
+   "latency_ms": 2145.1,
+   "input_tokens": 1851,
+   "output_tokens": 459,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "11c5a337df70ff59c90a729854acfd16a9f0891b4827363894a8d6d2a00c1a90",
+   "cache_hit": false,
+   "latency_ms": 1190.4,
+   "input_tokens": 1100,
+   "output_tokens": 84,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "64392e57f4cbc0711e613fde0bae1f850c03f44e62fe15ab3b9e25a630bfbc69",
+   "cache_hit": false,
+   "latency_ms": 1299.6,
+   "input_tokens": 3115,
+   "output_tokens": 102,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 13.384,
+ "latency_live_s": 13.384,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "driver not named: [\"any_of: [{'pattern': 'fewer\\\\\\\\s+(completed\\\\\\\\s+)?orders'}, {'pattern': 'order\\\\\\\\s+(volume|count|counts|numbers)'}, {'pattern': '(number|count|volume)\\\\\\\\s+of\\\\\\\\s+(completed\\\\\\\\s+)?orders'}, {'pattern': 'orders\\\\\\\\s+(fell|dropped|declined|decreased|shrank)'}]\"]"
+ }
+}

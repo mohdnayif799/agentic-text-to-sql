@@ -1,0 +1,111 @@
+{
+ "question_id": "ha04",
+ "type": "term_matching",
+ "arch": "v1",
+ "question": "How many sev-1 support tickets did our European customers open in 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Count the support tickets with severity 'sev-1' (or equivalent) opened in the year 2025 by customers belonging to regions in Europe, joining support_tickets, customers, and regions tables."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT COUNT(t.ticket_id) AS sev1_ticket_count FROM support_tickets AS t JOIN customers AS c ON t.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE (t.severity = 'critical' OR t.severity = 'sev-1') AND t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND r.region_name = 'EMEA'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "sev1_ticket_count\n24"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Count the support tickets with severity 'sev-1' (or equivalent) opened in the year 2025 by customers belonging to regions in Europe, joining support_tickets, customers, and regions tables.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT COUNT(t.ticket_id) AS sev1_ticket_count FROM support_tickets AS t JOIN customers AS c ON t.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE (t.severity = 'critical' OR t.severity = 'sev-1') AND t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND r.region_name = 'EMEA'"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT COUNT(t.ticket_id) AS sev1_ticket_count FROM support_tickets AS t JOIN customers AS c ON t.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE (t.severity = 'critical' OR t.severity = 'sev-1') AND t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND r.region_name = 'EMEA'",
+  "ok": true,
+  "columns": [
+   "sev1_ticket_count"
+  ],
+  "rows": [
+   [
+    24
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "European customers opened 24 sev-1 support tickets in 2025.",
+ "key_numbers": [
+  "24 sev-1 support tickets"
+ ],
+ "caveats": [
+  "European region was queried using the EMEA region name."
+ ],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "11b8cd8334f40c905d1593de43d9497873c32801b904b3f1e184c5129f34add1",
+   "cache_hit": false,
+   "latency_ms": 1560.8,
+   "input_tokens": 617,
+   "output_tokens": 110,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "94800790d490764b168c4c47da30601d80260554f60d62cf0e22dfa3e3cfc3aa",
+   "cache_hit": false,
+   "latency_ms": 1444.3,
+   "input_tokens": 1080,
+   "output_tokens": 203,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "eb02741ec11a551e9da208a895613ef4ddb345f585f2e6b436d25a508b879922",
+   "cache_hit": false,
+   "latency_ms": 1343.1,
+   "input_tokens": 713,
+   "output_tokens": 106,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "2073887a015dafa10502caf211b459f4789b08ccdd08b070be269c73be566b32",
+   "cache_hit": false,
+   "latency_ms": 1385.7,
+   "input_tokens": 559,
+   "output_tokens": 77,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 5.873,
+ "latency_live_s": 5.873,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}
