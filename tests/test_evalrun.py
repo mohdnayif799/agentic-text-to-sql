@@ -513,3 +513,27 @@ class TestForcedEscalation:
                         log=lambda *_: None, force_escalation=True)
         with pytest.raises(ValueError, match="mixes"):
             forced.run("showcase", ["full"], tmp_path / "run")
+
+
+
+def test_paired_comparison_against_a():
+    import importlib.util
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location(
+        "report_v2", root / "scripts" / "report_v2.py")
+    report = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(report)
+
+    def item(qid, arch, primary, state="evaluated"):
+        return {"id": qid, "arch": arch, "state": state, "primary": primary}
+
+    items = [item("q1", "baseline", True), item("q1", "full", True),
+             item("q2", "baseline", False), item("q2", "full", True),
+             item("q3", "baseline", True), item("q3", "full", False),
+             item("q4", "baseline", False), item("q4", "full", True),
+             item("q5", "baseline", True), item("q5", "full", None, "not_evaluated")]
+    p = report.paired_against_a(items, "full")
+    assert (p["n"], p["both"], p["only_a"], p["only_b"]) == (4, 1, 1, 2)
+    assert p["mcnemar_p"] == 1.0 and p["not_worse_than_a"] is True

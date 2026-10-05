@@ -107,7 +107,11 @@ class TestRepair:
                         repairs=["SELECT COUNT(*) AS n FROM customers"])
         out = run_c(script, pinned, engine, builder)
         assert out.path == "escalated"
-        (repair,) = out.repairs
+        # A's own retry comes first (here it resubmits the same query, which
+        # is not a fix); then C's repair fixes it.
+        a_retry, repair = out.repairs
+        assert a_retry.via == "A's retry" and not a_retry.accepted
+        assert repair.via == "repair"
         assert repair.signal == "error" and repair.accepted
         assert "no such column" in repair.detail
         assert not repair.before.ok and repair.after.rows == [[1400]]

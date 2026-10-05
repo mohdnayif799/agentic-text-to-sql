@@ -552,6 +552,7 @@ def _repair_summary(r: Any) -> dict[str, Any]:
                 "error": result.error_message}
 
     return {"step": r.step, "signal": r.signal, "detail": r.detail,
+            "via": getattr(r, "via", "repair"),
             "accepted": r.accepted, "attempts": r.attempts,
             "before": brief(r.before), "after": brief(r.after)}
 

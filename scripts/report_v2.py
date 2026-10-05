@@ -3,7 +3,10 @@
     python scripts/report_v2.py --run NAME [--out PATH]
 
 Every report has the same parts: per architecture the primary score with its
-Wilson interval; per question and architecture pass/fail with the first
+Wilson interval; the paired comparison of each architecture against A
+(discordant counts, exact McNemar p, and the easy-set rule "not worse than
+A": questions only A passes <= questions only it passes), on the questions
+both have evaluated; per question and architecture pass/fail with the first
 failing check, LLM calls (live), latency, direct or escalated path, tools per
 step and repair fix/break counts; escalation help/harm against A; and missed
 escalations (questions A failed, and whether C and D escalated). Offline, no
@@ -27,6 +30,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from evalkit.stats import mcnemar_exact, paired_counts  # noqa: E402
 from evalrun.runner import (  # noqa: E402
     RunConfig,
     escalation_effects,
@@ -62,6 +66,21 @@ def _live_latency(item: dict[str, Any], run_dir: Path, cache_dir: Path,
             return None
         total += latency / 1000
     return round(total, 3)
+
+
+def paired_against_a(items: list[dict[str, Any]], arch: str) -> dict[str, Any] | None:
+    """Paired outcome of `arch` against A on the questions both evaluated."""
+    graded = {(i["id"], i["arch"]): bool(i["primary"]) for i in items
+              if i["state"] == "evaluated" and i.get("primary") is not None}
+    shared = sorted(q for q, a in graded if a == "baseline"
+                    and (q, arch) in graded)
+    if not shared:
+        return None
+    counts = paired_counts({q: graded[(q, "baseline")] for q in shared},
+                           {q: graded[(q, arch)] for q in shared})
+    return {"n": len(shared), **counts,
+            "mcnemar_p": mcnemar_exact(counts["only_a"], counts["only_b"]),
+            "not_worse_than_a": counts["only_a"] <= counts["only_b"]}
 
 
 def _tools(steps: list[list[str]]) -> str:
@@ -107,6 +126,24 @@ def render(payload: dict[str, Any], run_dir: Path, cache_dir: Path) -> str:
             f"{s['wilson95'][0]:.2f}-{s['wilson95'][1]:.2f} | {s['avg_llm_calls']} | "
             f"{s['avg_latency_s']} ({avg_live}) | {by_type} |")
 
+    paired = [(arch, paired_against_a(items, arch)) for arch in archs
+              if arch != "baseline"]
+    paired = [(arch, p) for arch, p in paired if p]
+    if paired:
+        lines += [
+            "",
+            "## Paired comparison against A",
+            "",
+            "| arch | questions | both pass | neither | only A | only this arch "
+            "| exact McNemar p | not worse than A |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+        lines += [
+            f"| {ARCH_LABEL[arch]} {arch} | {p['n']} | {p['both']} | {p['neither']} | "
+            f"{p['only_a']} | {p['only_b']} | {p['mcnemar_p']:.3f} | "
+            f"{'yes' if p['not_worse_than_a'] else 'no'} |"
+            for arch, p in paired
+        ]
     lines += [
         "",
         "## Per question",

@@ -23,6 +23,16 @@ are kept, and a fix is accepted only if it removes that signal and the query
 runs. Budgets: at most `max_steps` queries and `max_attempts_per_step`
 executions per step.
 
+Never worse than A when escalation fails:
+- an SQL error at step 1 is first retried with A's own retry call (its
+  prompt and, in evaluation, its cache), so C and D recover wherever A does;
+- an invalid model reply in a repair, decision or follow-up call ends that
+  part of the work instead of the run (the results so far are kept);
+- when nothing escalated is usable, the final table is step 1's;
+- when the final table is A's own result, the answer is A's answer call;
+- if the answer call on an escalated table fails, the run answers from A's
+  result with A's answer call instead.
+
 When the answer draws on more than one step, one final table holding every
 value it uses is assembled (archs/assemble.py); that table is graded and
 shown, and the answer is written from it.
@@ -38,7 +48,7 @@ from pydantic import BaseModel, Field
 from agentcrew.archs import progress
 from agentcrew.archs.answer import write_answer
 from agentcrew.archs.assemble import AssemblyPlan, assemble, default_plan
-from agentcrew.archs.baseline import SQL_SYSTEM, SQL_USER
+from agentcrew.archs.baseline import RETRY_BLOCK, SQL_SYSTEM, SQL_USER
 from agentcrew.archs.checks import (
     Schema,
     Signal,
@@ -183,6 +193,8 @@ class StepRun:
     kind: str = "sql"
     """sql | compute | lookup. Only sql and compute results can be selected."""
     tool: str = "run_sql"
+    from_a: bool = False
+    """The result came from A's own calls (step 1, or A's retry of it)."""
 
 
 def _normalise(sql: str) -> str:
@@ -231,7 +243,10 @@ class Router:
             return FollowupDecision(needs_followup=True,
                                     reason=self.question_signal.detail)
         if first.result.ok and first.result.rows:
-            return self._decide(first, llm=llm)
+            try:
+                return self._decide(first, llm=llm)
+            except StructuredOutputError:
+                return FollowupDecision()  # no valid decision: answer as A does
         return FollowupDecision()
 
     @staticmethod
@@ -276,12 +291,15 @@ class Router:
         *,
         repair_llm: LLMClient | None = None,
         verify: Verifier | None = None,
+        from_a: bool = False,
     ) -> StepRun:
         """Execute, then repair on a signal. `verify` (architecture D's
-        escalated path) adds verification checks to the signals."""
+        escalated path) adds verification checks to the signals. `from_a`
+        marks step 1, whose query is A's."""
         progress.enter(f"step {number}: query")
         result, signal = self._check(sql, verify)
-        step = StepRun(number, result.sql or sql, result, signal, reason, sql)
+        step = StepRun(number, result.sql or sql, result, signal, reason, sql,
+                       from_a=from_a)
         step.attempts.append(SqlAttempt.from_result(result, sql))
         return self.repair(step, llm=repair_llm, verify=verify)
 
@@ -296,16 +314,38 @@ class Router:
         tries = len(step.attempts)
         while step.signal and tries < self.settings.max_attempts_per_step:
             tries += 1
-            progress.enter(f"step {step.number}: repair ({step.signal.kind})")
-            prompt = REPAIR_USER.format(
-                context=self.context_text, question=self.question,
-                sql=step.model_sql, kind=step.signal.kind, detail=step.signal.detail,
-            )
-            draft: SqlDraft = self._structured(SqlDraft, REPAIR_SYSTEM, prompt, llm=llm)
+            # A's own retry first for an SQL error in A's query: C and D then
+            # recover wherever A does.
+            a_retry = (step.from_a and step.signal.kind == "error"
+                       and not step.repairs)
+            via = "A's retry" if a_retry else "repair"
+            progress.enter(f"step {step.number}: {via} ({step.signal.kind})")
+            try:
+                if a_retry:
+                    draft: SqlDraft = self._structured(
+                        SqlDraft, SQL_SYSTEM,
+                        SQL_USER.format(context=self.context_text,
+                                        question=self.question, retry_block="")
+                        + RETRY_BLOCK.format(sql=step.sql,
+                                             error=step.result.error_message),
+                        llm=self.step0_llm)
+                else:
+                    prompt = REPAIR_USER.format(
+                        context=self.context_text, question=self.question,
+                        sql=step.model_sql, kind=step.signal.kind,
+                        detail=step.signal.detail,
+                    )
+                    draft = self._structured(SqlDraft, REPAIR_SYSTEM, prompt, llm=llm)
+            except StructuredOutputError:
+                # No usable repair reply: keep the result as it is.
+                step.repairs.append(RepairEvent(
+                    step.number, step.signal.kind, step.signal.detail, step.result,
+                    None, accepted=False, via=via))
+                break
             if _normalise(draft.sql) == _normalise(step.model_sql):
                 step.repairs.append(RepairEvent(
                     step.number, step.signal.kind, step.signal.detail, step.result,
-                    None, accepted=False))
+                    None, accepted=False, via=via))
                 continue
             new, new_signal = self._check(draft.sql, verify)
             step.attempts.append(SqlAttempt.from_result(new, draft.sql))
@@ -313,11 +353,45 @@ class Router:
                                    or new_signal.kind != step.signal.kind)
             step.repairs.append(RepairEvent(
                 step.number, step.signal.kind, step.signal.detail, step.result, new,
-                accepted=resolved))
+                accepted=resolved, via=via))
             if resolved:
                 step.sql, step.result = new.sql or draft.sql, new
                 step.model_sql, step.signal = draft.sql, new_signal
+                step.from_a = step.from_a and a_retry
         return step
+
+    def _answer_llm(self, selected: ExecutionResult, steps: list[StepRun],
+                    escalated: bool) -> LLMClient:
+        """A's answer call when the run is direct or its final table is A's
+        own result (so it answers exactly as A does); otherwise the
+        architecture's own call."""
+        first = steps[0] if steps else None
+        if not escalated or (first is not None and first.from_a
+                             and selected is first.result):
+            return self.step0_llm
+        return self.llm
+
+    def _answer(self, selected: ExecutionResult, selected_step: int | None,
+                steps: list[StepRun], escalated: bool, guidance: str = ""):
+        """(answer, selected, selected_step, fell_back). If the answer call on
+        an escalated table fails, answer from step 1's result instead."""
+        progress.enter("final: answer")
+        try:
+            final, _ = write_answer(
+                self._answer_llm(selected, steps, escalated), self.question,
+                selected, max_tokens=self.settings.max_output_tokens,
+                temperature=self.settings.temperature, guidance=guidance)
+            return final, selected, selected_step, False
+        except StructuredOutputError:
+            first = steps[0]
+            if selected is first.result or not first.result.ok:
+                raise
+        progress.enter("final: answer (fallback to step 1)")
+        final, _ = write_answer(
+            self._answer_llm(first.result, steps, escalated), self.question,
+            first.result, max_tokens=self.settings.max_output_tokens,
+            temperature=self.settings.temperature)
+        return final, first.result, 1, True
 
     def _history(self, steps: list[StepRun]) -> str:
         return "\n\n".join(
@@ -348,18 +422,21 @@ class Router:
                                 retry_block=""),
                 llm=self.step0_llm,
             )
-            steps.append(self.run_step(1, draft.sql))
+            steps.append(self.run_step(1, draft.sql, from_a=True))
             first = steps[0]
             decision = self._followup_decision(first)
             if decision.needs_followup:
                 while len(steps) < self.settings.max_steps:
                     progress.enter(f"step {len(steps) + 1}: follow-up SQL")
-                    nxt: FollowupDraft = self._structured(
-                        FollowupDraft, FOLLOWUP_SYSTEM, FOLLOWUP_USER.format(
-                            context=self.context_text, question=self.question,
-                            reason=decision.reason or "(not given)",
-                            history=self._history(steps),
-                        ))
+                    try:
+                        nxt: FollowupDraft = self._structured(
+                            FollowupDraft, FOLLOWUP_SYSTEM, FOLLOWUP_USER.format(
+                                context=self.context_text, question=self.question,
+                                reason=decision.reason or "(not given)",
+                                history=self._history(steps),
+                            ))
+                    except StructuredOutputError:
+                        break  # no valid follow-up: answer from what ran
                     if nxt.done or not nxt.sql.strip():
                         break
                     steps.append(self.run_step(len(steps) + 1, nxt.sql, nxt.reason))
@@ -367,12 +444,11 @@ class Router:
             if selected is None:
                 return self._failed(steps, decision, "every query failed")
             direct = not self.escalated(decision, first)
-            progress.enter("final: answer")
-            final, _ = write_answer(
-                self.step0_llm if direct else self.llm, self.question, selected,
-                max_tokens=self.settings.max_output_tokens,
-                temperature=self.settings.temperature,
-            )
+            final, selected, selected_step, fell_back = self._answer(
+                selected, selected_step, steps, not direct)
+            if fell_back:
+                plan_used = {"fallback": "the answer call failed on the final "
+                                         "table; answered from step 1"}
         except StructuredOutputError as exc:
             return ArchOutcome(
                 arch="router", question=self.question, status="failed",
@@ -392,7 +468,9 @@ class Router:
             for s in steps
         ]
         if plan_used:
-            step_records.append({"step": "final", "tools": ["assemble"],
+            step_records.append({"step": "final",
+                                 "tools": ["fallback" if "fallback" in plan_used
+                                           else "assemble"],
                                  "plan": plan_used})
         return ArchOutcome(
             arch="router", question=self.question, status="done",
@@ -416,7 +494,9 @@ class Router:
             ran = [s for s in selectable if s.result.ok]
             if not ran:
                 return None, None, None
-            return ran[-1].result, ran[-1].number, None
+            # Nothing usable: step 1's (A's) result, as A would answer.
+            pick = ran[0] if ran[0].number == 1 else ran[-1]
+            return pick.result, pick.number, None
         if len(usable) == 1:
             (number, result), = usable.items()
             return result, number, None

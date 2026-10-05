@@ -48,6 +48,8 @@ class RepairEvent:
     after: ExecutionResult | None
     accepted: bool
     attempts: int = 1
+    via: str = "repair"
+    """"repair" (C's repair call) or "A's retry" (A's own retry call)."""
 
 
 @dataclass(frozen=True)

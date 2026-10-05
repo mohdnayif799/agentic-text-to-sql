@@ -49,7 +49,6 @@ from __future__ import annotations
 import re
 
 from agentcrew.archs import progress
-from agentcrew.archs.answer import write_answer
 from agentcrew.archs.assemble import stack
 from agentcrew.archs.baseline import SQL_SYSTEM, SQL_USER
 from agentcrew.archs.explore import (
@@ -430,7 +429,8 @@ class Full(Router):
                                 retry_block=""),
                 llm=self.step0_llm,
             )
-            first = self.run_step(1, draft.sql, repair_llm=self.shared_llm)
+            first = self.run_step(1, draft.sql, repair_llm=self.shared_llm,
+                                  from_a=True)
             steps.append(first)
             decision = self._followup_decision(first, llm=self.shared_llm)
             escalated = self.escalated(decision, first) or self.force_escalation
@@ -465,13 +465,13 @@ class Full(Router):
                 failed = self._failed(steps, decision, "every query failed")
                 return self._as_full(failed)
             stacked = bool(plan_used and "stacked_steps" in plan_used)
-            progress.enter("final: answer")
-            final, _ = write_answer(
-                self.llm if escalated else self.step0_llm, self.question, selected,
-                max_tokens=self.settings.max_output_tokens,
-                temperature=self.settings.temperature,
-                guidance=METRIC_GUIDANCE if stacked else "",
-            )
+            final, selected, selected_step, fell_back = self._answer(
+                selected, selected_step, steps, escalated,
+                guidance=METRIC_GUIDANCE if stacked else "")
+            if fell_back:
+                stacked = False
+                plan_used = {"fallback": "the answer call failed on the final "
+                                         "table; answered from step 1"}
             answer, added = final.answer, False
             sentence = driver_sentence(selected) if stacked else None
             if sentence and not names_driver(answer, selected):
@@ -495,8 +495,10 @@ class Full(Router):
             for s in steps
         ]
         if plan_used:
+            tool = ("fallback" if "fallback" in plan_used
+                    else "stack" if stacked else "assemble")
             records.append({"step": "final",
-                            "tools": ["stack" if stacked else "assemble"],
+                            "tools": [tool],
                             "plan": plan_used,
                             **({"driver_sentence_added": added} if stacked else {})})
         return ArchOutcome(

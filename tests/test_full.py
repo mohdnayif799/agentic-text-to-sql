@@ -132,7 +132,9 @@ class TestDirectPath:
         run_architecture("full", QUESTION, settings=pinned, llm=own,
                          tools=ToolContext.create(engine), context_builder=builder,
                          step0_llm=step0, shared_llm=shared)
-        assert len(step0.prompts) == 1  # A's step 0 only (escalated answer is D's)
+        # A's step 0, and A's answer call: this escalation ends on A's own
+        # result (the planner answers at once), so D answers exactly as A.
+        assert ["final answer" in s for s, _ in step0.prompts] == [False, True]
         assert ["You check whether one query result" in s for s, _ in shared.prompts] \
             == [True]
         assert all("You check whether" not in s for s, _ in own.prompts)
