@@ -11,7 +11,10 @@ from typing import Any
 
 from streamlit.testing.v1 import AppTest
 
+from agentcrew.archs import ArchOutcome
+from agentcrew.archs.app_runner import AppRun
 from agentcrew.graph.build import RunOutcome
+from agentcrew.schemas import ExecutionResult
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = str(ROOT / "app.py")
@@ -85,11 +88,41 @@ def stub_outcome(question: str) -> RunOutcome:
     )
 
 
+def stub_arch_run(question: str, *, path: str = "direct",
+                  steps: tuple[dict[str, Any], ...] | None = None,
+                  answer: str = "Stub answer.") -> AppRun:
+    """A v2 architecture's run (D is the app's default), for UI tests."""
+    result = ExecutionResult(ok=True, sql="SELECT region, n FROM t",
+                             columns=["region", "n"],
+                             rows=[["APAC", 44], ["EMEA", 11]], row_count=2)
+    return AppRun(
+        outcome=ArchOutcome(
+            arch="full", question=question, status="done", answer=answer,
+            selected=result, path=path,
+            steps=steps or ({"step": 1, "tools": ["run_sql"],
+                             "sql": "SELECT region, n FROM t", "reason": ""},),
+            selected_step=1,
+        ),
+        llm_calls=3, seconds=0.2,
+    )
+
+
+class FakeCounter:
+    calls = 0
+
+
+class FakeRuntime:
+    def new_client(self) -> FakeCounter:
+        return FakeCounter()
+
+
 class FakeAgent:
     """Stands in for the agent so no database, model or network is needed.
 
-    Records the Settings and question of every run, which is how the tests
-    see which key a run actually used.
+    Replaces both entry points the app can take: the original agent (v1,
+    build_deps / run_question) and the v2 architectures (build_runtime /
+    run_arch_question; D is the default). Records the Settings and question
+    of every run, which is how the tests see which key a run actually used.
     """
 
     def __init__(self) -> None:
@@ -97,6 +130,23 @@ class FakeAgent:
         self.questions: list[str] = []
         self.error: Exception | None = None
         self.outcome: RunOutcome | None = None
+        self.arch_run: AppRun | None = None
+        self.stages: list[str] = []
+        """Stages fed to the app's progress callback by run_arch_question."""
+
+    def build_runtime(self, settings: Any, **_: Any) -> FakeRuntime:
+        return FakeRuntime()
+
+    def run_arch_question(self, question: str, *, settings: Any, runtime: Any,
+                          client: Any = None, on_stage: Any = None) -> AppRun:
+        self.settings_seen.append(settings)
+        self.questions.append(question)
+        if on_stage is not None:
+            for stage in self.stages:
+                on_stage(stage)
+        if self.error is not None:
+            raise self.error
+        return self.arch_run or stub_arch_run(question)
 
     def build_deps(self, settings: Any, **_: Any) -> object:
         return object()

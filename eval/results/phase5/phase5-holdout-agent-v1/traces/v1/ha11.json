@@ -1,0 +1,183 @@
+{
+ "question_id": "ha11",
+ "type": "statistics",
+ "arch": "v1",
+ "question": "Fit a straight-line trend to monthly completed revenue from January 2024 to December 2025, using month number 1 to 24 as x. Which months fell more than 1.5 standard deviations below the trend line, using the standard deviation of the residuals, and what was each month's residual (actual minus trend, in dollars)? Label months as YYYY-MM.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Calculate the total completed revenue for each month from January 2024 to December 2025, assigning month numbers 1 through 24 as x, and compute the ordinary least squares linear regression parameters (slope and intercept) along with the residuals and the standard deviation of the residuals."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT 'Table or columns not found' AS error LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "error\nTable or columns not found"
+  },
+  {
+   "sql": "SELECT SQLITE_VERSION() LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "SQLITE_VERSION()\n3.49.1"
+  },
+  {
+   "sql": "SELECT name FROM sqlite_master WHERE type = 'table' LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 7,
+   "preview": "name\nregions\nproducts\ncustomers\norders\norder_items\n... 2 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Calculate the total completed revenue for each month from January 2024 to December 2025, assigning month numbers 1 through 24 as x, and compute the ordinary least squares linear regression parameters (slope and intercept) along with the residuals and the standard deviation of the residuals.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT name FROM sqlite_master WHERE type = 'table' LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT name FROM sqlite_master WHERE type = 'table' LIMIT 500",
+  "ok": true,
+  "columns": [
+   "name"
+  ],
+  "rows": [
+   [
+    "regions"
+   ],
+   [
+    "products"
+   ],
+   [
+    "customers"
+   ],
+   [
+    "orders"
+   ],
+   [
+    "order_items"
+   ],
+   [
+    "support_tickets"
+   ],
+   [
+    "marketing_spend"
+   ]
+  ],
+  "row_count": 7
+ },
+ "answer": "The query results do not contain the monthly completed revenue data, regression parameters, or residuals required to determine which months fell more than 1.5 standard deviations below the trend line.",
+ "key_numbers": [],
+ "caveats": [
+  "The database schema was listed, but no data was retrieved or analyzed to perform the linear regression."
+ ],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "b9066d3c752a300d95c11f898bbf8873d2f60f103eda84159ff3977a66d007c8",
+   "cache_hit": false,
+   "latency_ms": 1270.1,
+   "input_tokens": 684,
+   "output_tokens": 152,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "a651c3413733a4301380c3b1cd0582c13925acc6b99dec7a14acdec142526bbc",
+   "cache_hit": false,
+   "latency_ms": 1521.0,
+   "input_tokens": 773,
+   "output_tokens": 99,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "47f3cfbc7724601e087ad994d56ab316a88c349ddb12c7409664a6fd83c1973e",
+   "cache_hit": false,
+   "latency_ms": 1322.0,
+   "input_tokens": 604,
+   "output_tokens": 105,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the repair stage of an analytics agent. A previous query failed. Write a",
+   "prompt_hash": "6301c9d02e90f8fbb15cf15ad5444725c18e7c26b4e647f8e1081c20aa190b6d",
+   "cache_hit": false,
+   "latency_ms": 1392.5,
+   "input_tokens": 846,
+   "output_tokens": 101,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "91f9250cefcc86cfecf6a92d31bf8c48bba25e26e740090b646fc3b62df1c44a",
+   "cache_hit": false,
+   "latency_ms": 1357.4,
+   "input_tokens": 637,
+   "output_tokens": 147,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the repair stage of an analytics agent. A previous query failed. Write a",
+   "prompt_hash": "f8234d3f1a9efb29a0bd7f9f8027283f6743bc7eb02592703a0a19cb6cabca97",
+   "cache_hit": false,
+   "latency_ms": 1225.2,
+   "input_tokens": 963,
+   "output_tokens": 100,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "23e7a1e96ab497a79c9ae835b1ee383dc4902d18c53f997042b469dc59767817",
+   "cache_hit": false,
+   "latency_ms": 1219.1,
+   "input_tokens": 700,
+   "output_tokens": 137,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "7a01440f513315face880849b2dc9c126912698dd24eea96dc2fa179204d87d9",
+   "cache_hit": false,
+   "latency_ms": 1224.2,
+   "input_tokens": 551,
+   "output_tokens": 90,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 10.618,
+ "latency_live_s": 10.618,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "expected 3 row(s), got 7; answer missing [\"any_of: [{'text': '2025-07'}, {'pattern': 'jul(y)?\\\\\\\\.?\\\\\\\\s+2025'}]\", \"any_of: [{'text': '2025-08'}, {'pattern': 'aug(ust)?\\\\\\\\.?\\\\\\\\s+2025'}]\", \"any_of: [{'text': '2025-09'}, {'pattern': 'sep(t|tember)?\\\\\\\\.?\\\\\\\\s+2025'}]\"]"
+ }
+}

@@ -1,0 +1,110 @@
+{
+ "question_id": "he06",
+ "type": "easy",
+ "arch": "full",
+ "question": "How much did we spend on marketing in each channel in 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT channel, SUM(amount) AS total_marketing_spend FROM marketing_spend WHERE month >= '2025-01' AND month <= '2025-12' GROUP BY channel ORDER BY total_marketing_spend DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "channel | total_marketing_spend\nOnline | 816555.42\nDirect | 729168.99\nPartner | 726690.14"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT channel, SUM(amount) AS total_marketing_spend FROM marketing_spend WHERE month >= '2025-01' AND month <= '2025-12' GROUP BY channel ORDER BY total_marketing_spend DESC LIMIT 500",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT channel, SUM(amount) AS total_marketing_spend FROM marketing_spend WHERE month >= '2025-01' AND month <= '2025-12' GROUP BY channel ORDER BY total_marketing_spend DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "channel",
+   "total_marketing_spend"
+  ],
+  "rows": [
+   [
+    "Online",
+    816555.42
+   ],
+   [
+    "Direct",
+    729168.99
+   ],
+   [
+    "Partner",
+    726690.14
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "In 2025, marketing spend by channel was 816,555.42 for Online, 729,168.99 for Direct, and 726,690.14 for Partner.",
+ "key_numbers": [
+  "816555.42",
+  "729168.99",
+  "726690.14"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "a3d7ee4760fa96197f65b76f318f6a6a46c561a20bdcb1b760ec2f4cfafb7eb9",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2763,
+   "output_tokens": 112,
+   "original_latency_ms": 1237.3,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "45182813c94b0865304edb030a3df9298e5c41eeb46517296fdcf2e05f04047f",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 525,
+   "output_tokens": 119,
+   "original_latency_ms": 1233.7,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "497dda8f41e645a58b5bab0d257938dead313ffa017cca9b465df15ade4a0c2f",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 413,
+   "output_tokens": 44,
+   "original_latency_ms": 872.4,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.031,
+ "latency_live_s": 3.374,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "3 row(s) match"
+ }
+}

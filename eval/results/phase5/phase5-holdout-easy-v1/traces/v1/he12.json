@@ -1,0 +1,114 @@
+{
+ "question_id": "he12",
+ "type": "easy",
+ "arch": "v1",
+ "question": "Which Hardware product has the highest list price? Give its product ID, name and list price.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Query the products table to find the product with the maximum list price among products in the 'Hardware' category, returning its product ID, name, and list price."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT product_id, product_name, list_price FROM products WHERE category = 'Hardware' ORDER BY list_price DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "product_id | product_name | list_price\n9 | Lattice Ridge | 1586.06"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Query the products table to find the product with the maximum list price among products in the 'Hardware' category, returning its product ID, name, and list price.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT product_id, product_name, list_price FROM products WHERE category = 'Hardware' ORDER BY list_price DESC LIMIT 1"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT product_id, product_name, list_price FROM products WHERE category = 'Hardware' ORDER BY list_price DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "product_id",
+   "product_name",
+   "list_price"
+  ],
+  "rows": [
+   [
+    9,
+    "Lattice Ridge",
+    1586.06
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The Hardware product with the highest list price is Lattice Ridge (Product ID 9), which has a list price of 1586.06.",
+ "key_numbers": [
+  "Product ID: 9",
+  "List price: 1586.06"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "928453748274282b1fb902c3bde3150ebf68a9d5ca41c54f43226a66e4887f0c",
+   "cache_hit": false,
+   "latency_ms": 1184.3,
+   "input_tokens": 617,
+   "output_tokens": 97,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "324e8b98d00e30a41800a3727219db21970b97629ed05a65ded49569de2a6e18",
+   "cache_hit": false,
+   "latency_ms": 1136.1,
+   "input_tokens": 1222,
+   "output_tokens": 111,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "331dd4d04544bba8fdb484ed6530bef5b294c7735b8a26dc198c04730a0c2c93",
+   "cache_hit": false,
+   "latency_ms": 1064.7,
+   "input_tokens": 615,
+   "output_tokens": 72,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "39d665b0196fb42b18725dd3206441ec2989b54cc6977b531444a6f6dc2871bf",
+   "cache_hit": false,
+   "latency_ms": 1016.9,
+   "input_tokens": 472,
+   "output_tokens": 88,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.532,
+ "latency_live_s": 4.532,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

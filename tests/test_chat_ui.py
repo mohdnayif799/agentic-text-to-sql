@@ -24,6 +24,7 @@ from ui_harness import (
     everything_rendered,
     sidebar_captions,
     start_app,
+    stub_arch_run,
     stub_outcome,
 )
 
@@ -97,8 +98,10 @@ class TestConversation:
         assert "first" in bubbles[0] and "second" in bubbles[1]
 
     def test_full_reply_is_still_rendered(
-        self, demo_env: None, fake_agent: FakeAgent
+        self, demo_env: None, fake_agent: FakeAgent, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """The original agent's reply (AGENTCREW_ARCH=v1)."""
+        monkeypatch.setenv("AGENTCREW_ARCH", "v1")
         fake_agent.outcome = outcome_with_one_step()
         at = ask(start_app(), "q")
         assert [s.value for s in at.success] == ["APAC lost the most customers."]
@@ -212,3 +215,113 @@ class TestStyling:
         chart = app.build_chart(df)
         assert chart is not None
         assert chart.to_dict()["mark"]["color"] == config["theme"]["primaryColor"]
+
+
+
+# ---------------------------------------------------------------------------
+# Architecture D (the default): path, tools per step, progress, log line
+# ---------------------------------------------------------------------------
+ESCALATED_STEPS = (
+    {"step": 1, "tools": ["run_sql", "repair"], "sql": "SELECT 1", "reason": ""},
+    {"step": 2, "tools": ["compute:decompose_change"],
+     "sql": "-- compute: decompose_change", "reason": "split the metric"},
+    {"step": "final", "tools": ["stack"], "plan": {"stacked_steps": [2]}},
+)
+
+
+def load_app(monkeypatch: pytest.MonkeyPatch):
+    spec = importlib.util.spec_from_file_location("chat_ui_app_d", ROOT / "app.py")
+    app = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, "chat_ui_app_d", app)
+    spec.loader.exec_module(app)  # main() only runs under __main__
+    return app
+
+
+class TestArchitectureD:
+    def test_d_is_the_default_architecture(
+        self, demo_env: None, fake_agent: FakeAgent
+    ) -> None:
+        ask(start_app(), "q")
+        assert fake_agent.settings_seen[-1].arch == "full"
+        assert fake_agent.settings_seen[-1].max_steps == 3  # demo limits hold
+
+    def test_direct_reply_says_so(self, demo_env: None, fake_agent: FakeAgent) -> None:
+        at = ask(start_app(), "q")
+        assert [s.value for s in at.success] == ["Stub answer."]
+        assert any("Answered directly" in m.value for m in at.markdown)
+        assert [m.label for m in at.metric] == [
+            "Path", "Steps", "Repairs", "LLM calls", "Time"]
+        assert at.metric[0].value == "Direct"
+        assert [e.label for e in at.main.expander] == ["Step 1: run_sql"]
+
+    def test_escalated_reply_shows_the_path_and_each_steps_tools(
+        self, demo_env: None, fake_agent: FakeAgent
+    ) -> None:
+        fake_agent.arch_run = stub_arch_run(
+            "q", path="escalated", steps=ESCALATED_STEPS, answer="Orders drove it.")
+        at = ask(start_app(), "q")
+        assert at.metric[0].value == "Escalated"
+        assert any(m.value.startswith("**Escalated:**") for m in at.markdown)
+        assert [e.label for e in at.main.expander] == [
+            "Step 1: run_sql + repair", "Step 2: compute:decompose_change"]
+        assert len(at.dataframe) == 1 and len(at.get("vega_lite_chart")) == 1
+        assert any(c.value == "Final table: the metric analyses below, stacked."
+                   for c in at.main.caption)
+        assert not EMOJI.search(everything_rendered(at))
+
+    def test_progress_is_shown_only_once_a_question_escalates(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        app = load_app(monkeypatch)
+        shown: list[tuple[str, float]] = []
+        report = app.stage_reporter(lambda text, f: shown.append((text, f)), 3)
+        for stage in ("step 1: SQL (A's call)", "step 1: query", "follow-up decision"):
+            report(stage)
+        assert shown == []  # the direct path shows no progress bar
+        for stage in ("step 1: verification", "step 2: metric plan",
+                      "step 2: compute:decompose_change", "step 3: decide_next_action",
+                      "final: answer"):
+            report(stage)
+        texts = [t for t, _ in shown]
+        assert texts == [
+            "Escalated: checking the first result",
+            "Escalated: step 2 of 3, planning the metric analysis",
+            "Escalated: step 2 of 3, decompose change",
+            "Escalated: step 3 of 3, choosing the next step",
+            "Writing the answer",
+        ]
+        fractions = [f for _, f in shown]
+        assert fractions == sorted(fractions) and fractions[-1] == 1.0
+
+    def test_progress_callback_reaches_the_run(
+        self, demo_env: None, fake_agent: FakeAgent
+    ) -> None:
+        fake_agent.stages = ["step 1: SQL (A's call)", "step 2: decide_next_action"]
+        at = ask(start_app(), "q")
+        assert [s.value for s in at.success] == ["Stub answer."]
+        assert not at.get("progress")  # cleared once the answer is shown
+
+    def test_log_line_records_path_tools_and_calls(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import logging
+
+        app = load_app(monkeypatch)
+        lines: list[str] = []
+
+        class Keep(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                lines.append(record.getMessage())
+
+        handler = Keep()
+        app.log.addHandler(handler)
+        try:
+            app._log_run({"provider": "gemini", "model": "m"}, "done", 0.0, 5,
+                         arch="full", path="escalated",
+                         tools=[["run_sql", "repair"], ["compute:decompose_change"]])
+        finally:
+            app.log.removeHandler(handler)
+        (line,) = lines
+        assert "arch=full" in line and "path=escalated" in line
+        assert "tools=run_sql+repair>compute:decompose_change" in line
+        assert "llm_calls=5" in line

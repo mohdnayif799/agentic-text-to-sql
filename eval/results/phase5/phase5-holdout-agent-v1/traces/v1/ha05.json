@@ -1,0 +1,109 @@
+{
+ "question_id": "ha05",
+ "type": "term_matching",
+ "arch": "v1",
+ "question": "How much completed revenue did we make through the web store from mid-sized companies in 2024?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Calculate the sum of completed order amounts for orders placed in 2024 via the web store where the customer company size is 'mid-sized'."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) AS total_revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND STRFTIME('%Y', o.order_date) = '2024' AND o.channel = 'Online' AND c.segment = 'Mid-Market'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "total_revenue\n1653258.412"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Calculate the sum of completed order amounts for orders placed in 2024 via the web store where the customer company size is 'mid-sized'.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) AS total_revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND STRFTIME('%Y', o.order_date) = '2024' AND o.channel = 'Online' AND c.segment = 'Mid-Market'"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) AS total_revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND STRFTIME('%Y', o.order_date) = '2024' AND o.channel = 'Online' AND c.segment = 'Mid-Market'",
+  "ok": true,
+  "columns": [
+   "total_revenue"
+  ],
+  "rows": [
+   [
+    1653258.412
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The completed revenue made through the web store from mid-sized companies in 2024 was $1,653,258.41.",
+ "key_numbers": [
+  "$1,653,258.412 (Total Revenue)"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "17e63f504867f343e074238d0e9eb038ff225761591a8b0ffb191ec5844a0361",
+   "cache_hit": false,
+   "latency_ms": 1350.6,
+   "input_tokens": 621,
+   "output_tokens": 100,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "5c1642ca6b0fe3c74607cfda1fb8a2445e4145aaa178064ab72ef1ac61c6d3c0",
+   "cache_hit": false,
+   "latency_ms": 1395.4,
+   "input_tokens": 1224,
+   "output_tokens": 214,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "8cd0a8d1fbe9031cc7b00769ec29ebf4d4258373c92d2a00d19d5a1eecd02e7d",
+   "cache_hit": false,
+   "latency_ms": 954.5,
+   "input_tokens": 680,
+   "output_tokens": 90,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "e093f10503a1d4e7db55e694616032d02f1bc1fb6783c3d36e54f053e5a70564",
+   "cache_hit": false,
+   "latency_ms": 1144.9,
+   "input_tokens": 545,
+   "output_tokens": 86,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 5.22,
+ "latency_live_s": 5.22,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

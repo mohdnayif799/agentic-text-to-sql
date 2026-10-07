@@ -1,0 +1,115 @@
+{
+ "question_id": "ha15",
+ "type": "recovery",
+ "arch": "v1",
+ "question": "Which product sold the most units in completed orders during 2025? Give the product's ID, name and units sold.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Query the database to join products, order_items, and orders, filtering for completed orders in the year 2025, grouping by product ID and name to sum the units sold, and returning the top product with the maximum units."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM products AS p JOIN order_items AS oi ON p.product_id = oi.product_id JOIN orders AS o ON oi.order_id = o.order_id WHERE o.status = 'completed' AND STRFTIME('%Y', o.order_date) = '2025' GROUP BY p.product_id, p.product_name ORDER BY units_sold DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "product_id | product_name | units_sold\n10 | Beacon Beacon | 1180"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Query the database to join products, order_items, and orders, filtering for completed orders in the year 2025, grouping by product ID and name to sum the units sold, and returning the top product with the maximum units.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM products AS p JOIN order_items AS oi ON p.product_id = oi.product_id JOIN orders AS o ON oi.order_id = o.order_id WHERE o.status = 'completed' AND STRFTIME('%Y', o.order_date) = '2025' GROUP BY p.product_id, p.product_name ORDER BY units_sold DESC LIMIT 1"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM products AS p JOIN order_items AS oi ON p.product_id = oi.product_id JOIN orders AS o ON oi.order_id = o.order_id WHERE o.status = 'completed' AND STRFTIME('%Y', o.order_date) = '2025' GROUP BY p.product_id, p.product_name ORDER BY units_sold DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "product_id",
+   "product_name",
+   "units_sold"
+  ],
+  "rows": [
+   [
+    10,
+    "Beacon Beacon",
+    1180
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The product that sold the most units in completed orders during 2025 was Beacon Beacon, with product ID 10 and a total of 1180 units sold.",
+ "key_numbers": [
+  "Product ID: 10",
+  "Product Name: Beacon Beacon",
+  "Units Sold: 1180"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "c7abb246b6d1c9555f8ae637a593e359aaf37da8e7721319fdd26a8436b30ac0",
+   "cache_hit": false,
+   "latency_ms": 1115.2,
+   "input_tokens": 626,
+   "output_tokens": 125,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "98e7ba6ddfea4346cbcc3f0781548bce269d137e5d5b350af1847ac2cd620599",
+   "cache_hit": false,
+   "latency_ms": 1285.5,
+   "input_tokens": 1247,
+   "output_tokens": 223,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "3f50c40409be8a08718f121c4cff19a15ebcdc00d224824912e10ed7d62bff2e",
+   "cache_hit": false,
+   "latency_ms": 1157.8,
+   "input_tokens": 723,
+   "output_tokens": 70,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "5c94be1aaa9698d830b9a6653980244edbb03f19a69cbee2fd249dd8ddafb6d3",
+   "cache_hit": false,
+   "latency_ms": 1103.0,
+   "input_tokens": 577,
+   "output_tokens": 101,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.82,
+ "latency_live_s": 4.82,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

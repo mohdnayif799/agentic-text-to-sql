@@ -1,0 +1,98 @@
+{
+ "question_id": "he02",
+ "type": "easy",
+ "arch": "full",
+ "question": "What was total completed revenue in 2024?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS total_completed_revenue_2024 FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "total_completed_revenue_2024\n10005894.382"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS total_completed_revenue_2024 FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31'",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS total_completed_revenue_2024 FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31'",
+  "ok": true,
+  "columns": [
+   "total_completed_revenue_2024"
+  ],
+  "rows": [
+   [
+    10005894.382
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The total completed revenue in 2024 was 10,005,894.38.",
+ "key_numbers": [
+  "10005894.382"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "d925458464555e81442896f62861764ff2a6123d1c5664736903baf318068f09",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2755,
+   "output_tokens": 184,
+   "original_latency_ms": 1196.5,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "86cc6dd7e39836615a1cfee6f5c11d2d8ae94d71e0edb5208fbc94fd086fa92c",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 539,
+   "output_tokens": 67,
+   "original_latency_ms": 932.1,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "0371048bbbb32434c3abaea05c51c516c56b1cc12d297cfda027b9503e2a8e87",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 427,
+   "output_tokens": 49,
+   "original_latency_ms": 981.2,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.026,
+ "latency_live_s": 3.136,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

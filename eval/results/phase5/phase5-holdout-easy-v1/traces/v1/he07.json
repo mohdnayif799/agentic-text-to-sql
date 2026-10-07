@@ -1,0 +1,121 @@
+{
+ "question_id": "he07",
+ "type": "easy",
+ "arch": "v1",
+ "question": "How many orders of each status were placed in 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Count the total number of orders grouped by their status for all orders placed in the year 2025."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT status, COUNT(*) AS order_count FROM orders WHERE order_date >= '2025-01-01' AND order_date <= '2025-12-31' GROUP BY status ORDER BY order_count DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "status | order_count\ncompleted | 4569\ncancelled | 1163\nrefunded | 1084"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Count the total number of orders grouped by their status for all orders placed in the year 2025.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT status, COUNT(*) AS order_count FROM orders WHERE order_date >= '2025-01-01' AND order_date <= '2025-12-31' GROUP BY status ORDER BY order_count DESC LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT status, COUNT(*) AS order_count FROM orders WHERE order_date >= '2025-01-01' AND order_date <= '2025-12-31' GROUP BY status ORDER BY order_count DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "status",
+   "order_count"
+  ],
+  "rows": [
+   [
+    "completed",
+    4569
+   ],
+   [
+    "cancelled",
+    1163
+   ],
+   [
+    "refunded",
+    1084
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "In 2025, there were 4,569 completed orders, 1,163 cancelled orders, and 1,084 refunded orders placed.",
+ "key_numbers": [
+  "completed: 4569",
+  "cancelled: 1163",
+  "refunded: 1084"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "8491e8a25285a955c291ac46e6aaf722215a977ff753f1e3d9b4ce95d4cb1056",
+   "cache_hit": false,
+   "latency_ms": 1024.7,
+   "input_tokens": 613,
+   "output_tokens": 85,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "2a5796eda0b10f5ce74bc970306e0f6e2163a0b852cf5209f25a7d0ca7f7f6f2",
+   "cache_hit": false,
+   "latency_ms": 1390.9,
+   "input_tokens": 948,
+   "output_tokens": 133,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "8290abaf5b93558760238f217df2e0a5ea9242a5d0630c9bd1bbefafbe303911",
+   "cache_hit": false,
+   "latency_ms": 1181.8,
+   "input_tokens": 646,
+   "output_tokens": 61,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "734400634f7f5c75405afa1ae7bd56cdee23198ceadf808e568da456cd45e701",
+   "cache_hit": false,
+   "latency_ms": 1209.2,
+   "input_tokens": 493,
+   "output_tokens": 104,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.911,
+ "latency_live_s": 4.911,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "3 row(s) match"
+ }
+}

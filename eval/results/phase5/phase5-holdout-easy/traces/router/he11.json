@@ -1,0 +1,110 @@
+{
+ "question_id": "he11",
+ "type": "easy",
+ "arch": "router",
+ "question": "What was completed revenue by customer segment in 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.segment ORDER BY completed_revenue DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "segment | completed_revenue\nSMB | 5155426.9815\nMid-Market | 5037253.4835\nEnterprise | 2934346.347"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.segment ORDER BY completed_revenue DESC LIMIT 500",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.segment ORDER BY completed_revenue DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "segment",
+   "completed_revenue"
+  ],
+  "rows": [
+   [
+    "SMB",
+    5155426.9815
+   ],
+   [
+    "Mid-Market",
+    5037253.4835
+   ],
+   [
+    "Enterprise",
+    2934346.347
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "In 2025, the completed revenue by customer segment was led by SMB with 5,155,426.98, followed by Mid-Market with 5,037,253.48, and Enterprise with 2,934,346.35.",
+ "key_numbers": [
+  "5155426.9815",
+  "5037253.4835",
+  "2934346.347"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "e4c0595058b615ddf07e51ebc42695dba66f4e85c7c0772c21f9d3159daa1404",
+   "cache_hit": false,
+   "latency_ms": 1209.8,
+   "input_tokens": 489,
+   "output_tokens": 44,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "3345b54c8a66bb2cf39a2a4f98730633e2d05758e44dea6d6105abcdc3499146",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2901,
+   "output_tokens": 218,
+   "original_latency_ms": 1462.2,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "6a889b90f6116d0577ebeb54e13178c4c6230723e5b090a3693761a29ffe4f09",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 601,
+   "output_tokens": 141,
+   "original_latency_ms": 1335.2,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 1.271,
+ "latency_live_s": 4.069,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "3 row(s) match"
+ }
+}

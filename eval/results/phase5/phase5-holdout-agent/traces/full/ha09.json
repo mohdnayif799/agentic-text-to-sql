@@ -1,0 +1,363 @@
+{
+ "question_id": "ha09",
+ "type": "why",
+ "arch": "full",
+ "question": "Why did Hardware revenue drop so sharply from Q2 to Q3 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The query only lists the revenue per product for Q2 and Q3 but does not explain the underlying cause for the sharp drop."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.product_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND p.category = 'Hardware' GROUP BY p.product_id, p.product_name ORDER BY (q3_revenue - q2_revenue) ASC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 9,
+   "preview": "product_name | q2_revenue | q3_revenue\nLattice Ridge | 482955.26999999996 | 127995.04199999999\nCascade Beacon | 459070.15 | 136043.38\nNimbus Quartz | 404436.9275 | 116734.4525\nAnchor Summit | 292276.45 | 83381.508\nHarbor Lumen | 283296.482 | 82355.272\n... 4 more row(s)"
+  },
+  {
+   "sql": "-- compute: decompose_change\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-04-01' AND '2025-06-30' AND p.category = 'Hardware'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-07-01' AND '2025-09-30' AND p.category = 'Hardware'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 6,
+   "preview": "side_a | side_b | analysis | item | value_a | value_b | change | pct_change | share_of_change_pct | comparison | largest_contributor\n2025-04-01..2025-06-30 | 2025-07-01..2025-09-30 | metric | revenue | 2615311.9245 | 744611.1085 | -1870700.816 | -71.52878394639843 | NULL | lower | False\n2025-04-01..2025-06-30 | 2025-07-01..2025-09-30 | orders x average order value | number of orders | 699.0 | 238.0 | -461.0 | -65.95135908440629 | 85.75978351329437 | lower | True\n2025-04-01..2025-06-30 | 2025-07-01..2025-09-30 | orders x average order value | average order value | 3741.504899141631 | 3128.6181029411764 | -612.8867962004547 | -16.380756212321465 | 14.240216486705638 | lower | False\n2025-04-01..2025-06-30 | 2025-07-01..2025-09-30 | units x average price x (1 - average discount) | units sold | 2741.0 | 778.0 | -1963.0 | -71.61619846771251 | 100.24477094386319 | lower | True\n2025-04-01..2025-06-30 | 2025-07-01..2025-09-30 | units x average price x (1 - average discount) | average unit price | 1003.2887559284933 | 1008.6146015424165 | 5.325845613923207 | 0.5308387622658448 | -0.4214317065708144 | about the same | False\n... 1 more row(s)"
+  },
+  {
+   "sql": "-- compute: contribution_by_dimension\nSELECT o.channel AS channel, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-04-01' AND '2025-06-30' AND p.category = 'Hardware' GROUP BY 1 ORDER BY 1\nSELECT o.channel AS channel, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-07-01' AND '2025-09-30' AND p.category = 'Hardware' GROUP BY 1 ORDER BY 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "side_a | side_b | analysis | item | value_a | value_b | change | pct_change | share_of_change_pct | comparison | largest_contributor\n2025-04-01..2025-06-30 | 2025-07-01..2025-09-30 | revenue by channel | Online | 1118493.7635000001 | 319140.8 | -799352.9635000001 | -71.46691287742706 | 42.73013389758419 | lower | True\n2025-04-01..2025-06-30 | 2025-07-01..2025-09-30 | revenue by channel | Direct | 818051.3325 | 237807.5335 | -580243.799 | -70.92999863795222 | 31.017455813201504 | lower | False\n2025-04-01..2025-06-30 | 2025-07-01..2025-09-30 | revenue by channel | Partner | 678766.8285 | 187662.775 | -491104.0534999999 | -72.35239450125839 | 26.2524102892143 | lower | False"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.product_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND p.category = 'Hardware' GROUP BY p.product_id, p.product_name ORDER BY (q3_revenue - q2_revenue) ASC LIMIT 500",
+   "reason": "",
+   "signal": null
+  },
+  {
+   "step": 2,
+   "tools": [
+    "compute:decompose_change"
+   ],
+   "sql": "-- compute: decompose_change\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-04-01' AND '2025-06-30' AND p.category = 'Hardware'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-07-01' AND '2025-09-30' AND p.category = 'Hardware'",
+   "reason": "Decomposing the change in Hardware revenue between Q2 and Q3 2025 will show whether the drop was driven by order volume or average order value.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "compute:contribution_by_dimension"
+   ],
+   "sql": "-- compute: contribution_by_dimension\nSELECT o.channel AS channel, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-04-01' AND '2025-06-30' AND p.category = 'Hardware' GROUP BY 1 ORDER BY 1\nSELECT o.channel AS channel, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-07-01' AND '2025-09-30' AND p.category = 'Hardware' GROUP BY 1 ORDER BY 1",
+   "reason": "Check which sales channel contributed most to the drop in Hardware revenue between Q2 and Q3 2025.",
+   "signal": null
+  },
+  {
+   "step": "final",
+   "tools": [
+    "stack"
+   ],
+   "plan": {
+    "stacked_steps": [
+     2,
+     3
+    ]
+   },
+   "driver_sentence_added": false
+  }
+ ],
+ "repairs": [],
+ "selected_step": 2,
+ "selected_result": {
+  "sql": "-- stacked: rows from step(s) 2, 3\n-- compute: decompose_change\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-04-01' AND '2025-06-30' AND p.category = 'Hardware'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-07-01' AND '2025-09-30' AND p.category = 'Hardware'\n-- compute: contribution_by_dimension\nSELECT o.channel AS channel, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-04-01' AND '2025-06-30' AND p.category = 'Hardware' GROUP BY 1 ORDER BY 1\nSELECT o.channel AS channel, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-07-01' AND '2025-09-30' AND p.category = 'Hardware' GROUP BY 1 ORDER BY 1",
+  "ok": true,
+  "columns": [
+   "side_a",
+   "side_b",
+   "analysis",
+   "item",
+   "value_a",
+   "value_b",
+   "change",
+   "pct_change",
+   "share_of_change_pct",
+   "comparison",
+   "largest_contributor"
+  ],
+  "rows": [
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "metric",
+    "revenue",
+    2615311.9245,
+    744611.1085,
+    -1870700.816,
+    -71.52878394639843,
+    null,
+    "lower",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "orders x average order value",
+    "number of orders",
+    699.0,
+    238.0,
+    -461.0,
+    -65.95135908440629,
+    85.75978351329437,
+    "lower",
+    true
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "orders x average order value",
+    "average order value",
+    3741.504899141631,
+    3128.6181029411764,
+    -612.8867962004547,
+    -16.380756212321465,
+    14.240216486705638,
+    "lower",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "units x average price x (1 - average discount)",
+    "units sold",
+    2741.0,
+    778.0,
+    -1963.0,
+    -71.61619846771251,
+    100.24477094386319,
+    "lower",
+    true
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "units x average price x (1 - average discount)",
+    "average unit price",
+    1003.2887559284933,
+    1008.6146015424165,
+    5.325845613923207,
+    0.5308387622658448,
+    -0.4214317065708144,
+    "about the same",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "units x average price x (1 - average discount)",
+    "1 - average discount",
+    0.9510175104605268,
+    0.9489092122544941,
+    -0.002108298206032755,
+    -0.22168868426111513,
+    0.17666076270761052,
+    "about the same",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "revenue by channel",
+    "Online",
+    1118493.7635000001,
+    319140.8,
+    -799352.9635000001,
+    -71.46691287742706,
+    42.73013389758419,
+    "lower",
+    true
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "revenue by channel",
+    "Direct",
+    818051.3325,
+    237807.5335,
+    -580243.799,
+    -70.92999863795222,
+    31.017455813201504,
+    "lower",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "revenue by channel",
+    "Partner",
+    678766.8285,
+    187662.775,
+    -491104.0534999999,
+    -72.35239450125839,
+    26.2524102892143,
+    "lower",
+    false
+   ]
+  ],
+  "row_count": 9
+ },
+ "answer": "Hardware revenue dropped from 2,615,311.92 to 744,611.11, largely driven by the number of orders, which decreased from 699.0 to 238.0. Additionally, units sold dropped from 2,741.0 to 778.0, while average order value fell from 3,741.50 to 3,128.62. Conversely, average unit price and 1 - average discount remained about the same, moving from 1,003.29 to 1,008.61 and 0.95 to 0.95 respectively, so they do not explain the difference. Across channels, revenue decreased in Online from 1,118,493.76 to 319,140.80, Direct from 818,051.33 to 237,807.53, and Partner from 678,766.83 to 187,662.78.",
+ "key_numbers": [
+  "2615311.92",
+  "744611.11",
+  "699.0",
+  "238.0",
+  "2741.0",
+  "778.0",
+  "3741.50",
+  "3128.62",
+  "1003.29",
+  "1008.61",
+  "0.95",
+  "1118493.76",
+  "319140.80",
+  "818051.33",
+  "237807.53",
+  "678766.83",
+  "187662.78"
+ ],
+ "caveats": [],
+ "judge": {
+  "verdict": "pass",
+  "reason": "all required facts stated; no disqualifying claim",
+  "facts": [
+   {
+    "fact": "Far fewer Hardware units were sold: about 2,741 in Q2 versus about 778 in Q3 2025 (about -72%).",
+    "verdict": "yes",
+    "quote": "Additionally, units sold dropped from 2,741.0 to 778.0, while average order value fell from 3,741.50 to 3,128.62.",
+    "quote_verified": true,
+    "counts_as_yes": true,
+    "reason": "The answer explicitly states that units sold dropped from 2,741.0 to 778.0, which matches the required fact's figures and comparison."
+   },
+   {
+    "fact": "The average Hardware unit price (about 1,000) and the average discount (about 5%) were essentially unchanged, so price and discounts do not explain the drop.",
+    "verdict": "yes",
+    "quote": "Conversely, average unit price and 1 - average discount remained about the same, moving from 1,003.29 to 1,008.61 and 0.95 to 0.95 respectively, so they do not explain the difference.",
+    "quote_verified": true,
+    "counts_as_yes": true,
+    "reason": "The answer explicitly states that average unit price and average discount remained about the same and do not explain the drop, matching the required fact."
+   }
+  ],
+  "disqualifying": {
+   "verdict": "no",
+   "quote": "",
+   "quote_verified": false,
+   "counts_as_yes": false,
+   "reason": "The answer attributes the revenue drop mainly to the number of orders and units sold decreasing, which is consistent with the evidence and allowed. It does not attribute the drop mainly to price cuts, discounts, refunds, or cancellations, nor does it state figures that contradict the evidence."
+  }
+ },
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question that asks why. A first query has been run. ",
+   "prompt_hash": "a7ec60779395bff5de2863bb6ffa036d5a50738fb23e9c6ab6e3863cb8c9dab8",
+   "cache_hit": false,
+   "latency_ms": 1383.1,
+   "input_tokens": 4962,
+   "output_tokens": 167,
+   "original_latency_ms": null,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You plan the next step of an analysis of a read-only SQLite database. Choose exa",
+   "prompt_hash": "d856378bb92c5c8adca68e581dd9310fead9128e0a16282c6e5df54ba369444f",
+   "cache_hit": false,
+   "latency_ms": 1400.2,
+   "input_tokens": 6041,
+   "output_tokens": 199,
+   "original_latency_ms": null,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "ab1ece5e6aff07c4b6650234990f0e07803a338a760b7692a283ea6649df51b8",
+   "cache_hit": false,
+   "latency_ms": 2272.4,
+   "input_tokens": 2667,
+   "output_tokens": 469,
+   "original_latency_ms": null,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "b0ebd614f484b15375b23e009e2d9544e0dd00a55dba064fbdb2e004bf13c8c5",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2938,
+   "output_tokens": 380,
+   "original_latency_ms": 6534.9,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "1c64f1493eab7a13a4e99262575cf55fe95393bc7a911b6d135769986256b015",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 829,
+   "output_tokens": 50,
+   "original_latency_ms": 1298.5,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "5b90800435b3b75b3d6435d8037b5e0563441acee84e3ed3b78805f6d91cdae8",
+   "cache_hit": false,
+   "latency_ms": 1026.7,
+   "input_tokens": 888,
+   "output_tokens": 113,
+   "original_latency_ms": null
+  },
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "8e319722af5f940a37614cf9d5f0c0d8cf9d5764362c09fad181a650d404c8b7",
+   "cache_hit": false,
+   "latency_ms": 966.8,
+   "input_tokens": 888,
+   "output_tokens": 115,
+   "original_latency_ms": null
+  },
+  {
+   "role": "You are a strict checker grading an analytics assistant's answer. You receive a ",
+   "prompt_hash": "4afb7e8151a2e5d9822407531170b847536a021263362edf141441999e0a4ad2",
+   "cache_hit": false,
+   "latency_ms": 988.5,
+   "input_tokens": 857,
+   "output_tokens": 83,
+   "original_latency_ms": null
+  }
+ ],
+ "latency_s": 5.195,
+ "latency_live_s": 13.029,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "driver named; judge pass"
+ }
+}

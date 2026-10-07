@@ -1,0 +1,109 @@
+{
+ "question_id": "ha13",
+ "type": "recovery",
+ "arch": "v1",
+ "question": "How much did we spend on marketing in Q3 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Calculate the total marketing spend from the marketing_spend table for the period between 2025-07-01 and 2025-09-30."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT SUM(amount) AS total_marketing_spend FROM marketing_spend WHERE month >= '2025-07' AND month <= '2025-09'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "total_marketing_spend\n532065.66"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Calculate the total marketing spend from the marketing_spend table for the period between 2025-07-01 and 2025-09-30.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT SUM(amount) AS total_marketing_spend FROM marketing_spend WHERE month >= '2025-07' AND month <= '2025-09'"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT SUM(amount) AS total_marketing_spend FROM marketing_spend WHERE month >= '2025-07' AND month <= '2025-09'",
+  "ok": true,
+  "columns": [
+   "total_marketing_spend"
+  ],
+  "rows": [
+   [
+    532065.66
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The total marketing spend for Q3 2025 was 532,065.66.",
+ "key_numbers": [
+  "total_marketing_spend: 532,065.66"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "b689be9ce0fd60f0a17c43ee5c625bf9cab71db85359d5b96141af6994816382",
+   "cache_hit": false,
+   "latency_ms": 1060.4,
+   "input_tokens": 614,
+   "output_tokens": 116,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "99e273beef500b1350f8cb7a970b07c78dea601ed94e835e58dd61694f56634a",
+   "cache_hit": false,
+   "latency_ms": 1116.1,
+   "input_tokens": 681,
+   "output_tokens": 122,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "c539b8957a3747dbdc03d33ddcafe1e6bb78cc1d412b58c60e3b03e4fcc39122",
+   "cache_hit": false,
+   "latency_ms": 1011.7,
+   "input_tokens": 619,
+   "output_tokens": 59,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "9351753db0b33d39cffa6f8c162906996f974908b6ad214961f42229c59f40cf",
+   "cache_hit": false,
+   "latency_ms": 1019.3,
+   "input_tokens": 475,
+   "output_tokens": 78,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.262,
+ "latency_live_s": 4.262,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

@@ -1,0 +1,100 @@
+{
+ "question_id": "he08",
+ "type": "easy",
+ "arch": "router",
+ "question": "Which region has the most customers, and how many customers does it have?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT r.region_name, COUNT(c.customer_id) AS customer_count FROM regions AS r JOIN customers AS c ON r.region_id = c.region_id GROUP BY r.region_name ORDER BY customer_count DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "region_name | customer_count\nNorth America | 545"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT r.region_name, COUNT(c.customer_id) AS customer_count FROM regions AS r JOIN customers AS c ON r.region_id = c.region_id GROUP BY r.region_name ORDER BY customer_count DESC LIMIT 1",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT r.region_name, COUNT(c.customer_id) AS customer_count FROM regions AS r JOIN customers AS c ON r.region_id = c.region_id GROUP BY r.region_name ORDER BY customer_count DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "region_name",
+   "customer_count"
+  ],
+  "rows": [
+   [
+    "North America",
+    545
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The region with the most customers is North America (region_name: North America), which has 545 customers.",
+ "key_numbers": [
+  "545"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "800bfe09697a9af92ddb4241ee91444a1c09c9ae5babaa09a94c026aabba3bbb",
+   "cache_hit": false,
+   "latency_ms": 892.1,
+   "input_tokens": 378,
+   "output_tokens": 44,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "099a9bd9a3206c835b16f2789addb401f481a38bfc441ab992336429be402cc9",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2683,
+   "output_tokens": 126,
+   "original_latency_ms": 1359.7,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "0c2b9e886359047a1114a99a53b3a366971d0a2983f5a3ed8b8707c1794d2856",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 490,
+   "output_tokens": 57,
+   "original_latency_ms": 1731.1,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.935,
+ "latency_live_s": 4.026,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

@@ -1,0 +1,112 @@
+{
+ "question_id": "ha16",
+ "type": "ambiguous",
+ "arch": "v1",
+ "question": "What was our best month in 2025? Give the month (as YYYY-MM) and the figure that makes it the best.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Calculate the total revenue for each month in the year 2025 using the orders table, order by revenue descending, and return the top month."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT SUBSTRING(o.order_date, 1, 7) AS month, SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) AS total_revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.order_date LIKE '2025%' GROUP BY month ORDER BY total_revenue DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "month | total_revenue\n2025-05 | 2043936.325"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Calculate the total revenue for each month in the year 2025 using the orders table, order by revenue descending, and return the top month.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT SUBSTRING(o.order_date, 1, 7) AS month, SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) AS total_revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.order_date LIKE '2025%' GROUP BY month ORDER BY total_revenue DESC LIMIT 1"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT SUBSTRING(o.order_date, 1, 7) AS month, SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) AS total_revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.order_date LIKE '2025%' GROUP BY month ORDER BY total_revenue DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "month",
+   "total_revenue"
+  ],
+  "rows": [
+   [
+    "2025-05",
+    2043936.325
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Our best month in 2025 was 2025-05, achieving a total revenue of 2043936.325.",
+ "key_numbers": [
+  "Month: 2025-05",
+  "Total Revenue: 2043936.325"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "9ce173be6e43f22586daa898168ebf7e962b309fa35e1d4be9ce74a1e73d3257",
+   "cache_hit": false,
+   "latency_ms": 1150.0,
+   "input_tokens": 630,
+   "output_tokens": 106,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "e83a31fab6824da780d89f3309c59deac3e8994f421ae9bb16e2d22c0099fdcc",
+   "cache_hit": false,
+   "latency_ms": 1769.5,
+   "input_tokens": 1154,
+   "output_tokens": 179,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "e0d1a8550dd5cd839d37a42b015646bd8108bafcb5479c0d41df036ffcb9ec29",
+   "cache_hit": false,
+   "latency_ms": 1185.9,
+   "input_tokens": 677,
+   "output_tokens": 66,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "29575b6bd76ff6a3ca442a579dc845050e11bf2211278a9fe4ed88eb82abfed1",
+   "cache_hit": false,
+   "latency_ms": 1103.7,
+   "input_tokens": 546,
+   "output_tokens": 102,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 5.358,
+ "latency_live_s": 5.358,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "no interpretation matched (assumption stated: False; answer fits: none)"
+ }
+}

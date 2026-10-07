@@ -240,6 +240,16 @@ def fake_agent(monkeypatch: pytest.MonkeyPatch):
     agent = FakeAgent()
     monkeypatch.setattr("agentcrew.graph.build.build_deps", agent.build_deps)
     monkeypatch.setattr("agentcrew.graph.build.run_question", agent.run_question)
+    # D (the app's default) and the other v2 architectures.
+    monkeypatch.setattr("agentcrew.archs.app_runner.build_runtime",
+                        agent.build_runtime)
+    monkeypatch.setattr("agentcrew.archs.app_runner.run_arch_question",
+                        agent.run_arch_question)
+
+    def no_live_client(*_: object, **__: object) -> None:
+        raise AssertionError("a UI test tried to build a live model client")
+
+    monkeypatch.setattr("agentcrew.llm.build_client", no_live_client)
     return agent
 
 

@@ -1,8 +1,13 @@
 """AgentCrew Streamlit interface.
 
 Kept deliberately plain. The interesting thing to demonstrate is the agent's
-behaviour - the plan, the queries it wrote, the failures it recovered from -
-so the UI's job is to expose the trace clearly, not to be a dashboard.
+behaviour - whether one query was enough or the question escalated, which
+tools each step used, the queries it wrote - so the UI's job is to expose
+that clearly, not to be a dashboard.
+
+The architecture comes from Settings.arch (AGENTCREW_ARCH). The default is D
+(`full`): one query first, escalation only on a signal, then tools. `v1`
+runs the original multi-step agent.
 
 Run:  streamlit run app.py
 """
@@ -11,9 +16,10 @@ from __future__ import annotations
 
 import html
 import logging
+import re
 import sys
 import time
-from collections.abc import MutableMapping
+from collections.abc import Callable, MutableMapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -26,6 +32,11 @@ from streamlit.delta_generator import DeltaGenerator
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
+from agentcrew.archs.app_runner import (  # noqa: E402
+    AppRun,
+    build_runtime,
+    run_arch_question,
+)
 from agentcrew.config import Settings  # noqa: E402
 from agentcrew.db.engine import DatabaseNotFoundError  # noqa: E402
 from agentcrew.graph.build import RunOutcome, build_deps, run_question  # noqa: E402
@@ -255,6 +266,131 @@ def redact(text: str, secret: str) -> str:
     return text
 
 
+# ---- Architecture runs (A, C, D) ---------------------------------------------
+_STAGE = re.compile(r"step (\d+): (.+)")
+_STAGE_WORDS = {
+    "decide_next_action": "choosing the next step",
+    "metric plan": "planning the metric analysis",
+    "trend plan": "planning the trend fit",
+    "query": "running a query",
+    "follow-up SQL": "writing a follow-up query",
+}
+
+
+def stage_label(stage: str, max_steps: int) -> tuple[str, float, bool] | None:
+    """(progress text, fraction done, escalating) for a stage the run entered,
+    or None for a stage of the direct path (step 1 and the decision)."""
+    if stage == "final: answer":
+        return "Writing the answer", 1.0, False
+    if stage.startswith("final: answer"):
+        return "Writing the answer from the first query's result", 1.0, True
+    if stage == "final: assembly":
+        return "Escalated: assembling the final table", 0.95, True
+    found = _STAGE.fullmatch(stage)
+    if not found:
+        return None
+    number, what = int(found[1]), found[2]
+    fraction = min(number / (max_steps + 1), 0.9)
+    repairing = what.startswith(("repair", "A's retry"))
+    if number == 1:
+        if repairing:
+            return "Escalated: repairing the first query", fraction, True
+        if what == "verification":
+            return "Escalated: checking the first result", fraction, True
+        return None
+    if repairing:
+        doing = "repairing a query"
+    elif what.startswith("compute:"):
+        doing = what.split(":", 1)[1].replace("_", " ")
+    else:
+        doing = _STAGE_WORDS.get(what, what.replace("_", " "))
+    return f"Escalated: step {number} of {max_steps}, {doing}", fraction, True
+
+
+def stage_reporter(
+    show: Callable[[str, float], None], max_steps: int
+) -> Callable[[str], None]:
+    """on_stage callback: shows progress once the question has escalated
+    (a direct answer takes a few seconds; an escalated one 5 to 20)."""
+    escalated = False
+
+    def on_stage(stage: str) -> None:
+        nonlocal escalated
+        label = stage_label(stage, max_steps)
+        if label is None:
+            return
+        text, fraction, escalating = label
+        escalated = escalated or escalating
+        if escalated:
+            show(text, fraction)
+    return on_stage
+
+
+def path_summary(run: AppRun) -> str:
+    outcome = run.outcome
+    if outcome.path != "escalated":
+        return "**Answered directly:** one query was enough, so nothing escalated."
+    if outcome.plan:
+        reason = outcome.plan[0]
+    elif outcome.repairs:
+        reason = f"the first query needed a repair ({outcome.repairs[0].signal})."
+    else:
+        reason = "a check on the first result asked for more work."
+    return f"**Escalated:** {reason}"
+
+
+def tools_text(tools: list[str]) -> str:
+    return " + ".join(tools) or "none"
+
+
+# How the final table was made, when it is not one step's own result.
+FINAL_TABLE = {
+    "assemble": "assembled from the steps below",
+    "stack": "the metric analyses below, stacked",
+    "fallback": "the first query's result (answering the escalated table failed)",
+}
+
+
+def render_arch_run(run: AppRun) -> None:
+    outcome = run.outcome
+    if outcome.status == "done":
+        st.success(outcome.answer or "")
+    else:
+        st.error(outcome.answer or "The agent stopped without an answer.")
+    st.markdown(path_summary(run))
+    for caveat in outcome.caveats:
+        st.warning(caveat)
+
+    steps = [s for s in outcome.steps if s.get("step") != "final"]
+    final = [s for s in outcome.steps if s.get("step") == "final"]
+    a, b, c, d, e = st.columns(5)
+    a.metric("Path", "Escalated" if outcome.path == "escalated" else "Direct")
+    b.metric("Steps", len(steps))
+    c.metric("Repairs", len(outcome.repairs))
+    d.metric("LLM calls", run.llm_calls)
+    e.metric("Time", f"{run.seconds:.1f}s")
+
+    if outcome.selected is not None:
+        df = to_frame(outcome.selected)
+        st.markdown("**Final result**")
+        if df.empty:
+            st.caption("No rows returned.")
+        else:
+            st.dataframe(df, width="stretch", hide_index=True)
+            maybe_chart(df)
+        if final:
+            made = final[0].get("tools", ["assemble"])[0]
+            st.caption(f"Final table: {FINAL_TABLE.get(made, made)}.")
+
+    for step in steps:
+        with st.expander(f"Step {step['step']}: {tools_text(step.get('tools', []))}",
+                         expanded=False):
+            if step.get("reason"):
+                st.caption(step["reason"])
+            if step.get("sql"):
+                st.code(step["sql"], language="sql", wrap_lines=True)
+
+
 def render_run(outcome: RunOutcome) -> None:
     if outcome.status == "done":
         st.success(outcome.answer or "")
@@ -353,13 +489,20 @@ class Turn:
 
     question: str
     outcome: RunOutcome | None = None
+    arch_run: AppRun | None = None
+    """Set instead of `outcome` when a v2 architecture (A, C, D) answered."""
     error: str | None = None
     notice: str | None = None
     """Not a failure of the agent: demo limit reached, quota refused, no key."""
 
 
 def execute(
-    question: str, cfg: dict[str, Any], spec: ProviderSpec, *, own_key: str
+    question: str,
+    cfg: dict[str, Any],
+    spec: ProviderSpec,
+    *,
+    own_key: str,
+    show_progress: Callable[[str, float], None] | None = None,
 ) -> tuple[Turn, bool]:
     """Run one question. Failures are returned on the Turn, never raised.
 
@@ -376,11 +519,18 @@ def execute(
     turn = Turn(question=question)
     secret = own_key or _server_key(spec.key)  # for redaction only
     started = time.perf_counter()
+    arch = cfg.get("arch", "?")
     try:
         settings = Settings(**cfg)
-        deps = build_deps(settings)
+        arch = settings.arch
+        if arch == "v1":
+            deps = build_deps(settings)
+        else:
+            runtime = build_runtime(settings)
+            client = runtime.new_client()
     except Exception as exc:
-        _log_run(cfg, "start_failed", started, 0, error=exc, secret=secret)
+        _log_run(cfg, "start_failed", started, 0, arch=arch, error=exc,
+                 secret=secret)
         if not own_key:
             turn.error = DEMO_UNAVAILABLE_MESSAGE
         elif isinstance(exc, DatabaseNotFoundError):
@@ -393,17 +543,27 @@ def execute(
             )
         return turn, False
 
+    def calls_so_far() -> int:
+        return _llm_calls_so_far(deps) if arch == "v1" else client.calls
+
     try:
-        turn.outcome = run_question(question, settings=settings, deps=deps)
+        if arch == "v1":
+            turn.outcome = run_question(question, settings=settings, deps=deps)
+        else:
+            on_stage = (stage_reporter(show_progress, settings.max_steps)
+                        if show_progress else None)
+            turn.arch_run = run_arch_question(
+                question, settings=settings, runtime=runtime, client=client,
+                on_stage=on_stage)
     except QuotaExhaustedError as exc:
         # Stops the run outright: the provider refused, so there is nothing
         # to repair and retrying would only be refused again.
-        _log_run(cfg, "quota", started, _llm_calls_so_far(deps), error=exc,
+        _log_run(cfg, "quota", started, calls_so_far(), arch=arch, error=exc,
                  secret=secret)
         turn.notice = OWN_QUOTA_MESSAGE if own_key else SHARED_QUOTA_MESSAGE
         return turn, False
     except Exception as exc:
-        _log_run(cfg, "error", started, _llm_calls_so_far(deps), error=exc,
+        _log_run(cfg, "error", started, calls_so_far(), arch=arch, error=exc,
                  secret=secret)
         turn.error = (
             f"Run failed: {type(exc).__name__}: {redact(str(exc), secret)}"
@@ -412,8 +572,14 @@ def execute(
         )
         return turn, False
 
-    _log_run(cfg, turn.outcome.status, started,
-             turn.outcome.trace["counters"]["llm_calls"])
+    if turn.arch_run is not None:
+        run = turn.arch_run
+        _log_run(cfg, run.outcome.status, started, run.llm_calls, arch=arch,
+                 path=run.outcome.path, tools=run.tools)
+    else:
+        _log_run(cfg, turn.outcome.status, started,
+                 turn.outcome.trace["counters"]["llm_calls"], arch=arch, path="v1",
+                 tools=[["run_sql"] for _ in turn.outcome.step_results])
     return turn, True
 
 
@@ -429,12 +595,19 @@ def _log_run(
     started: float,
     llm_calls: int,
     *,
+    arch: str = "?",
+    path: str = "-",
+    tools: list[list[str]] | None = None,
     error: BaseException | None = None,
     secret: str = "",
 ) -> None:
-    """One log line per run. Never the key and never the question text."""
+    """One log line per run: provider, model, architecture, status, path
+    (direct or escalated), the tools of each step and the LLM calls. Never
+    the key and never the question text."""
+    used = ">".join("+".join(step) for step in tools or []) or "-"
     fields = (
-        f"provider={cfg['provider']} model={cfg['model']} status={status} "
+        f"provider={cfg['provider']} model={cfg['model']} arch={arch} "
+        f"status={status} path={path} tools={used} "
         f"seconds={time.perf_counter() - started:.1f} llm_calls={llm_calls}"
     )
     if error is None:
@@ -454,6 +627,7 @@ def answer(
     max_attempts: int,
     max_steps: int,
     state: MutableMapping[str, Any],
+    show_progress: Callable[[str, float], None] | None = None,
 ) -> Turn:
     """Choose the key for this run, enforce the demo allowance, and run."""
     spec = PROVIDERS[provider]
@@ -474,7 +648,8 @@ def answer(
     }
     if own_key:
         turn, _ = execute(
-            question, {**cfg, spec.key_field: own_key}, spec, own_key=own_key
+            question, {**cfg, spec.key_field: own_key}, spec, own_key=own_key,
+            show_progress=show_progress,
         )
         return turn
 
@@ -496,7 +671,8 @@ def answer(
         "max_attempts_per_step": DEMO_MAX_ATTEMPTS,
         "max_steps": DEMO_MAX_STEPS,
     }
-    turn, charged = execute(question, demo_cfg, spec, own_key="")
+    turn, charged = execute(question, demo_cfg, spec, own_key="",
+                            show_progress=show_progress)
     if charged:
         record_demo_run(state)
     return turn
@@ -504,9 +680,11 @@ def answer(
 
 ABOUT = (
     "AgentCrew answers plain-English questions about a sample sales database. "
-    "It plans the analysis, writes SQL, runs it read-only, repairs failures "
-    "and checks the result before answering. Try the delete example to see it "
-    "refuse to write."
+    "It writes one read-only SQL query first and answers directly when that is "
+    "enough. On a concrete signal (an error, an empty or suspicious result, a "
+    "why or forecast question) it escalates: it repairs the query, explores "
+    "with lookups and deterministic tools, and checks the result. Try the "
+    "delete example to see it refuse to write."
 )
 
 
@@ -547,6 +725,8 @@ def render_reply(turn: Turn) -> None:
         st.error(turn.error)
     if turn.outcome is not None:
         render_run(turn.outcome)
+    if turn.arch_run is not None:
+        render_arch_run(turn.arch_run)
 
 
 def render_turn(turn: Turn) -> None:
@@ -722,7 +902,13 @@ def main() -> None:
             warning = key_format_warning(run)
             if warning:
                 st.warning(warning)
-            with st.spinner("Planning, querying, verifying..."):
+            # Filled only once the question escalates (see stage_reporter).
+            progress_slot = st.empty()
+
+            def show_progress(text: str, fraction: float) -> None:
+                progress_slot.progress(fraction, text=text)
+
+            with st.spinner("Querying..."):
                 turn = answer(
                     question,
                     provider=run.provider,
@@ -731,7 +917,9 @@ def main() -> None:
                     max_attempts=run.max_attempts,
                     max_steps=run.max_steps,
                     state=st.session_state,
+                    show_progress=show_progress,
                 )
+            progress_slot.empty()
             render_reply(turn)
         st.session_state.turns = [*st.session_state.turns, turn]
         show_demo_counter(counter, run)

@@ -1,0 +1,125 @@
+{
+ "question_id": "he05",
+ "type": "easy",
+ "arch": "v1",
+ "question": "What were the top 3 products by completed revenue in 2024? Give each product's ID, name and revenue.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Calculate the total completed revenue for each product in 2024 by joining products, order_items, and orders (filtering for completed orders), then rank and limit to the top 3 products."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM products AS p JOIN order_items AS oi ON p.product_id = oi.product_id JOIN orders AS o ON oi.order_id = o.order_id WHERE o.status = 'completed' AND STRFTIME('%Y', o.order_date) = '2024' GROUP BY p.product_id, p.product_name ORDER BY revenue DESC LIMIT 3",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "product_id | product_name | revenue\n9 | Lattice Ridge | 1308261.591\n1 | Cascade Beacon | 1168417.415\n6 | Nimbus Quartz | 902459.8325"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Calculate the total completed revenue for each product in 2024 by joining products, order_items, and orders (filtering for completed orders), then rank and limit to the top 3 products.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM products AS p JOIN order_items AS oi ON p.product_id = oi.product_id JOIN orders AS o ON oi.order_id = o.order_id WHERE o.status = 'completed' AND STRFTIME('%Y', o.order_date) = '2024' GROUP BY p.product_id, p.product_name ORDER BY revenue DESC LIMIT 3"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM products AS p JOIN order_items AS oi ON p.product_id = oi.product_id JOIN orders AS o ON oi.order_id = o.order_id WHERE o.status = 'completed' AND STRFTIME('%Y', o.order_date) = '2024' GROUP BY p.product_id, p.product_name ORDER BY revenue DESC LIMIT 3",
+  "ok": true,
+  "columns": [
+   "product_id",
+   "product_name",
+   "revenue"
+  ],
+  "rows": [
+   [
+    9,
+    "Lattice Ridge",
+    1308261.591
+   ],
+   [
+    1,
+    "Cascade Beacon",
+    1168417.415
+   ],
+   [
+    6,
+    "Nimbus Quartz",
+    902459.8325
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "The top 3 products by completed revenue in 2024 were Lattice Ridge (Product ID 9) with $1,308,261.59, Cascade Beacon (Product ID 1) with $1,168,417.42, and Nimbus Quartz (Product ID 6) with $902,459.83.",
+ "key_numbers": [
+  "Product ID 9: Lattice Ridge, Revenue: 1308261.591",
+  "Product ID 1: Cascade Beacon, Revenue: 1168417.415",
+  "Product ID 6: Nimbus Quartz, Revenue: 902459.8325"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "fa72eaaec6ed65b57be91f96999334924f5f279f82378e32c0165ac2b0fc3716",
+   "cache_hit": false,
+   "latency_ms": 1414.4,
+   "input_tokens": 626,
+   "output_tokens": 114,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "bf9ca304c0b3f9ab558356e41c0cc1f123649fcd4c6195824f4d706a2e4430a1",
+   "cache_hit": false,
+   "latency_ms": 1994.6,
+   "input_tokens": 1239,
+   "output_tokens": 225,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "723fc3200380e85cc314a05eb075f87fc268ebea6908fed104708af82c146f46",
+   "cache_hit": false,
+   "latency_ms": 972.7,
+   "input_tokens": 759,
+   "output_tokens": 67,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "c93e7ceb613278ccebda623c31eb11efd26438b96be4e084fa59cb9a1c06b58f",
+   "cache_hit": false,
+   "latency_ms": 1324.9,
+   "input_tokens": 618,
+   "output_tokens": 186,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 5.828,
+ "latency_live_s": 5.828,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "3 row(s) match"
+ }
+}

@@ -17,3 +17,9 @@ env/
 
 agentcrew_env/
 pytest_temp/
+
+# LLM response cache for evaluation runs (eval/run_config.yaml)
+eval/.llm_cache/
+
+# Development eval run output (results and traces)
+eval/runs/

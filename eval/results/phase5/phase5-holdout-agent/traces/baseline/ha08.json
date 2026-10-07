@@ -1,0 +1,206 @@
+{
+ "question_id": "ha08",
+ "type": "why",
+ "arch": "baseline",
+ "question": "Why did customer churn spike in Q3 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT c.segment, r.region_name, COUNT(c.customer_id) AS churned_count FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id WHERE c.churn_date >= '2025-07-01' AND c.churn_date <= '2025-09-30' GROUP BY c.segment, r.region_name ORDER BY churned_count DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 11,
+   "preview": "segment | region_name | churned_count\nMid-Market | APAC | 24\nSMB | APAC | 14\nEnterprise | APAC | 6\nMid-Market | EMEA | 6\nSMB | North America | 5\n... 6 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT c.segment, r.region_name, COUNT(c.customer_id) AS churned_count FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id WHERE c.churn_date >= '2025-07-01' AND c.churn_date <= '2025-09-30' GROUP BY c.segment, r.region_name ORDER BY churned_count DESC LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT c.segment, r.region_name, COUNT(c.customer_id) AS churned_count FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id WHERE c.churn_date >= '2025-07-01' AND c.churn_date <= '2025-09-30' GROUP BY c.segment, r.region_name ORDER BY churned_count DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "segment",
+   "region_name",
+   "churned_count"
+  ],
+  "rows": [
+   [
+    "Mid-Market",
+    "APAC",
+    24
+   ],
+   [
+    "SMB",
+    "APAC",
+    14
+   ],
+   [
+    "Enterprise",
+    "APAC",
+    6
+   ],
+   [
+    "Mid-Market",
+    "EMEA",
+    6
+   ],
+   [
+    "SMB",
+    "North America",
+    5
+   ],
+   [
+    "SMB",
+    "EMEA",
+    4
+   ],
+   [
+    "Enterprise",
+    "North America",
+    3
+   ],
+   [
+    "SMB",
+    "LATAM",
+    2
+   ],
+   [
+    "Enterprise",
+    "EMEA",
+    1
+   ],
+   [
+    "Enterprise",
+    "LATAM",
+    1
+   ],
+   [
+    "Mid-Market",
+    "North America",
+    1
+   ]
+  ],
+  "row_count": 11
+ },
+ "answer": "In Q3 2025, customer churn was heavily concentrated in the APAC region, with the Mid-Market segment experiencing the highest churn at 24 customers, followed by SMB with 14 customers and Enterprise with 6 customers. Other regions like EMEA and North America saw much lower churn counts, ranging from 1 to 6 across various segments.",
+ "key_numbers": [
+  "24",
+  "14",
+  "6",
+  "6",
+  "5",
+  "4",
+  "3",
+  "2",
+  "1",
+  "1",
+  "1"
+ ],
+ "caveats": [],
+ "judge": {
+  "verdict": "fail",
+  "reason": "required fact(s) not stated: [1, 2]",
+  "facts": [
+   {
+    "fact": "The Q3 2025 churn spike is concentrated in APAC: 44 of the 67 customers who churned in Q3 2025 were APAC customers.",
+    "verdict": "no",
+    "quote": "",
+    "quote_verified": false,
+    "counts_as_yes": false,
+    "reason": "The answer mentions that churn in Q3 2025 was concentrated in the APAC region and breaks down the segments (24, 14, 6), which sum to 44, but it fails to state the total number of customers who churned in Q3 2025 (67). Therefore, it does not fully state the required fact."
+   },
+   {
+    "fact": "This is unusual: APAC had about 1 to 5 churns in each earlier quarter shown, and no other region had a comparable jump in Q3 2025 (3 to 11 churns each).",
+    "verdict": "no",
+    "quote": "",
+    "quote_verified": false,
+    "counts_as_yes": false,
+    "reason": "The answer does not explicitly state the required fact about APAC's historical churn range (1 to 5) or the comparison with other regions' jumps in Q3 2025."
+   }
+  ],
+  "disqualifying": {
+   "verdict": "yes",
+   "quote": "In Q3 2025, customer churn was heavily concentrated in the APAC region, with the Mid-Market segment experiencing the highest churn at 24 customers, followed by SMB with 14 customers and Enterprise with 6 customers.",
+   "quote_verified": true,
+   "counts_as_yes": true,
+   "reason": "The answer violates the disqualifying claim by giving segments (Mid-Market, SMB, Enterprise) as drivers, and also states figures not found in the evidence table."
+  }
+ },
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "594c458744008a66dbb83f417debb6e304d982828b5eb2521fd1a44630bf16f9",
+   "cache_hit": false,
+   "latency_ms": 1539.1,
+   "input_tokens": 2757,
+   "output_tokens": 232,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "d4e71491a156c2be5fffbb71909f83d7940e4bbb73a382a340e06138e0a7ce6c",
+   "cache_hit": false,
+   "latency_ms": 1261.2,
+   "input_tokens": 625,
+   "output_tokens": 156,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "6311e1f34196f401c4493fe892d95046454a346d3b104bcab92f7663b5268069",
+   "cache_hit": false,
+   "latency_ms": 1021.1,
+   "input_tokens": 902,
+   "output_tokens": 107,
+   "original_latency_ms": null
+  },
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "c1b8e40bdde500f09b88dd6c6930cd3da5fbc187cae48cde3bfa1e86eefcca4c",
+   "cache_hit": false,
+   "latency_ms": 866.2,
+   "input_tokens": 909,
+   "output_tokens": 68,
+   "original_latency_ms": null
+  },
+  {
+   "role": "You are a strict checker grading an analytics assistant's answer. You receive a ",
+   "prompt_hash": "703d1d160d0a64f55aadfd6d7830c22a442defb9e36521fdab46a035836909be",
+   "cache_hit": false,
+   "latency_ms": 1059.9,
+   "input_tokens": 862,
+   "output_tokens": 112,
+   "original_latency_ms": null
+  }
+ ],
+ "latency_s": 2.81,
+ "latency_live_s": 2.81,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": true,
+  "end_to_end": false,
+  "detail": "driver named; judge fail"
+ }
+}

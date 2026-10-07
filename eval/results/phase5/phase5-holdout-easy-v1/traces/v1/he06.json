@@ -1,0 +1,121 @@
+{
+ "question_id": "he06",
+ "type": "easy",
+ "arch": "v1",
+ "question": "How much did we spend on marketing in each channel in 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Calculate the total marketing spend grouped by channel for the year 2025."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT channel, SUM(amount) AS total_spend FROM marketing_spend WHERE month LIKE '2025-%' GROUP BY channel ORDER BY total_spend DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "channel | total_spend\nOnline | 816555.42\nDirect | 729168.99\nPartner | 726690.14"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Calculate the total marketing spend grouped by channel for the year 2025.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT channel, SUM(amount) AS total_spend FROM marketing_spend WHERE month LIKE '2025-%' GROUP BY channel ORDER BY total_spend DESC LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT channel, SUM(amount) AS total_spend FROM marketing_spend WHERE month LIKE '2025-%' GROUP BY channel ORDER BY total_spend DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "channel",
+   "total_spend"
+  ],
+  "rows": [
+   [
+    "Online",
+    816555.42
+   ],
+   [
+    "Direct",
+    729168.99
+   ],
+   [
+    "Partner",
+    726690.14
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "In 2025, the marketing spend by channel was 816,555.42 for Online, 729,168.99 for Direct, and 726,690.14 for Partner.",
+ "key_numbers": [
+  "Online spend: 816555.42",
+  "Direct spend: 729168.99",
+  "Partner spend: 726690.14"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "6af9b04da42d6a400494dc8a89480914f5c68c97380e6e1284e06802725d0329",
+   "cache_hit": false,
+   "latency_ms": 997.2,
+   "input_tokens": 615,
+   "output_tokens": 79,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "4a8628d82acef9774d8d70b47c9f1916dd7f2891112b2cc6439868d2b311f26f",
+   "cache_hit": false,
+   "latency_ms": 1193.1,
+   "input_tokens": 973,
+   "output_tokens": 123,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "366689ad700af16f6a5336adf329d7ea79ab686629ce28b9cbc32a9e101456df",
+   "cache_hit": false,
+   "latency_ms": 1016.6,
+   "input_tokens": 631,
+   "output_tokens": 61,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "9461b53733c7335b35edef42aa8358e40eb563ef8669299711fe286e8eb2edda",
+   "cache_hit": false,
+   "latency_ms": 1307.0,
+   "input_tokens": 483,
+   "output_tokens": 139,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.604,
+ "latency_live_s": 4.604,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "3 row(s) match"
+ }
+}

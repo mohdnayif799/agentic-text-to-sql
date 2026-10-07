@@ -1,0 +1,86 @@
+{
+ "question_id": "he04",
+ "type": "easy",
+ "arch": "baseline",
+ "question": "What is the average resolution time, in days, of support tickets created in 2025 that have been resolved?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT AVG(JULIANDAY(resolved_date) - JULIANDAY(created_date)) AS avg_resolution_days FROM support_tickets WHERE created_date >= '2025-01-01' AND created_date <= '2025-12-31' AND NOT resolved_date IS NULL",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "avg_resolution_days\n11.290634441087613"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT AVG(JULIANDAY(resolved_date) - JULIANDAY(created_date)) AS avg_resolution_days FROM support_tickets WHERE created_date >= '2025-01-01' AND created_date <= '2025-12-31' AND NOT resolved_date IS NULL"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT AVG(JULIANDAY(resolved_date) - JULIANDAY(created_date)) AS avg_resolution_days FROM support_tickets WHERE created_date >= '2025-01-01' AND created_date <= '2025-12-31' AND NOT resolved_date IS NULL",
+  "ok": true,
+  "columns": [
+   "avg_resolution_days"
+  ],
+  "rows": [
+   [
+    11.290634441087613
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The average resolution time for support tickets created and resolved in 2025 is 11.29 days.",
+ "key_numbers": [
+  "11.290634441087613"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "37443a4043395e44c89f1f1dc801297e130b8d2385ceb2bc4fc73d7cfd89b4d3",
+   "cache_hit": false,
+   "latency_ms": 1279.2,
+   "input_tokens": 2816,
+   "output_tokens": 156,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "e706c27a3d4da1f29ff8ac7ee96f60e33f5547bbbd6ab71cde4560416a7632bb",
+   "cache_hit": false,
+   "latency_ms": 1069.6,
+   "input_tokens": 527,
+   "output_tokens": 72,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 2.359,
+ "latency_live_s": 2.359,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

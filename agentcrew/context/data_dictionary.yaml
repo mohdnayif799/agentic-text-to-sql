@@ -1,0 +1,124 @@
+# NorthStar data dictionary.
+#
+# Definitions only: what each table and column means, its real allowed values,
+# formats, join paths and metric formulas. It must never contain facts or
+# findings about the data (trends, drivers, rankings, quirks discovered while
+# writing evaluation questions) and never user-language synonyms for values
+# (eval/PROTOCOL.md, no-leakage rule). tests/test_context.py checks that the
+# allowed values match the database exactly.
+
+conventions:
+  - Dates are TEXT in 'YYYY-MM-DD' format; marketing_spend.month is TEXT in 'YYYY-MM' format.
+  - Quarters are calendar quarters (Q1 = January-March, Q2 = April-June, Q3 = July-September, Q4 = October-December).
+  - Text values are case-sensitive in SQLite comparisons; use the allowed values exactly as written.
+  - Money amounts are in dollars.
+
+tables:
+  regions:
+    description: Sales regions. One row per region.
+    columns:
+      region_id: Primary key.
+      region_name:
+        description: Region name.
+        allowed_values: [APAC, EMEA, LATAM, North America]
+      country:
+        description: Country recorded for the region.
+        allowed_values: [Brazil, Germany, Singapore, United States]
+
+  customers:
+    description: Customer accounts. One row per customer.
+    columns:
+      customer_id: Primary key.
+      customer_name: Customer display name.
+      region_id: Region the customer belongs to (regions.region_id).
+      segment:
+        description: Customer segment.
+        allowed_values: [Enterprise, Mid-Market, SMB]
+      signup_date: Date the customer signed up.
+      churn_date: Date the customer stopped being a customer; NULL while the customer is still active.
+
+  products:
+    description: Product catalog. One row per product.
+    columns:
+      product_id: Primary key.
+      product_name: Product display name.
+      category:
+        description: Product category.
+        allowed_values: [Accessories, Hardware, Services, Software]
+      unit_cost: Cost to us of one unit, in dollars.
+      list_price: Catalog price of one unit, in dollars.
+
+  orders:
+    description: Customer orders. One row per order.
+    columns:
+      order_id: Primary key.
+      customer_id: Customer who placed the order (customers.customer_id).
+      order_date: Date the order was placed.
+      status:
+        description: >-
+          Order outcome. completed = fulfilled and kept; refunded = paid and
+          later refunded; cancelled = cancelled before fulfilment.
+        allowed_values: [cancelled, completed, refunded]
+      channel:
+        description: Sales channel through which the order was placed.
+        allowed_values: [Direct, Online, Partner]
+
+  order_items:
+    description: Order lines. One row per product within an order.
+    columns:
+      order_item_id: Primary key.
+      order_id: Order the line belongs to (orders.order_id).
+      product_id: Product sold on the line (products.product_id).
+      quantity: Number of units on the line.
+      unit_price: Price charged per unit on this line before discount, in dollars.
+      discount: Discount on the line as a fraction of the line amount (0.05 means 5% off).
+
+  support_tickets:
+    description: Customer support tickets. One row per ticket.
+    columns:
+      ticket_id: Primary key.
+      customer_id: Customer who opened the ticket (customers.customer_id).
+      created_date: Date the ticket was opened.
+      severity:
+        description: Ticket severity, in increasing order low < medium < high < critical.
+        allowed_values: [critical, high, low, medium]
+      resolved_date: Date the ticket was resolved; NULL while unresolved.
+
+  marketing_spend:
+    description: Marketing spend. One row per region, month and marketing channel.
+    columns:
+      spend_id: Primary key.
+      region_id: Region the spend was for (regions.region_id).
+      month: Month of the spend, 'YYYY-MM'.
+      channel:
+        description: Marketing channel.
+        allowed_values: [Direct, Online, Partner]
+      amount: Amount spent, in dollars.
+
+joins:
+  - customers.region_id = regions.region_id
+  - orders.customer_id = customers.customer_id
+  - order_items.order_id = orders.order_id
+  - order_items.product_id = products.product_id
+  - support_tickets.customer_id = customers.customer_id
+  - marketing_spend.region_id = regions.region_id
+
+metrics:
+  revenue: >-
+    Completed revenue: SUM(order_items.quantity * order_items.unit_price *
+    (1 - order_items.discount)) over the lines of orders with
+    status = 'completed', dated by orders.order_date. "Revenue" means
+    completed revenue unless stated otherwise.
+  order_count: Number of distinct orders; completed orders only unless stated otherwise.
+  order_value: Revenue of one completed order (the sum over its lines).
+  average_order_value: Revenue divided by the number of completed orders.
+  units_sold: SUM(order_items.quantity) over completed orders.
+  gross_margin: >-
+    SUM(order_items.quantity * (order_items.unit_price * (1 - order_items.discount)
+    - products.unit_cost)) over completed orders.
+  gross_margin_pct: Gross margin divided by revenue.
+  churned_customers: Customers with a non-NULL churn_date; churned in a period means churn_date falls in that period.
+  churn_rate: Churned customers divided by all customers.
+  refund_rate: Refunded orders divided by all orders (any status).
+  ticket_resolution_days: julianday(resolved_date) - julianday(created_date), for resolved tickets only.
+  marketing_spend: SUM(marketing_spend.amount).

@@ -1,0 +1,103 @@
+{
+ "question_id": "ha15",
+ "type": "recovery",
+ "arch": "router",
+ "question": "Which product sold the most units in completed orders during 2025? Give the product's ID, name and units sold.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.product_id, p.product_name ORDER BY units_sold DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "product_id | product_name | units_sold\n10 | Beacon Beacon | 1180"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.product_id, p.product_name ORDER BY units_sold DESC LIMIT 1",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.product_id, p.product_name ORDER BY units_sold DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "product_id",
+   "product_name",
+   "units_sold"
+  ],
+  "rows": [
+   [
+    10,
+    "Beacon Beacon",
+    1180
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "In completed orders during 2025, the product that sold the most units was Beacon Beacon (product ID 10), with 1,180 units sold.",
+ "key_numbers": [
+  "10",
+  "1180"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "d771204fd74ac6ad4c8bb4bf9fda4d3b780bc2186477b394934fe8488f437f27",
+   "cache_hit": false,
+   "latency_ms": 921.0,
+   "input_tokens": 473,
+   "output_tokens": 55,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "f30128703c731373771ad57db4a0d23114407260cf6ac1dee75b11f0d3fdc9c7",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2947,
+   "output_tokens": 233,
+   "original_latency_ms": 1362.9,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "43f7ae8d164ea6c34adb0c511d260f616acfdde3c3b2a2f0ebf8faaea2385f43",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 585,
+   "output_tokens": 76,
+   "original_latency_ms": 846.7,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.985,
+ "latency_live_s": 3.194,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

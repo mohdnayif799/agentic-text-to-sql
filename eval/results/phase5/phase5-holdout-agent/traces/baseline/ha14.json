@@ -1,0 +1,86 @@
+{
+ "question_id": "ha14",
+ "type": "recovery",
+ "arch": "baseline",
+ "question": "How many customers have never placed an order?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT COUNT(*) FROM customers WHERE NOT customer_id IN (SELECT customer_id FROM orders)",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "COUNT(*)\n67"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT COUNT(*) FROM customers WHERE NOT customer_id IN (SELECT customer_id FROM orders)"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT COUNT(*) FROM customers WHERE NOT customer_id IN (SELECT customer_id FROM orders)",
+  "ok": true,
+  "columns": [
+   "COUNT(*)"
+  ],
+  "rows": [
+   [
+    67
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "There are 67 customers who have never placed an order.",
+ "key_numbers": [
+  "67"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "ed7984c76cc480cfc686d575319a7a2ad39d08f73d92682ae86fe525778b0ba2",
+   "cache_hit": false,
+   "latency_ms": 1017.5,
+   "input_tokens": 2597,
+   "output_tokens": 71,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "0da795c4ec151685de58ce593a137adb8c850a308c943be771265a3d1e404b11",
+   "cache_hit": false,
+   "latency_ms": 947.2,
+   "input_tokens": 438,
+   "output_tokens": 44,
+   "original_latency_ms": null,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 1.974,
+ "latency_live_s": 1.974,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

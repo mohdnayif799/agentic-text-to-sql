@@ -1,0 +1,109 @@
+{
+ "question_id": "he04",
+ "type": "easy",
+ "arch": "v1",
+ "question": "What is the average resolution time, in days, of support tickets created in 2025 that have been resolved?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Calculate the average number of days between creation and resolution for all support tickets created in 2025 that have a resolution date."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT AVG(JULIANDAY(resolved_date) - JULIANDAY(created_date)) AS avg_resolution_days FROM support_tickets WHERE created_date >= '2025-01-01' AND created_date <= '2025-12-31' AND NOT resolved_date IS NULL",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "avg_resolution_days\n11.290634441087613"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Calculate the average number of days between creation and resolution for all support tickets created in 2025 that have a resolution date.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT AVG(JULIANDAY(resolved_date) - JULIANDAY(created_date)) AS avg_resolution_days FROM support_tickets WHERE created_date >= '2025-01-01' AND created_date <= '2025-12-31' AND NOT resolved_date IS NULL"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT AVG(JULIANDAY(resolved_date) - JULIANDAY(created_date)) AS avg_resolution_days FROM support_tickets WHERE created_date >= '2025-01-01' AND created_date <= '2025-12-31' AND NOT resolved_date IS NULL",
+  "ok": true,
+  "columns": [
+   "avg_resolution_days"
+  ],
+  "rows": [
+   [
+    11.290634441087613
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The average resolution time for support tickets created in 2025 that have been resolved is approximately 11.29 days.",
+ "key_numbers": [
+  "11.290634441087613 average resolution days"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "5ca5eb9243533ce49492f050ef5e9926df3a162013f39157d3e83f32a1340940",
+   "cache_hit": false,
+   "latency_ms": 1078.4,
+   "input_tokens": 623,
+   "output_tokens": 94,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "a51dcae22b4f9292ade87d00146d6cc58f18c171f85779031c14a916e2d19046",
+   "cache_hit": false,
+   "latency_ms": 1292.1,
+   "input_tokens": 963,
+   "output_tokens": 158,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "346a0a16945585b2fd431f0542dc485f7777b5d39786d0e1e01d271457a7b52b",
+   "cache_hit": false,
+   "latency_ms": 1131.1,
+   "input_tokens": 650,
+   "output_tokens": 60,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "532675ea06d5df2f8925e1c23a3927130706b7282b5ede2d2da4e3da778a09e9",
+   "cache_hit": false,
+   "latency_ms": 898.9,
+   "input_tokens": 515,
+   "output_tokens": 85,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.482,
+ "latency_live_s": 4.482,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

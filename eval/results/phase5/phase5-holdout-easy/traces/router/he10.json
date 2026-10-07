@@ -1,0 +1,98 @@
+{
+ "question_id": "he10",
+ "type": "easy",
+ "arch": "router",
+ "question": "How many customers signed up in 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT COUNT(*) FROM customers WHERE signup_date BETWEEN '2025-01-01' AND '2025-12-31'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "COUNT(*)\n331"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT COUNT(*) FROM customers WHERE signup_date BETWEEN '2025-01-01' AND '2025-12-31'",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT COUNT(*) FROM customers WHERE signup_date BETWEEN '2025-01-01' AND '2025-12-31'",
+  "ok": true,
+  "columns": [
+   "COUNT(*)"
+  ],
+  "rows": [
+   [
+    331
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "A total of 331 customers signed up in 2025.",
+ "key_numbers": [
+  "331"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "b80224c4f8be90ba9c12851a68f16c5f2673a3da57484814e880369bc7c1dc74",
+   "cache_hit": false,
+   "latency_ms": 1074.2,
+   "input_tokens": 346,
+   "output_tokens": 50,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "05cc4936c75b9fba498428cddbad2c649c5e3d9b6324e8ada11f68b5708d8ce5",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2600,
+   "output_tokens": 92,
+   "original_latency_ms": 1696.8,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "cb3979408804d23aa2543d0d96c136459af5f84d4031e79d7f51def9656d56d4",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 458,
+   "output_tokens": 49,
+   "original_latency_ms": 953.0,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 1.116,
+ "latency_live_s": 3.765,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

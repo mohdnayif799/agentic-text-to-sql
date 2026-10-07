@@ -1,0 +1,109 @@
+{
+ "question_id": "he02",
+ "type": "easy",
+ "arch": "v1",
+ "question": "What was total completed revenue in 2024?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Calculate the sum of total order amounts for orders with a completed status in the year 2024."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) AS total_completed_revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' AND STRFTIME('%Y', o.order_date) = '2024'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "total_completed_revenue\n10005894.382"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Calculate the sum of total order amounts for orders with a completed status in the year 2024.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) AS total_completed_revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' AND STRFTIME('%Y', o.order_date) = '2024'"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) AS total_completed_revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' AND STRFTIME('%Y', o.order_date) = '2024'",
+  "ok": true,
+  "columns": [
+   "total_completed_revenue"
+  ],
+  "rows": [
+   [
+    10005894.382
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The total completed revenue in 2024 was 10,005,894.382.",
+ "key_numbers": [
+  "10005894.382"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "2386770e4d975b053bcd5544573cbab2dfc7f8f4b91d8f7ac3423494f68f9582",
+   "cache_hit": false,
+   "latency_ms": 988.8,
+   "input_tokens": 610,
+   "output_tokens": 82,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "e91f611e515d5076d8d8755897fab8de635628cfdfa457116651f9d7fcd20616",
+   "cache_hit": false,
+   "latency_ms": 1387.8,
+   "input_tokens": 1125,
+   "output_tokens": 170,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "10b13dfb48540c8959d77afe0f6a3769f996b3dc059594dba39938fe1d944f91",
+   "cache_hit": false,
+   "latency_ms": 1100.4,
+   "input_tokens": 648,
+   "output_tokens": 67,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "c7797bde448749b50fc009fb02e6368399048d94a64e6df4cac2c2953ffc198e",
+   "cache_hit": false,
+   "latency_ms": 1148.4,
+   "input_tokens": 496,
+   "output_tokens": 68,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.747,
+ "latency_live_s": 4.747,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

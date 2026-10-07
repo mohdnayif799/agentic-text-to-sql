@@ -1,0 +1,109 @@
+{
+ "question_id": "ha14",
+ "type": "recovery",
+ "arch": "v1",
+ "question": "How many customers have never placed an order?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Count the number of unique customers in the customers table who do not appear in the orders table."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT COUNT(*) AS unplaced_customer_count FROM customers WHERE NOT customer_id IN (SELECT customer_id FROM orders)",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "unplaced_customer_count\n67"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Count the number of unique customers in the customers table who do not appear in the orders table.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT COUNT(*) AS unplaced_customer_count FROM customers WHERE NOT customer_id IN (SELECT customer_id FROM orders)"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT COUNT(*) AS unplaced_customer_count FROM customers WHERE NOT customer_id IN (SELECT customer_id FROM orders)",
+  "ok": true,
+  "columns": [
+   "unplaced_customer_count"
+  ],
+  "rows": [
+   [
+    67
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "There are 67 customers who have never placed an order.",
+ "key_numbers": [
+  "67 customers"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "6353a216afc81150c0e4cc55b6194d6cda05e9c00f47a625d9ec656293490a0b",
+   "cache_hit": false,
+   "latency_ms": 1193.0,
+   "input_tokens": 607,
+   "output_tokens": 80,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "3f7ef7feb45aac81addfe5107d9cc33b45cc0b5d299ff99f15b4fdcb5278f1ac",
+   "cache_hit": false,
+   "latency_ms": 1402.4,
+   "input_tokens": 1091,
+   "output_tokens": 93,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "aea2093572f8ee8bc32185df482889c50f0a05b584598cfcf46c9374a229aa67",
+   "cache_hit": false,
+   "latency_ms": 1064.7,
+   "input_tokens": 581,
+   "output_tokens": 63,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "56436e0cb81a8461cdf745dc9cdb556ca27a199a7d3b2457f2b5a326c41f0ed0",
+   "cache_hit": false,
+   "latency_ms": 891.4,
+   "input_tokens": 429,
+   "output_tokens": 52,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.659,
+ "latency_live_s": 4.659,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

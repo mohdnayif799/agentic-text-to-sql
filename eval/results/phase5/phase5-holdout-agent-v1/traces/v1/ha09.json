@@ -1,0 +1,408 @@
+{
+ "question_id": "ha09",
+ "type": "why",
+ "arch": "v1",
+ "question": "Why did Hardware revenue drop so sharply from Q2 to Q3 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Compare total Hardware revenue and order volume between Q2 2025 and Q3 2025 to confirm the magnitude of the drop and determine whether it was driven by fewer orders, lower quantities, or lower average prices.",
+  "Break down Q2 2025 versus Q3 2025 Hardware revenue by individual product to identify which specific products or subcategories experienced the largest sales declines.",
+  "Examine customer segments or sales channels for Hardware purchases in Q2 versus Q3 2025 to see if the drop was concentrated in specific regions or customer groups."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN 'Q2 2025' WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN 'Q3 2025' END AS quarter, SUM((oi.unit_price * oi.quantity) * (1 - oi.discount)) AS total_revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS total_quantity, AVG(oi.unit_price * (1 - oi.discount)) AS avg_net_unit_price FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE p.category = 'Hardware' AND o.status = 'completed' AND ((o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30') OR (o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30')) GROUP BY quarter LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 2,
+   "preview": "quarter | total_revenue | order_count | total_quantity | avg_net_unit_price\nQ2 2025 | 2615311.9245 | 699 | 2741 | 950.2275959703076\nQ3 2025 | 744611.1085 | 238 | 778 | 956.6830639097744"
+  },
+  {
+   "sql": "SELECT p.product_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue, (SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END)) AS revenue_change FROM order_items AS oi JOIN orders AS o ON oi.order_id = o.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE p.category = 'Hardware' AND o.status = 'completed' GROUP BY p.product_id, p.product_name ORDER BY revenue_change ASC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 9,
+   "preview": "product_name | q2_revenue | q3_revenue | revenue_change\nLattice Ridge | 482955.26999999996 | 127995.04199999999 | -354960.228\nCascade Beacon | 459070.15 | 136043.38 | -323026.77\nNimbus Quartz | 404436.9275 | 116734.4525 | -287702.475\nAnchor Summit | 292276.45 | 83381.508 | -208894.942\nHarbor Lumen | 283296.482 | 82355.272 | -200941.21000000002\n... 4 more row(s)"
+  },
+  {
+   "sql": "SELECT c.segment, r.region_name, o.channel, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_change FROM order_items AS oi JOIN products AS p ON oi.product_id = p.product_id JOIN orders AS o ON oi.order_id = o.order_id JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE p.category = 'Hardware' AND o.status = 'completed' GROUP BY c.segment, r.region_name, o.channel ORDER BY revenue_change ASC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 36,
+   "preview": "segment | region_name | channel | q2_revenue | q3_revenue | revenue_change\nMid-Market | North America | Online | 250713.493 | 71047.0645 | -179666.42849999998\nSMB | North America | Online | 170487.389 | 38477.99 | -132009.399\nMid-Market | North America | Partner | 112353.805 | 20689.182500000003 | -91664.6225\nMid-Market | North America | Direct | 111709.096 | 24677.6345 | -87031.4615\nSMB | North America | Direct | 118993.6225 | 33245.062 | -85748.56049999999\n... 31 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Compare total Hardware revenue and order volume between Q2 2025 and Q3 2025 to confirm the magnitude of the drop and determine whether it was driven by fewer orders, lower quantities, or lower average prices.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN 'Q2 2025' WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN 'Q3 2025' END AS quarter, SUM((oi.unit_price * oi.quantity) * (1 - oi.discount)) AS total_revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS total_quantity, AVG(oi.unit_price * (1 - oi.discount)) AS avg_net_unit_price FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE p.category = 'Hardware' AND o.status = 'completed' AND ((o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30') OR (o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30')) GROUP BY quarter LIMIT 500"
+  },
+  {
+   "step": 2,
+   "goal": "Break down Q2 2025 versus Q3 2025 Hardware revenue by individual product to identify which specific products or subcategories experienced the largest sales declines.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.product_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue, (SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END)) AS revenue_change FROM order_items AS oi JOIN orders AS o ON oi.order_id = o.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE p.category = 'Hardware' AND o.status = 'completed' GROUP BY p.product_id, p.product_name ORDER BY revenue_change ASC LIMIT 500"
+  },
+  {
+   "step": 3,
+   "goal": "Examine customer segments or sales channels for Hardware purchases in Q2 versus Q3 2025 to see if the drop was concentrated in specific regions or customer groups.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT c.segment, r.region_name, o.channel, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_change FROM order_items AS oi JOIN products AS p ON oi.product_id = p.product_id JOIN orders AS o ON oi.order_id = o.order_id JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE p.category = 'Hardware' AND o.status = 'completed' GROUP BY c.segment, r.region_name, o.channel ORDER BY revenue_change ASC LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT c.segment, r.region_name, o.channel, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_change FROM order_items AS oi JOIN products AS p ON oi.product_id = p.product_id JOIN orders AS o ON oi.order_id = o.order_id JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE p.category = 'Hardware' AND o.status = 'completed' GROUP BY c.segment, r.region_name, o.channel ORDER BY revenue_change ASC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "segment",
+   "region_name",
+   "channel",
+   "q2_revenue",
+   "q3_revenue",
+   "revenue_change"
+  ],
+  "rows": [
+   [
+    "Mid-Market",
+    "North America",
+    "Online",
+    250713.493,
+    71047.0645,
+    -179666.42849999998
+   ],
+   [
+    "SMB",
+    "North America",
+    "Online",
+    170487.389,
+    38477.99,
+    -132009.399
+   ],
+   [
+    "Mid-Market",
+    "North America",
+    "Partner",
+    112353.805,
+    20689.182500000003,
+    -91664.6225
+   ],
+   [
+    "Mid-Market",
+    "North America",
+    "Direct",
+    111709.096,
+    24677.6345,
+    -87031.4615
+   ],
+   [
+    "SMB",
+    "North America",
+    "Direct",
+    118993.6225,
+    33245.062,
+    -85748.56049999999
+   ],
+   [
+    "Mid-Market",
+    "APAC",
+    "Online",
+    101494.7565,
+    17347.199500000002,
+    -84147.557
+   ],
+   [
+    "SMB",
+    "EMEA",
+    "Partner",
+    103129.0685,
+    21053.422000000002,
+    -82075.64649999999
+   ],
+   [
+    "SMB",
+    "EMEA",
+    "Online",
+    88081.259,
+    17398.716,
+    -70682.543
+   ],
+   [
+    "Mid-Market",
+    "EMEA",
+    "Online",
+    86857.4605,
+    25790.324,
+    -61067.1365
+   ],
+   [
+    "Enterprise",
+    "North America",
+    "Direct",
+    70854.714,
+    10612.1815,
+    -60242.53250000001
+   ],
+   [
+    "Mid-Market",
+    "EMEA",
+    "Direct",
+    84831.557,
+    25251.6345,
+    -59579.9225
+   ],
+   [
+    "SMB",
+    "APAC",
+    "Online",
+    78010.9885,
+    21799.498,
+    -56211.49050000001
+   ],
+   [
+    "SMB",
+    "APAC",
+    "Partner",
+    63977.3395,
+    8324.8835,
+    -55652.456000000006
+   ],
+   [
+    "Enterprise",
+    "APAC",
+    "Online",
+    67892.224,
+    13723.137999999999,
+    -54169.086
+   ],
+   [
+    "SMB",
+    "LATAM",
+    "Direct",
+    66887.2955,
+    15888.7175,
+    -50998.577999999994
+   ],
+   [
+    "Mid-Market",
+    "APAC",
+    "Partner",
+    63752.6815,
+    13787.82,
+    -49964.8615
+   ],
+   [
+    "Mid-Market",
+    "APAC",
+    "Direct",
+    80098.471,
+    30551.0735,
+    -49547.39750000001
+   ],
+   [
+    "Enterprise",
+    "EMEA",
+    "Partner",
+    58308.943999999996,
+    12923.448,
+    -45385.496
+   ],
+   [
+    "SMB",
+    "APAC",
+    "Direct",
+    62676.829,
+    18365.8875,
+    -44310.9415
+   ],
+   [
+    "Enterprise",
+    "North America",
+    "Online",
+    65218.0845,
+    21746.0985,
+    -43471.986
+   ]
+  ],
+  "row_count": 36
+ },
+ "answer": "Hardware revenue dropped sharply from $2,615,311.92 in Q2 2025 to $744,611.11 in Q3 2025 due to a steep decline in order volume and total quantities sold, dropping from 699 orders and 2,741 items to 238 orders and 778 items respectively, while average net unit prices remained relatively stable.",
+ "key_numbers": [
+  "Q2 2025 Hardware revenue: $2,615,311.9245",
+  "Q3 2025 Hardware revenue: $744,611.1085",
+  "Q2 2025 order count: 699",
+  "Q3 2025 order count: 238",
+  "Q2 2025 total quantity: 2741",
+  "Q3 2025 total quantity: 778",
+  "Q2 2025 average net unit price: $950.23",
+  "Q3 2025 average net unit price: $956.68"
+ ],
+ "caveats": [],
+ "judge": {
+  "verdict": "fail",
+  "reason": "required fact(s) not stated: [2]",
+  "facts": [
+   {
+    "fact": "Far fewer Hardware units were sold: about 2,741 in Q2 versus about 778 in Q3 2025 (about -72%).",
+    "verdict": "yes",
+    "quote": "Hardware revenue dropped sharply from $2,615,311.92 in Q2 2025 to $744,611.11 in Q3 2025 due to a steep decline in order volume and total quantities sold, dropping from 699 orders and 2,741 items to 238 orders and 778 items respectively, while average net unit prices remained relatively stable.",
+    "quote_verified": true,
+    "counts_as_yes": true,
+    "reason": "The answer explicitly states that units sold dropped from 2,741 in Q2 to 778 in Q3 2025."
+   },
+   {
+    "fact": "The average Hardware unit price (about 1,000) and the average discount (about 5%) were essentially unchanged, so price and discounts do not explain the drop.",
+    "verdict": "no",
+    "quote": "",
+    "quote_verified": false,
+    "counts_as_yes": false,
+    "reason": "The answer mentions that average net unit prices remained relatively stable, but it fails to state the average discount (about 5%) or mention that discounts were unchanged."
+   }
+  ],
+  "disqualifying": {
+   "verdict": "no",
+   "quote": "",
+   "quote_verified": false,
+   "counts_as_yes": false,
+   "reason": "The answer correctly attributes the drop to order volume and total quantities sold, which aligns with the evidence, and does not make any disqualifying claims regarding price cuts, discounts, refunds, cancellations, or contradictory figures."
+  }
+ },
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "0a01bd59e81fe13e30a3d4e77df51a7544d327b54fa5c65e782683b6e44e8779",
+   "cache_hit": false,
+   "latency_ms": 1710.9,
+   "input_tokens": 617,
+   "output_tokens": 210,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "a3e4f51b3081028798053432d1209fc17f523429808ef53e1767205bf5f79b20",
+   "cache_hit": false,
+   "latency_ms": 2097.4,
+   "input_tokens": 1237,
+   "output_tokens": 463,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "bf9bd7ceff7a100b7773abb8946b6a117a31d8cdb6410a32839ea134ec79f820",
+   "cache_hit": false,
+   "latency_ms": 1002.2,
+   "input_tokens": 1046,
+   "output_tokens": 89,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "437357382cb2e3130bb9130e8e13afac4161fda130d5f145578f50f4e4f9b007",
+   "cache_hit": false,
+   "latency_ms": 1819.3,
+   "input_tokens": 1407,
+   "output_tokens": 439,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "fd60aa6800da1a6a9838fc814a295222a66c5f96568dcbeff64230d02a443a38",
+   "cache_hit": false,
+   "latency_ms": 980.3,
+   "input_tokens": 1361,
+   "output_tokens": 66,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "32824a1d06f1ff064f34359086ae8e03176055ceefec585611ef9c37af2c9e3e",
+   "cache_hit": false,
+   "latency_ms": 1968.5,
+   "input_tokens": 1751,
+   "output_tokens": 507,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "198e81ef052c0b9f043b0ae3b3ba8507a98cecf6f4d23b0655811b94b409f0f4",
+   "cache_hit": false,
+   "latency_ms": 1203.5,
+   "input_tokens": 1579,
+   "output_tokens": 62,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "3c06afd7824fb88e7e9fe3a28fed0e97364e0425cff0b11ceb5d4499b4383cb9",
+   "cache_hit": false,
+   "latency_ms": 1886.2,
+   "input_tokens": 3129,
+   "output_tokens": 297,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "c1724d720fb53e5ecca158d7913457f57f84bd13b188004fe71f2cb89cc8df9a",
+   "cache_hit": false,
+   "latency_ms": 1297.7,
+   "input_tokens": 736,
+   "output_tokens": 158,
+   "original_latency_ms": null
+  },
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "1f2a15cd85d7b72d7dcd1dad7e4772e59a32113abf9ccb46a985fff8109516ec",
+   "cache_hit": false,
+   "latency_ms": 1050.0,
+   "input_tokens": 736,
+   "output_tokens": 61,
+   "original_latency_ms": null
+  },
+  {
+   "role": "You are a strict checker grading an analytics assistant's answer. You receive a ",
+   "prompt_hash": "e945729eb1331ec482365cc1dad05270d98d4f826da7441e8bdfd3f36adb4cbf",
+   "cache_hit": false,
+   "latency_ms": 1612.6,
+   "input_tokens": 705,
+   "output_tokens": 71,
+   "original_latency_ms": null
+  }
+ ],
+ "latency_s": 12.887,
+ "latency_live_s": 12.887,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": true,
+  "end_to_end": false,
+  "detail": "driver named; judge fail"
+ }
+}

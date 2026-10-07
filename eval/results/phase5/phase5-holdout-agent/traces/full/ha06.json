@@ -1,0 +1,144 @@
+{
+ "question_id": "ha06",
+ "type": "term_matching",
+ "arch": "full",
+ "question": "How many units of the 'Cobolt Nimbus' did we sell in completed orders in 2025? Give the product's ID and name with the unit count.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM products AS p JOIN order_items AS oi ON oi.product_id = p.product_id JOIN orders AS o ON o.order_id = oi.order_id WHERE p.product_name = 'Cobolt Nimbus' AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.product_id, p.product_name LIMIT 500",
+   "ok": true,
+   "failure": "empty",
+   "error": null,
+   "row_count": 0,
+   "preview": "0 rows returned."
+  },
+  {
+   "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM products AS p JOIN order_items AS oi ON oi.product_id = p.product_id JOIN orders AS o ON o.order_id = oi.order_id WHERE p.product_name = 'Cobalt Nimbus' AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.product_id, p.product_name LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "product_id | product_name | units_sold\n7 | Cobalt Nimbus | 913"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql",
+    "repair"
+   ],
+   "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM products AS p JOIN order_items AS oi ON oi.product_id = p.product_id JOIN orders AS o ON o.order_id = oi.order_id WHERE p.product_name = 'Cobalt Nimbus' AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.product_id, p.product_name LIMIT 500",
+   "reason": "",
+   "signal": "empty"
+  }
+ ],
+ "repairs": [
+  {
+   "step": 1,
+   "signal": "empty",
+   "detail": "The query ran but returned no rows.",
+   "via": "repair",
+   "accepted": true,
+   "attempts": 1,
+   "before": {
+    "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM products AS p JOIN order_items AS oi ON oi.product_id = p.product_id JOIN orders AS o ON o.order_id = oi.order_id WHERE p.product_name = 'Cobolt Nimbus' AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.product_id, p.product_name LIMIT 500",
+    "ok": true,
+    "rows": 0,
+    "error": null
+   },
+   "after": {
+    "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM products AS p JOIN order_items AS oi ON oi.product_id = p.product_id JOIN orders AS o ON o.order_id = oi.order_id WHERE p.product_name = 'Cobalt Nimbus' AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.product_id, p.product_name LIMIT 500",
+    "ok": true,
+    "rows": 1,
+    "error": null
+   },
+   "effect": "fix"
+  }
+ ],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM products AS p JOIN order_items AS oi ON oi.product_id = p.product_id JOIN orders AS o ON o.order_id = oi.order_id WHERE p.product_name = 'Cobalt Nimbus' AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.product_id, p.product_name LIMIT 500",
+  "ok": true,
+  "columns": [
+   "product_id",
+   "product_name",
+   "units_sold"
+  ],
+  "rows": [
+   [
+    7,
+    "Cobalt Nimbus",
+    913
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Assuming the user meant 'Cobalt Nimbus' as spelled in the product record, product ID 7, named 'Cobalt Nimbus', had 913 units sold in completed orders in 2025.",
+ "key_numbers": [
+  "7",
+  "913"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "54feb4e1232fd24d138bf39395aba30846cda1fe2e48794a158d36e1d1a5d39f",
+   "cache_hit": false,
+   "latency_ms": 1043.2,
+   "input_tokens": 599,
+   "output_tokens": 88,
+   "original_latency_ms": null,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "fb1c22d6eb71a2d64702528d8c3a9f0429fb4f3fea059cdd5025dac36d89a098",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2710,
+   "output_tokens": 260,
+   "original_latency_ms": 1416.1,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You fix one SQLite query. A concrete problem was detected and is described below",
+   "prompt_hash": "04f2aefb4bba7c73cf0fbe8da9a90d5fc4a6175d1263177ae055414bbc8236ae",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2808,
+   "output_tokens": 225,
+   "original_latency_ms": 1407.9,
+   "cache_namespace": "router (shared with C)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "b3b8af2dc24a7d39e82aa5ff993a01aeec47cfd27bec2bdd0429a8b8488b4cdf",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 487,
+   "output_tokens": 55,
+   "original_latency_ms": 1061.4,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 1.117,
+ "latency_live_s": 5.002,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

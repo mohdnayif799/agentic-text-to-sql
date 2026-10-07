@@ -2,30 +2,43 @@
 
 Usage
 -----
-    python scripts/run_eval.py                     # both arms, all questions
+    python scripts/run_eval.py                     # both arms, original questions
     python scripts/run_eval.py --arm agent         # one arm only
     python scripts/run_eval.py --ids q04 q11       # a subset
     python scripts/run_eval.py --provider fake     # offline smoke run
+    python scripts/run_eval.py --arm agent --scored-only \\
+        --questions eval/questions.yaml eval/questions_diagnostic.yaml \\
+        --out eval/runs/phase2.json                # several question files
 
 Grading is execution-based. For each question the harness runs a *reference
 SQL query* against the same database and compares the agent's returned rows to
 it. Nothing is graded by an LLM, and no expected numbers are hardcoded, so the
 scores stay valid if the seed data is regenerated.
+
+The one exception is `must_refuse`. The harness fails it mechanically if any
+table's content changed; otherwise whether the reply is a genuine refusal is
+decided by a pre-registered rubric applied to the verbatim answer, recorded
+in an auditable adjudication file and scored by `scripts/score_eval.py`. See
+eval/PROTOCOL.md.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
+import itertools
 import json
 import statistics
 import sys
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from dataclasses import fields as dataclass_fields
 from pathlib import Path
 from typing import Any
 
 import yaml
+from sqlalchemy import inspect as sa_inspect
+from sqlalchemy import text
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -39,6 +52,26 @@ from agentcrew.schemas import ExecutionResult  # noqa: E402
 from agentcrew.tracer import Tracer  # noqa: E402
 
 QUESTIONS = ROOT / "eval" / "questions.yaml"
+
+#: Every check type the grader understands.
+CHECKS = (
+    "scalar",
+    "top_label",
+    "label_set",
+    "nonempty",
+    "first_row",
+    "rows_match",
+    "must_refuse",
+)
+
+#: Absolute slack for numeric cells in `first_row` / `rows_match`. Absorbs a
+#: ROUND(x, 2) in the agent's SQL; integer counts still have to match exactly.
+ABS_TOLERANCE = 0.01
+
+#: Upper bound on agent columns considered when mapping onto reference columns.
+MAX_COLUMNS_MAPPED = 10
+
+PREVIEW_ROWS = 8
 
 
 # ---------------------------------------------------------------------------
@@ -69,17 +102,97 @@ def _labels(result: ExecutionResult) -> list[str]:
     return out
 
 
+def _cell(value: Any) -> float | str | None:
+    """Normalise one cell: numbers (including numeric text) to float, text to
+    stripped lowercase."""
+    if value is None:
+        return None
+    if isinstance(value, (bool, int, float)):
+        return float(value)
+    raw = str(value).strip()
+    try:
+        return float(raw)
+    except ValueError:
+        return raw.lower()
+
+
+def _same(a: float | str | None, b: float | str | None, tolerance: float) -> bool:
+    if isinstance(a, float) and isinstance(b, float):
+        return abs(a - b) <= max(ABS_TOLERANCE, tolerance * abs(b))
+    return a == b
+
+
+def _row_same(got: list, want: list, tolerance: float) -> bool:
+    return all(_same(g, w, tolerance) for g, w in zip(got, want, strict=True))
+
+
+def _rows_equal(got: list[list], want: list[list], tolerance: float,
+                ordered: bool) -> bool:
+    if ordered:
+        return all(_row_same(g, w, tolerance) for g, w in zip(got, want, strict=True))
+    remaining = list(got)
+    for w in want:
+        hit = next(
+            (i for i, g in enumerate(remaining) if _row_same(g, w, tolerance)), None
+        )
+        if hit is None:
+            return False
+        remaining.pop(hit)
+    return True
+
+
+def _first_row(agent: ExecutionResult, reference: ExecutionResult,
+               tolerance: float) -> tuple[bool, str]:
+    """Every reference first-row cell must appear in the agent's first row."""
+    if not reference.rows:
+        return False, "reference produced no rows"
+    unused = [_cell(v) for v in agent.rows[0]]
+    for want in (_cell(v) for v in reference.rows[0]):
+        hit = next(
+            (i for i, have in enumerate(unused) if _same(have, want, tolerance)), None
+        )
+        if hit is None:
+            return False, (
+                f"expected first row to contain {want!r}, got {agent.rows[0][:6]}"
+            )
+        unused.pop(hit)
+    return True, f"first row contains {reference.rows[0]}"
+
+
+def _rows_match(agent: ExecutionResult, reference: ExecutionResult,
+                tolerance: float, ordered: bool) -> tuple[bool, str]:
+    """Agent rows, projected onto some mapping of its columns, equal the
+    reference rows. Extra agent columns are allowed; extra rows are not."""
+    want = [[_cell(v) for v in row] for row in reference.rows]
+    if not want:
+        return False, "reference produced no rows"
+    got = [[_cell(v) for v in row] for row in agent.rows]
+    if len(got) != len(want):
+        return False, f"expected {len(want)} row(s), got {len(got)}"
+
+    columns = range(min(len(got[0]), MAX_COLUMNS_MAPPED))
+    for mapping in itertools.permutations(columns, len(want[0])):
+        projected = [[row[j] for j in mapping] for row in got]
+        if _rows_equal(projected, want, tolerance, ordered):
+            order = " in order" if ordered else ""
+            return True, f"{len(want)} row(s) match{order}"
+    return False, (
+        f"no column mapping reproduces the reference rows; got {agent.rows[:3]}"
+    )
+
+
 def grade(
     check: str,
     agent: ExecutionResult | None,
     reference: ExecutionResult,
     *,
     tolerance: float = 0.0,
+    ordered: bool = False,
 ) -> tuple[bool, str]:
     """Compare an agent result against the reference result."""
-    if check == "must_not_mutate":
-        # Handled by the caller (it re-reads the table afterwards).
-        return True, "handled separately"
+    if check == "must_refuse":
+        # Never auto-pass: refusals are graded by grade_refusal in the caller.
+        return False, "must_refuse is graded by grade_refusal, not grade()"
     if agent is None or not agent.ok:
         return False, "no successful query"
     if not agent.rows:
@@ -126,12 +239,64 @@ def grade(
             else (False, f"expected {sorted(expected_set)}, got {sorted(got_set)}")
         )
 
+    if check == "first_row":
+        return _first_row(agent, reference, tolerance)
+
+    if check == "rows_match":
+        return _rows_match(agent, reference, tolerance, ordered)
+
     return False, f"unknown check '{check}'"
 
 
 # ---------------------------------------------------------------------------
-# Records
+# Data-change detection and refusal grading
 # ---------------------------------------------------------------------------
+REFUSAL_PENDING = (
+    "no data changed; refusal wording pending adjudication (eval/PROTOCOL.md)"
+)
+
+
+def database_fingerprint(engine) -> dict[str, str]:
+    """SHA-256 of every table's full contents.
+
+    Content, not row counts: an UPDATE leaves counts unchanged, and a dropped
+    or created table shows up as a missing or extra key.
+    """
+    names = sorted(
+        n for n in sa_inspect(engine).get_table_names() if not n.startswith("sqlite_")
+    )
+    prints: dict[str, str] = {}
+    with engine.connect() as conn:
+        for name in names:
+            digest = hashlib.sha256()
+            # Name comes from introspection of this database, not from input.
+            rows = conn.execute(text(f'SELECT * FROM "{name}" ORDER BY rowid'))  # noqa: S608
+            for row in rows:
+                digest.update(repr(tuple(row)).encode())
+            prints[name] = digest.hexdigest()
+    return prints
+
+
+def changed_tables(before: dict[str, str], after: dict[str, str]) -> list[str]:
+    names = before.keys() | after.keys()
+    return sorted(t for t in names if before.get(t) != after.get(t))
+
+
+def grade_refusal(
+    before: dict[str, str], after: dict[str, str]
+) -> tuple[bool | None, str]:
+    """Mechanical half of `must_refuse`.
+
+    Changed data is a definitive failure. Unchanged data is necessary but not
+    sufficient - the answer must also decline - so it stays pending (`None`)
+    until adjudicated against the pre-registered rubric.
+    """
+    changed = changed_tables(before, after)
+    if changed:
+        return False, f"DATA CHANGED in {changed}"
+    return None, REFUSAL_PENDING
+
+
 # ---------------------------------------------------------------------------
 # Records
 # ---------------------------------------------------------------------------
@@ -164,6 +329,27 @@ class ItemResult:
     repairs: int = 0
     status: str = ""
     sql: str = ""
+    source: str = ""
+    check: str = ""
+    category: str = ""
+    answer: str = ""
+    produced: str = ""
+    expected: str = ""
+    sql_all: list[str] = field(default_factory=list)
+    guard_blocks: int = 0
+
+
+def _describe(q: dict, arm: str) -> dict[str, Any]:
+    """Identity fields every ItemResult for this question shares."""
+    return {
+        "id": q["id"],
+        "question": q["question"],
+        "difficulty": q.get("difficulty", "?"),
+        "arm": arm,
+        "source": q.get("source", ""),
+        "check": q.get("check", ""),
+        "category": q.get("category", ""),
+    }
 
 
 def summarise(items: list[ItemResult], arm: str) -> dict[str, Any]:
@@ -172,9 +358,9 @@ def summarise(items: list[ItemResult], arm: str) -> dict[str, Any]:
     Two denominators, deliberately:
       * `questions_evaluated` - how many actually ran;
       * `questions_scored` / `denominator` - how many were machine-scorable.
-    They differ because the ambiguity probe has no reference SQL: it runs, but
-    is reported under manual review rather than scored. Counting it as a
-    failure would understate accuracy; counting it as a pass would overstate it.
+    They differ because the ambiguity probe has no reference SQL, and refusal
+    probes await adjudication: they run, but are not counted as a failure (which
+    would understate accuracy) or as a pass (which would overstate it).
 
     Computed from the item list rather than accumulated during the run, so a
     resumed run summarises carried-forward and fresh results identically.
@@ -204,20 +390,34 @@ def summarise(items: list[ItemResult], arm: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
+def _source_name(path: Path) -> str:
+    """`questions.yaml` is the original set; `questions_<name>.yaml` is <name>."""
+    stem = Path(path).stem
+    return "original" if stem == "questions" else stem.removeprefix("questions_")
+
+
 def load_questions(
-    ids: list[str] | None, path: Path | str = QUESTIONS
+    ids: list[str] | None, paths: list[Path] | None = None
 ) -> list[dict[str, Any]]:
-    items = yaml.safe_load(Path(path).read_text())
+    """Load one or more question files, tagging each question with its set."""
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for path in paths or [QUESTIONS]:
+        source = _source_name(path)
+        for q in yaml.safe_load(Path(path).read_text(encoding="utf-8")) or []:
+            if q["id"] in seen:
+                raise ValueError(f"duplicate question id '{q['id']}' in {path}")
+            seen.add(q["id"])
+            items.append({**q, "source": source})
     if ids:
         wanted = set(ids)
         items = [q for q in items if q["id"] in wanted]
     return items
 
 
-def table_checksum(engine, table: str) -> int:
-    sql = f"SELECT COUNT(*) FROM {table}"  # noqa: S608 - name from a fixed list
-    r = execute_select(engine, sql, max_rows=1)
-    return int(r.rows[0][0]) if r.ok and r.rows else -1
+def is_scored(q: dict[str, Any]) -> bool:
+    """False only for probes with no ground truth at all (e.g. ambiguity)."""
+    return q["check"] == "must_refuse" or bool(q.get("reference_sql"))
 
 
 def make_offline_client(reference_sql: str):
@@ -274,17 +474,28 @@ class QuotaStop(Exception):
 
 def _not_evaluated(q: dict, arm: str, reason: str) -> ItemResult:
     return ItemResult(
-        id=q["id"], question=q["question"], difficulty=q.get("difficulty", "?"),
-        arm=arm, state=NOT_EVALUATED_QUOTA, success=None, detail=reason,
+        **_describe(q, arm), state=NOT_EVALUATED_QUOTA, success=None, detail=reason,
     )
 
 
-def _run_one_arm(q, arm, ref, settings, client_factory) -> ItemResult:
+def _guard_blocks(trace: dict[str, Any]) -> int:
+    """How many statements the SQL guard rejected during the run."""
+    return sum(
+        1
+        for span in trace.get("spans", [])
+        if span.get("name") == "execute_sql"
+        and span.get("data", {}).get("failure") == "blocked"
+    )
+
+
+def _run_one_arm(q, arm, ref, settings, client_factory, engine) -> ItemResult:
     """Run a single arm. Raises QuotaStop if the provider refuses on quota."""
     offline = client_factory(q) if client_factory else None
     deps = build_deps(
         settings, llm=offline, tracer=Tracer(f"eval-{q['id']}-{arm}", trace_dir=None)
     )
+    refusal = q["check"] == "must_refuse"
+    before = database_fingerprint(engine) if refusal else {}
     started = time.perf_counter()
 
     if arm == "agent":
@@ -297,8 +508,7 @@ def _run_one_arm(q, arm, ref, settings, client_factory) -> ItemResult:
         counters = out.trace["counters"]
         agent_result = out.step_results[-1].result if out.step_results else None
         item = ItemResult(
-            id=q["id"], question=q["question"], difficulty=q.get("difficulty", "?"),
-            arm=arm, state=EVALUATED, success=False, detail="",
+            **_describe(q, arm), state=EVALUATED, success=False, detail="",
             sql_ran=bool(agent_result and agent_result.ok),
             attempts=out.total_attempts,
             duration_s=round(time.perf_counter() - started, 3),
@@ -308,6 +518,9 @@ def _run_one_arm(q, arm, ref, settings, client_factory) -> ItemResult:
             repairs=counters.get("repairs", 0),
             status=out.status,
             sql=out.sql_statements[-1] if out.sql_statements else "",
+            answer=out.answer or "",
+            sql_all=list(out.sql_statements),
+            guard_blocks=_guard_blocks(out.trace),
         )
     else:
         b = run_baseline(q["question"], deps, settings)
@@ -317,21 +530,30 @@ def _run_one_arm(q, arm, ref, settings, client_factory) -> ItemResult:
             raise QuotaStop(f"{q['id']}/{arm}", b.error or b.result.error_message or "")
         agent_result = b.result
         item = ItemResult(
-            id=q["id"], question=q["question"], difficulty=q.get("difficulty", "?"),
-            arm=arm, state=EVALUATED, success=False, detail="",
+            **_describe(q, arm), state=EVALUATED, success=False, detail="",
             sql_ran=b.result.ok, attempts=b.attempts, duration_s=b.duration_s,
             llm_calls=b.llm_calls, input_tokens=b.input_tokens,
             output_tokens=b.output_tokens,
             status="done" if b.succeeded else "failed", sql=b.sql,
+            sql_all=[b.sql] if b.sql else [],
         )
 
+    item.produced = (
+        agent_result.preview(limit=PREVIEW_ROWS)
+        if agent_result
+        else "(no query result)"
+    )
     if ref is not None:
-        ok, detail = grade(
-            q["check"], agent_result, ref, tolerance=float(q.get("tolerance", 0.0))
+        item.expected = ref.preview(limit=PREVIEW_ROWS)
+
+    if refusal:
+        item.success, item.detail = grade_refusal(before, database_fingerprint(engine))
+    elif ref is not None:
+        item.success, item.detail = grade(
+            q["check"], agent_result, ref,
+            tolerance=float(q.get("tolerance", 0.0)),
+            ordered=bool(q.get("ordered", False)),
         )
-        if q["check"] == "must_not_mutate":
-            detail = "verified by post-run table checksums"
-        item.success, item.detail = ok, detail
     else:
         item.success, item.detail = None, "manual review (no reference SQL)"
     return item
@@ -346,6 +568,10 @@ def build_payload(items, arms, questions, complete, stopped_at, stopped_reason,
                     for j in items) for a in arms)
     }
     not_eval_ids = sorted({i.id for i in items if i.state == NOT_EVALUATED_QUOTA})
+    pending = sorted({
+        i.id for i in items
+        if i.state == EVALUATED and i.check == "must_refuse" and i.success is None
+    })
     return {
         "provider": settings.provider,
         "model": settings.resolved_model(),
@@ -359,6 +585,7 @@ def build_payload(items, arms, questions, complete, stopped_at, stopped_reason,
             "not_evaluated_ids": not_eval_ids,
         },
         "summaries": {a: summarise(items, a) for a in arms},
+        "pending_adjudication": pending,
         "mutated_tables": mutated,
         "items": [asdict(i) for i in items],
     }
@@ -397,12 +624,17 @@ def load_previous(path: Path, arms: list[str]) -> tuple[list[ItemResult], set[st
     return keep, done
 
 
+def _flag(item: ItemResult) -> str:
+    if item.success is not None:
+        return "PASS" if item.success else "FAIL"
+    return "PEND" if item.check == "must_refuse" else "MANUAL"
+
+
 def run_evaluation(questions, settings, arms, out_path, *, resume=False,
                    client_factory=None, verbose=True) -> dict[str, Any]:
     """Execute the suite, stopping cleanly if the provider runs out of quota."""
     engine = read_only_engine(settings.database_path)
-    guarded = ["customers", "orders", "order_items", "products", "regions"]
-    before = {t: table_checksum(engine, t) for t in guarded}
+    before = database_fingerprint(engine)
 
     items: list[ItemResult] = []
     already: set[str] = set()
@@ -446,7 +678,9 @@ def run_evaluation(questions, settings, arms, out_path, *, resume=False,
         pair: list[ItemResult] = []
         try:
             for arm in arms:
-                pair.append(_run_one_arm(q, arm, ref, settings, client_factory))
+                pair.append(
+                    _run_one_arm(q, arm, ref, settings, client_factory, engine)
+                )
         except QuotaStop as stop:
             quota_hit = True
             stopped_at, stopped_reason = q["id"], "quota_exhausted"
@@ -460,14 +694,12 @@ def run_evaluation(questions, settings, arms, out_path, *, resume=False,
             continue
 
         items.extend(pair)
-        if ref is None:
+        if not is_scored(q):
             manual.append({"id": q["id"], "question": q["question"],
                            "arms": {i.arm: i.status for i in pair}})
         if verbose:
             for item in pair:
-                flag = "MANUAL" if item.success is None else (
-                    "PASS" if item.success else "FAIL")
-                print(f"  [{flag:6}] {q['id']:4} {item.arm:8} "
+                print(f"  [{_flag(item):6}] {q['id']:4} {item.arm:8} "
                       f"{q['question'][:50]:52} {item.detail[:38]}")
 
         # Incremental save after every fully evaluated question, so a crash or
@@ -475,8 +707,7 @@ def run_evaluation(questions, settings, arms, out_path, *, resume=False,
         save(out_path, build_payload(items, arms, questions, not quota_hit,
                                      stopped_at, stopped_reason, settings, []))
 
-    after = {t: table_checksum(engine, t) for t in guarded}
-    mutated = [t for t in guarded if before[t] != after[t]]
+    mutated = changed_tables(before, database_fingerprint(engine))
 
     payload = build_payload(items, arms, questions, not quota_hit, stopped_at,
                             stopped_reason, settings, mutated)
@@ -513,6 +744,10 @@ def report(payload: dict[str, Any], arms: list[str]) -> None:
     if cov["not_evaluated_ids"]:
         print(f"\n  NOT EVALUATED (quota): {', '.join(cov['not_evaluated_ids'])}")
         print("  Re-run with --resume once quota resets to finish these.")
+    if payload.get("pending_adjudication"):
+        print("\n  PENDING REFUSAL ADJUDICATION (excluded from task_success above;")
+        print("  score with scripts/score_eval.py --adjudications)")
+        print(f"    {', '.join(payload['pending_adjudication'])}")
     if payload.get("manual_review"):
         print("\n  MANUAL REVIEW (no machine-checkable ground truth)")
         for m in payload["manual_review"]:
@@ -525,13 +760,15 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--arm", choices=["agent", "baseline", "both"], default="both")
     ap.add_argument("--ids", nargs="*", default=None)
+    ap.add_argument("--questions", nargs="+", type=Path, default=[QUESTIONS],
+                    help="question files to load (default: eval/questions.yaml)")
+    ap.add_argument("--scored-only", action="store_true",
+                    help="skip probes with no ground truth (the ambiguity probe)")
     ap.add_argument("--provider", default=None)
     ap.add_argument("--model", default=None)
     ap.add_argument("--resume", action="store_true",
                     help="skip questions already fully evaluated in --out")
     ap.add_argument("--out", default=str(ROOT / "eval" / "results.json"))
-    ap.add_argument("--questions", default=str(QUESTIONS),
-                    help="question file (default: eval/questions.yaml)")
     args = ap.parse_args()
 
     overrides: dict[str, Any] = {}
@@ -541,7 +778,9 @@ def main() -> int:
         overrides["model"] = args.model
     settings = Settings(**overrides)
 
-    questions = load_questions(args.ids, args.questions)
+    questions = load_questions(args.ids, paths=args.questions)
+    if args.scored_only:
+        questions = [q for q in questions if is_scored(q)]
     arms = ["agent", "baseline"] if args.arm == "both" else [args.arm]
     factory = (
         (lambda q: make_offline_client(q.get("reference_sql") or "SELECT 1"))

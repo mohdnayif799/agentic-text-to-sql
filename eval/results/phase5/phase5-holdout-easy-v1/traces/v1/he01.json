@@ -1,0 +1,109 @@
+{
+ "question_id": "he01",
+ "type": "easy",
+ "arch": "v1",
+ "question": "How many customers does the LATAM region have?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Count the number of unique customers associated with the LATAM region."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT COUNT(c.customer_id) AS customer_count FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id WHERE r.region_name = 'LATAM'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "customer_count\n193"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Count the number of unique customers associated with the LATAM region.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT COUNT(c.customer_id) AS customer_count FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id WHERE r.region_name = 'LATAM'"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT COUNT(c.customer_id) AS customer_count FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id WHERE r.region_name = 'LATAM'",
+  "ok": true,
+  "columns": [
+   "customer_count"
+  ],
+  "rows": [
+   [
+    193
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The LATAM region has a total of 193 customers.",
+ "key_numbers": [
+  "193 customers"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "1bb2a05023432309ea17a792d758881c6c74b81cc32d5d90d489a2d2c539c6b9",
+   "cache_hit": false,
+   "latency_ms": 1203.4,
+   "input_tokens": 608,
+   "output_tokens": 70,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "58ed6e3663d3e8ffa293767860aebf10204e22eae50e27c97c0dc57c09dcd61c",
+   "cache_hit": false,
+   "latency_ms": 1839.6,
+   "input_tokens": 1041,
+   "output_tokens": 104,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "d668901d0c333f1691eb55cf0712b4482d3042685afd95ed19c4d6d1265b58b8",
+   "cache_hit": false,
+   "latency_ms": 1307.3,
+   "input_tokens": 588,
+   "output_tokens": 66,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "5cfb00053ae119783e6f6eee9d845e190a1f11ae85ebba578ce08d30c369d5a7",
+   "cache_hit": false,
+   "latency_ms": 901.3,
+   "input_tokens": 440,
+   "output_tokens": 54,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 6.723,
+ "latency_live_s": 6.723,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

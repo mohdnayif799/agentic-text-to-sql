@@ -1,0 +1,98 @@
+{
+ "question_id": "ha05",
+ "type": "term_matching",
+ "arch": "full",
+ "question": "How much completed revenue did we make through the web store from mid-sized companies in 2024?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND o.channel = 'Online' AND c.segment = 'Mid-Market' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "completed_revenue\n1653258.412"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND o.channel = 'Online' AND c.segment = 'Mid-Market' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31'",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND o.channel = 'Online' AND c.segment = 'Mid-Market' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31'",
+  "ok": true,
+  "columns": [
+   "completed_revenue"
+  ],
+  "rows": [
+   [
+    1653258.412
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "In 2024, completed revenue through the web store (Online channel) from mid-sized companies (Mid-Market segment) was $1,653,258.41.",
+ "key_numbers": [
+  "1653258.412"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "fd5c72f2c016f4c45cafd2c0b259af7983ace6168f8cda693469f67c66e186f2",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2942,
+   "output_tokens": 282,
+   "original_latency_ms": 1809.7,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "b9551676f9d8421c1aa0d0275e8fcc6873576c8f1afc7768e2a09cd27942befd",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 569,
+   "output_tokens": 83,
+   "original_latency_ms": 1207.6,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "1af2059b8be59c921e4f4ee1bbd3e11f67f9b36f4b2b5c1bc698632033a5a075",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 457,
+   "output_tokens": 48,
+   "original_latency_ms": 901.6,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.035,
+ "latency_live_s": 3.954,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

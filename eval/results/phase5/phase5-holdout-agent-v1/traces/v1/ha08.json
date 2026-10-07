@@ -1,0 +1,475 @@
+{
+ "question_id": "ha08",
+ "type": "why",
+ "arch": "v1",
+ "question": "Why did customer churn spike in Q3 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Verify the churn rate and total number of churned customers in Q3 2025 compared to previous quarters to measure the size of the spike.",
+  "Analyze the churned customers in Q3 2025 by their geographic region to see if the spike is concentrated in a specific area.",
+  "Analyze the churned customers in Q3 2025 by their support ticket volume and resolution status prior to churning to determine if customer service issues contributed."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT STRFTIME('%Y', churn_date) || '-Q' || ((STRFTIME('%m', churn_date) - 1) / 3 + 1) AS churn_quarter, COUNT(customer_id) AS churned_count FROM customers WHERE NOT churn_date IS NULL GROUP BY churn_quarter ORDER BY churn_quarter LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 10,
+   "preview": "churn_quarter | churned_count\n2023-Q3 | 3\n2023-Q4 | 5\n2024-Q1 | 7\n2024-Q2 | 9\n2024-Q3 | 15\n... 5 more row(s)"
+  },
+  {
+   "sql": "WITH quarters AS (SELECT DISTINCT STRFTIME('%Y', signup_date) || '-Q' || ((STRFTIME('%m', signup_date) - 1) / 3 + 1) AS q FROM customers UNION SELECT DISTINCT STRFTIME('%Y', churn_date) || '-Q' || ((STRFTIME('%m', churn_date) - 1) / 3 + 1) AS q FROM customers WHERE NOT churn_date IS NULL), q_base AS (SELECT q.q AS quarter, (SELECT COUNT(*) FROM customers AS c WHERE c.signup_date <= q.q || '-12-31' AND (c.churn_date IS NULL OR c.churn_date >= q.q)) AS active_start_customers, (SELECT COUNT(*) FROM customers AS c WHERE STRFTIME('%Y', c.churn_date) || '-Q' || ((STRFTIME('%m', c.churn_date) - 1) / 3 + 1) = q.q) AS churned_count FROM quarters AS q WHERE NOT q.q IS NULL) SELECT quarter, churned_count, active_start_customers, CASE WHEN active_start_customers > 0 THEN CAST(churned_count AS REAL) / active_start_customers ELSE 0 END AS churn_rate FROM q_base ORDER BY quarter LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 12,
+   "preview": "quarter | churned_count | active_start_customers | churn_rate\n2023-Q1 | 0 | 520 | 0.0\n2023-Q2 | 0 | 520 | 0.0\n2023-Q3 | 3 | 520 | 0.0057692307692307696\n2023-Q4 | 5 | 520 | 0.009615384615384616\n2024-Q1 | 7 | 1016 | 0.006889763779527559\n... 7 more row(s)"
+  },
+  {
+   "sql": "SELECT r.region_name, r.country, COUNT(c.customer_id) AS churned_count FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id WHERE c.churn_date >= '2025-07-01' AND c.churn_date <= '2025-09-30' GROUP BY r.region_id, r.region_name, r.country ORDER BY churned_count DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "region_name | country | churned_count\nAPAC | Singapore | 44\nEMEA | Germany | 11\nNorth America | United States | 9\nLATAM | Brazil | 3"
+  },
+  {
+   "sql": "SELECT c.customer_id, c.customer_name, c.segment, r.region_name, c.churn_date, COUNT(t.ticket_id) AS total_tickets, SUM(CASE WHEN t.resolved_date IS NULL THEN 1 ELSE 0 END) AS unresolved_tickets, SUM(CASE WHEN t.severity = 'critical' THEN 1 ELSE 0 END) AS critical_tickets FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id LEFT JOIN support_tickets AS t ON c.customer_id = t.customer_id AND t.created_date <= c.churn_date WHERE c.churn_date >= '2025-07-01' AND c.churn_date <= '2025-09-30' GROUP BY c.customer_id, c.customer_name, c.segment, r.region_name, c.churn_date ORDER BY total_tickets DESC, unresolved_tickets DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 67,
+   "preview": "customer_id | customer_name | segment | region_name | churn_date | total_tickets | unresolved_tickets | critical_tickets\n163 | Pablo Kowalski | Mid-Market | APAC | 2025-09-27 | 6 | 2 | 0\n878 | Emma Andersen | SMB | APAC | 2025-09-16 | 5 | 0 | 1\n960 | Yuki Muller | SMB | APAC | 2025-09-12 | 5 | 0 | 1\n6 | Nadia Tan | Mid-Market | APAC | 2025-08-27 | 4 | 2 | 0\n638 | Amara Weber | Enterprise | APAC | 2025-09-15 | 4 | 2 | 1\n... 62 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Verify the churn rate and total number of churned customers in Q3 2025 compared to previous quarters to measure the size of the spike.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH quarters AS (SELECT DISTINCT STRFTIME('%Y', signup_date) || '-Q' || ((STRFTIME('%m', signup_date) - 1) / 3 + 1) AS q FROM customers UNION SELECT DISTINCT STRFTIME('%Y', churn_date) || '-Q' || ((STRFTIME('%m', churn_date) - 1) / 3 + 1) AS q FROM customers WHERE NOT churn_date IS NULL), q_base AS (SELECT q.q AS quarter, (SELECT COUNT(*) FROM customers AS c WHERE c.signup_date <= q.q || '-12-31' AND (c.churn_date IS NULL OR c.churn_date >= q.q)) AS active_start_customers, (SELECT COUNT(*) FROM customers AS c WHERE STRFTIME('%Y', c.churn_date) || '-Q' || ((STRFTIME('%m', c.churn_date) - 1) / 3 + 1) = q.q) AS churned_count FROM quarters AS q WHERE NOT q.q IS NULL) SELECT quarter, churned_count, active_start_customers, CASE WHEN active_start_customers > 0 THEN CAST(churned_count AS REAL) / active_start_customers ELSE 0 END AS churn_rate FROM q_base ORDER BY quarter LIMIT 500"
+  },
+  {
+   "step": 2,
+   "goal": "Analyze the churned customers in Q3 2025 by their geographic region to see if the spike is concentrated in a specific area.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT r.region_name, r.country, COUNT(c.customer_id) AS churned_count FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id WHERE c.churn_date >= '2025-07-01' AND c.churn_date <= '2025-09-30' GROUP BY r.region_id, r.region_name, r.country ORDER BY churned_count DESC LIMIT 500"
+  },
+  {
+   "step": 3,
+   "goal": "Analyze the churned customers in Q3 2025 by their support ticket volume and resolution status prior to churning to determine if customer service issues contributed.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT c.customer_id, c.customer_name, c.segment, r.region_name, c.churn_date, COUNT(t.ticket_id) AS total_tickets, SUM(CASE WHEN t.resolved_date IS NULL THEN 1 ELSE 0 END) AS unresolved_tickets, SUM(CASE WHEN t.severity = 'critical' THEN 1 ELSE 0 END) AS critical_tickets FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id LEFT JOIN support_tickets AS t ON c.customer_id = t.customer_id AND t.created_date <= c.churn_date WHERE c.churn_date >= '2025-07-01' AND c.churn_date <= '2025-09-30' GROUP BY c.customer_id, c.customer_name, c.segment, r.region_name, c.churn_date ORDER BY total_tickets DESC, unresolved_tickets DESC LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT c.customer_id, c.customer_name, c.segment, r.region_name, c.churn_date, COUNT(t.ticket_id) AS total_tickets, SUM(CASE WHEN t.resolved_date IS NULL THEN 1 ELSE 0 END) AS unresolved_tickets, SUM(CASE WHEN t.severity = 'critical' THEN 1 ELSE 0 END) AS critical_tickets FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id LEFT JOIN support_tickets AS t ON c.customer_id = t.customer_id AND t.created_date <= c.churn_date WHERE c.churn_date >= '2025-07-01' AND c.churn_date <= '2025-09-30' GROUP BY c.customer_id, c.customer_name, c.segment, r.region_name, c.churn_date ORDER BY total_tickets DESC, unresolved_tickets DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "customer_id",
+   "customer_name",
+   "segment",
+   "region_name",
+   "churn_date",
+   "total_tickets",
+   "unresolved_tickets",
+   "critical_tickets"
+  ],
+  "rows": [
+   [
+    163,
+    "Pablo Kowalski",
+    "Mid-Market",
+    "APAC",
+    "2025-09-27",
+    6,
+    2,
+    0
+   ],
+   [
+    878,
+    "Emma Andersen",
+    "SMB",
+    "APAC",
+    "2025-09-16",
+    5,
+    0,
+    1
+   ],
+   [
+    960,
+    "Yuki Muller",
+    "SMB",
+    "APAC",
+    "2025-09-12",
+    5,
+    0,
+    1
+   ],
+   [
+    6,
+    "Nadia Tan",
+    "Mid-Market",
+    "APAC",
+    "2025-08-27",
+    4,
+    2,
+    0
+   ],
+   [
+    638,
+    "Amara Weber",
+    "Enterprise",
+    "APAC",
+    "2025-09-15",
+    4,
+    2,
+    1
+   ],
+   [
+    49,
+    "Tomas Nakamura",
+    "Mid-Market",
+    "APAC",
+    "2025-09-24",
+    4,
+    1,
+    1
+   ],
+   [
+    651,
+    "Elena Farah",
+    "SMB",
+    "APAC",
+    "2025-08-20",
+    4,
+    0,
+    0
+   ],
+   [
+    1088,
+    "Diego Yilmaz",
+    "Mid-Market",
+    "APAC",
+    "2025-09-29",
+    4,
+    0,
+    1
+   ],
+   [
+    1328,
+    "Jonas Vargas",
+    "Mid-Market",
+    "APAC",
+    "2025-09-15",
+    4,
+    0,
+    0
+   ],
+   [
+    54,
+    "Sofia Costa",
+    "Mid-Market",
+    "APAC",
+    "2025-07-05",
+    3,
+    1,
+    1
+   ],
+   [
+    156,
+    "Nils Yilmaz",
+    "Mid-Market",
+    "APAC",
+    "2025-08-08",
+    3,
+    1,
+    0
+   ],
+   [
+    397,
+    "Zara Reyes",
+    "SMB",
+    "APAC",
+    "2025-07-17",
+    3,
+    1,
+    0
+   ],
+   [
+    779,
+    "Yuki Muller",
+    "Mid-Market",
+    "APAC",
+    "2025-08-22",
+    3,
+    1,
+    0
+   ],
+   [
+    865,
+    "Elena Andersen",
+    "Mid-Market",
+    "APAC",
+    "2025-09-20",
+    3,
+    1,
+    0
+   ],
+   [
+    1203,
+    "Emma Nakamura",
+    "SMB",
+    "North America",
+    "2025-08-24",
+    3,
+    1,
+    0
+   ],
+   [
+    919,
+    "Kai Kowalski",
+    "SMB",
+    "APAC",
+    "2025-09-02",
+    3,
+    0,
+    1
+   ],
+   [
+    990,
+    "Clara Moreau",
+    "SMB",
+    "APAC",
+    "2025-09-23",
+    3,
+    0,
+    0
+   ],
+   [
+    1054,
+    "Sara Sharma",
+    "Enterprise",
+    "APAC",
+    "2025-08-17",
+    3,
+    0,
+    0
+   ],
+   [
+    293,
+    "Tomas Fischer",
+    "SMB",
+    "North America",
+    "2025-09-16",
+    2,
+    1,
+    0
+   ],
+   [
+    677,
+    "Mia Dubois",
+    "Mid-Market",
+    "APAC",
+    "2025-09-04",
+    2,
+    1,
+    1
+   ]
+  ],
+  "row_count": 67
+ },
+ "answer": "Customer churn spiked significantly in Q3 2025 with 67 churned customers and a churn rate of approximately 0.055, and this spike was heavily concentrated in the APAC region, specifically Singapore, which accounted for 44 of those churned customers.",
+ "key_numbers": [
+  "67",
+  "0.05532617671345995",
+  "44"
+ ],
+ "caveats": [
+  "The provided support ticket data details individual customer ticket counts and statuses, but does not definitively prove the root cause of the churn spike."
+ ],
+ "judge": {
+  "verdict": "fail",
+  "reason": "required fact(s) not stated: [1, 2]",
+  "facts": [
+   {
+    "fact": "The Q3 2025 churn spike is concentrated in APAC: 44 of the 67 customers who churned in Q3 2025 were APAC customers.",
+    "verdict": "no",
+    "quote": "",
+    "quote_verified": false,
+    "counts_as_yes": false,
+    "reason": "The answer mentions 44 churned customers in APAC out of 67 total, but incorrectly attributes the APAC region to 'specifically Singapore', which is not supported by the evidence."
+   },
+   {
+    "fact": "This is unusual: APAC had about 1 to 5 churns in each earlier quarter shown, and no other region had a comparable jump in Q3 2025 (3 to 11 churns each).",
+    "verdict": "no",
+    "quote": "",
+    "quote_verified": false,
+    "counts_as_yes": false,
+    "reason": "The answer mentions 44 churned customers in APAC and 67 total, but it does not state that APAC had about 1 to 5 churns in each earlier quarter, nor does it state the comparison regarding other regions (3 to 11 churns each). Therefore, the required fact is not fully stated."
+   }
+  ],
+  "disqualifying": {
+   "verdict": "yes",
+   "quote": "Customer churn spiked significantly in Q3 2025 with 67 churned customers and a churn rate of approximately 0.055, and this spike was heavily concentrated in the APAC region, specifically Singapore, which accounted for 44 of those churned customers.",
+   "quote_verified": true,
+   "counts_as_yes": true,
+   "reason": "The answer claims the spike was specifically in Singapore, which is not supported by the evidence (the evidence only shows APAC). Additionally, it mentions a churn rate and exact customer total not present in the evidence."
+  }
+ },
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "898c3774223d66d5c6289ab5ebecf370de8adf09e57592a6f907654229d2cc45",
+   "cache_hit": false,
+   "latency_ms": 1326.0,
+   "input_tokens": 612,
+   "output_tokens": 185,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "e5cda260c3682f771fd4acc016c5c62f4747b5ea67ec0d0bbcc48192080f1320",
+   "cache_hit": false,
+   "latency_ms": 1384.0,
+   "input_tokens": 1063,
+   "output_tokens": 165,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "2318a8682cedbad1865a78cd609335fe6136062494c6f9c699dfc9c3ab8cdd97",
+   "cache_hit": false,
+   "latency_ms": 1108.2,
+   "input_tokens": 774,
+   "output_tokens": 139,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the repair stage of an analytics agent. A previous query failed. Write a",
+   "prompt_hash": "c4f213fe117e202c85d9c221ce1d96929a9eeadf0166042ed0e387f5faa24945",
+   "cache_hit": false,
+   "latency_ms": 2081.5,
+   "input_tokens": 1300,
+   "output_tokens": 380,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "cac70819727e5fa6b51ae0fae6f0db839cc966db4847b7fe367428633d9a7e4a",
+   "cache_hit": false,
+   "latency_ms": 1019.6,
+   "input_tokens": 1339,
+   "output_tokens": 63,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "e719d98659cfdc628e79736638ad979c344e89ae6de471c6585bd44fe521f7a6",
+   "cache_hit": false,
+   "latency_ms": 1430.3,
+   "input_tokens": 1325,
+   "output_tokens": 223,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "304355c925bf7423e23fd73a88e1ebab00232b118bbdc28a0e6205248ebb99f6",
+   "cache_hit": false,
+   "latency_ms": 1041.7,
+   "input_tokens": 729,
+   "output_tokens": 71,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "d0af08b5f2e685acbb9a66d6f3ae8640d17294772d7024b28cddca054d212511",
+   "cache_hit": false,
+   "latency_ms": 2592.6,
+   "input_tokens": 1405,
+   "output_tokens": 383,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "73da752080ff628d6caf8c99d71a00ca2f416a8027587b7cf3b39fc0a4a54135",
+   "cache_hit": false,
+   "latency_ms": 1094.1,
+   "input_tokens": 1248,
+   "output_tokens": 87,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "40846709a44b8ba60d1e5d5cc90819dd433de4258e69e4c8c47a503f9089c6bc",
+   "cache_hit": false,
+   "latency_ms": 1699.1,
+   "input_tokens": 2327,
+   "output_tokens": 157,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "a676b99c716cf55798ec08b07adb916815bda0320636a49b1eddb95967d5ed84",
+   "cache_hit": false,
+   "latency_ms": 1019.4,
+   "input_tokens": 886,
+   "output_tokens": 61,
+   "original_latency_ms": null
+  },
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "2e46243c1174748564893f7ca506401bcd38c6bb6096ca9a93f01263e2a05010",
+   "cache_hit": false,
+   "latency_ms": 1123.6,
+   "input_tokens": 893,
+   "output_tokens": 91,
+   "original_latency_ms": null
+  },
+  {
+   "role": "You are a strict checker grading an analytics assistant's answer. You receive a ",
+   "prompt_hash": "2545bc74b6ced5a3a79fe2ae2b28f6467174c6864a75f5b702b3c003d97e865e",
+   "cache_hit": false,
+   "latency_ms": 1134.9,
+   "input_tokens": 846,
+   "output_tokens": 128,
+   "original_latency_ms": null
+  }
+ ],
+ "latency_s": 15.004,
+ "latency_live_s": 15.004,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": true,
+  "end_to_end": false,
+  "detail": "driver named; judge fail"
+ }
+}

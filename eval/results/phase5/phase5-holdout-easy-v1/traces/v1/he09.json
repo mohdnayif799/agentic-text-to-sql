@@ -1,0 +1,136 @@
+{
+ "question_id": "he09",
+ "type": "easy",
+ "arch": "v1",
+ "question": "How many completed orders were placed in each month of the first half of 2025? Label months as YYYY-MM.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "v1",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "Calculate the count of completed orders grouped by month (YYYY-MM format) for the period between 2025-01-01 and 2025-06-30."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT SUBSTRING(order_date, 1, 7) AS month, COUNT(*) AS completed_orders_count FROM orders WHERE status = 'completed' AND order_date >= '2025-01-01' AND order_date <= '2025-06-30' GROUP BY month ORDER BY month LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 6,
+   "preview": "month | completed_orders_count\n2025-01 | 387\n2025-02 | 305\n2025-03 | 385\n2025-04 | 383\n2025-05 | 406\n... 1 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "goal": "Calculate the count of completed orders grouped by month (YYYY-MM format) for the period between 2025-01-01 and 2025-06-30.",
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT SUBSTRING(order_date, 1, 7) AS month, COUNT(*) AS completed_orders_count FROM orders WHERE status = 'completed' AND order_date >= '2025-01-01' AND order_date <= '2025-06-30' GROUP BY month ORDER BY month LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": {
+  "sql": "SELECT SUBSTRING(order_date, 1, 7) AS month, COUNT(*) AS completed_orders_count FROM orders WHERE status = 'completed' AND order_date >= '2025-01-01' AND order_date <= '2025-06-30' GROUP BY month ORDER BY month LIMIT 500",
+  "ok": true,
+  "columns": [
+   "month",
+   "completed_orders_count"
+  ],
+  "rows": [
+   [
+    "2025-01",
+    387
+   ],
+   [
+    "2025-02",
+    305
+   ],
+   [
+    "2025-03",
+    385
+   ],
+   [
+    "2025-04",
+    383
+   ],
+   [
+    "2025-05",
+    406
+   ],
+   [
+    "2025-06",
+    417
+   ]
+  ],
+  "row_count": 6
+ },
+ "answer": "In the first half of 2025, the number of completed orders placed each month was 387 in January (2025-01), 305 in February (2025-02), 385 in March (2025-03), 383 in April (2025-04), 406 in May (2025-05), and 417 in June (2025-06).",
+ "key_numbers": [
+  "2025-01: 387",
+  "2025-02: 305",
+  "2025-03: 385",
+  "2025-04: 383",
+  "2025-05: 406",
+  "2025-06: 417"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are the planning stage of an autonomous analytics agent that answers questio",
+   "prompt_hash": "4804e35a6204d482f6b73154cf4eb8d8bd4541e7432672892fc0421d9e6f8dda",
+   "cache_hit": false,
+   "latency_ms": 1335.8,
+   "input_tokens": 627,
+   "output_tokens": 120,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the SQL authoring stage of an analytics agent. You write ONE SQLite quer",
+   "prompt_hash": "1c316929e6144f2f4a6fd4835d58d446de5679ff181dd31757e117b158961e1a",
+   "cache_hit": false,
+   "latency_ms": 2037.2,
+   "input_tokens": 1163,
+   "output_tokens": 207,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the verification stage of an analytics agent. A query ran successfully. ",
+   "prompt_hash": "fab1b9f5142bb6f82520bca60ed00519cb22a96ad7133aaf2780b4c191eefc21",
+   "cache_hit": false,
+   "latency_ms": 1024.4,
+   "input_tokens": 752,
+   "output_tokens": 78,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  },
+  {
+   "role": "You are the final stage of an analytics agent. Write the answer to the user's qu",
+   "prompt_hash": "78335d9e0464429c4f63f42bde8d5af8b99bd21f55275f93e06e3224c58f1dc5",
+   "cache_hit": false,
+   "latency_ms": 1418.6,
+   "input_tokens": 601,
+   "output_tokens": 233,
+   "original_latency_ms": null,
+   "cache_namespace": "v1"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 5.996,
+ "latency_live_s": 5.996,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "6 row(s) match"
+ }
+}

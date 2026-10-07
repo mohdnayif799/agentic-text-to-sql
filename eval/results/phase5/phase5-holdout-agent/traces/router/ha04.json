@@ -1,0 +1,98 @@
+{
+ "question_id": "ha04",
+ "type": "term_matching",
+ "arch": "router",
+ "question": "How many sev-1 support tickets did our European customers open in 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT COUNT(*) FROM support_tickets AS t JOIN customers AS c ON c.customer_id = t.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE r.region_name = 'EMEA' AND t.severity = 'critical' AND t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "COUNT(*)\n24"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT COUNT(*) FROM support_tickets AS t JOIN customers AS c ON c.customer_id = t.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE r.region_name = 'EMEA' AND t.severity = 'critical' AND t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31'",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT COUNT(*) FROM support_tickets AS t JOIN customers AS c ON c.customer_id = t.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE r.region_name = 'EMEA' AND t.severity = 'critical' AND t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31'",
+  "ok": true,
+  "columns": [
+   "COUNT(*)"
+  ],
+  "rows": [
+   [
+    24
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Assuming European customers correspond to the EMEA region and sev-1 tickets correspond to critical severity, they opened 24 support tickets in 2025.",
+ "key_numbers": [
+  "24"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "9070d3fe98fa74f6b2fea66b08236aed74d0d0a75d5f987afe1877dae5acbc6e",
+   "cache_hit": false,
+   "latency_ms": 2172.0,
+   "input_tokens": 415,
+   "output_tokens": 51,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "5b37b9891c4bfea5c7064e275c242145a751722dc92ab40ade032de2ade411f1",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2716,
+   "output_tokens": 205,
+   "original_latency_ms": 1563.7,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "f7eb86ca21a271c640b16f461bc2f64d99b907d5e3c0c70545497afce43f68ed",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 527,
+   "output_tokens": 63,
+   "original_latency_ms": 944.5,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 2.198,
+ "latency_live_s": 4.706,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

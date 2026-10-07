@@ -1,0 +1,110 @@
+{
+ "question_id": "he07",
+ "type": "easy",
+ "arch": "full",
+ "question": "How many orders of each status were placed in 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT status, COUNT(*) AS order_count FROM orders WHERE order_date >= '2025-01-01' AND order_date <= '2025-12-31' GROUP BY status LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "status | order_count\ncancelled | 1163\ncompleted | 4569\nrefunded | 1084"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT status, COUNT(*) AS order_count FROM orders WHERE order_date >= '2025-01-01' AND order_date <= '2025-12-31' GROUP BY status LIMIT 500",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT status, COUNT(*) AS order_count FROM orders WHERE order_date >= '2025-01-01' AND order_date <= '2025-12-31' GROUP BY status LIMIT 500",
+  "ok": true,
+  "columns": [
+   "status",
+   "order_count"
+  ],
+  "rows": [
+   [
+    "cancelled",
+    1163
+   ],
+   [
+    "completed",
+    4569
+   ],
+   [
+    "refunded",
+    1084
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "In 2025, there were 1163 cancelled orders, 4569 completed orders, and 1084 refunded orders placed.",
+ "key_numbers": [
+  "1163",
+  "4569",
+  "1084"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "7e9117a60e93c7ce3f44cac671430cf54ed02cb66818b966add057b2a527a158",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2693,
+   "output_tokens": 116,
+   "original_latency_ms": 1228.6,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "0d8b8871ece5ae92af51964242f87248440bafc3f3b36708b83a55f8a8d5761f",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 503,
+   "output_tokens": 84,
+   "original_latency_ms": 1046.7,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "b17f81afe5fba6f80c12469f9f7c3266c2e11a171e3845a53528f8196b398263",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 391,
+   "output_tokens": 44,
+   "original_latency_ms": 912.3,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.029,
+ "latency_live_s": 3.217,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "3 row(s) match"
+ }
+}

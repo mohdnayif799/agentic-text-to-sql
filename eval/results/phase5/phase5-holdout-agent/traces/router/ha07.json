@@ -1,0 +1,342 @@
+{
+ "question_id": "ha07",
+ "type": "why",
+ "arch": "router",
+ "question": "Why did APAC's completed revenue fall so much more than other regions' from Q2 to Q3 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The user asks why APAC's completed revenue fell more than other regions, but the query only shows the revenue figures without explaining the underlying causes."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.category, p.product_name, r.region_name, SUBSTRING(o.order_date, 1, 7) AS order_month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date >= '2025-04-01' AND o.order_date <= '2025-09-30' GROUP BY r.region_name, p.category, p.product_name, SUBSTRING(o.order_date, 1, 7) ORDER BY r.region_name, revenue DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 500,
+   "preview": "category | product_name | region_name | order_month | revenue\nHardware | Lattice Ridge | APAC | 2025-05 | 52974.403999999995\nHardware | Anchor Summit | APAC | 2025-05 | 49576.7035\nHardware | Cascade Beacon | APAC | 2025-06 | 43771.805\nHardware | Lattice Ridge | APAC | 2025-06 | 37906.834\nHardware | Harbor Lumen | APAC | 2025-04 | 33450.94\n... 495 more row(s)"
+  },
+  {
+   "sql": "SELECT r.region_name, CASE WHEN o.order_date >= '2025-07-01' THEN 'Q3' ELSE 'Q2' END AS quarter, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date >= '2025-04-01' AND o.order_date <= '2025-09-30' GROUP BY r.region_name, quarter ORDER BY r.region_name, quarter LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 8,
+   "preview": "region_name | quarter | revenue\nAPAC | Q2 | 852708.85\nAPAC | Q3 | 394310.9855\nEMEA | Q2 | 936226.49\nEMEA | Q3 | 577142.5145\nLATAM | Q2 | 521614.8735\n... 3 more row(s)"
+  },
+  {
+   "sql": "SELECT r.region_name, p.category, CASE WHEN o.order_date >= '2025-07-01' THEN 'Q3' ELSE 'Q2' END AS quarter, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date >= '2025-04-01' AND o.order_date <= '2025-09-30' GROUP BY r.region_name, p.category, quarter ORDER BY r.region_name, quarter, revenue DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 32,
+   "preview": "region_name | category | quarter | revenue\nAPAC | Hardware | Q2 | 572289.5445\nAPAC | Services | Q2 | 141015.21\nAPAC | Software | Q2 | 120267.21149999999\nAPAC | Accessories | Q2 | 19136.884\nAPAC | Hardware | Q3 | 142696.824\n... 27 more row(s)"
+  },
+  {
+   "sql": "SELECT r.region_name, c.segment, CASE WHEN o.order_date >= '2025-07-01' THEN 'Q3' ELSE 'Q2' END AS quarter, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date >= '2025-04-01' AND o.order_date <= '2025-09-30' GROUP BY r.region_name, c.segment, quarter ORDER BY r.region_name, quarter, revenue DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 24,
+   "preview": "region_name | segment | quarter | revenue\nAPAC | Mid-Market | Q2 | 350322.4825\nAPAC | SMB | Q2 | 314880.515\nAPAC | Enterprise | Q2 | 187505.8525\nAPAC | Mid-Market | Q3 | 169267.281\nAPAC | SMB | Q3 | 131757.135\n... 19 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql",
+    "repair"
+   ],
+   "sql": "SELECT r.region_name, CASE WHEN o.order_date >= '2025-07-01' THEN 'Q3' ELSE 'Q2' END AS quarter, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date >= '2025-04-01' AND o.order_date <= '2025-09-30' GROUP BY r.region_name, quarter ORDER BY r.region_name, quarter LIMIT 500",
+   "reason": "",
+   "signal": "sanity"
+  },
+  {
+   "step": 2,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT r.region_name, p.category, CASE WHEN o.order_date >= '2025-07-01' THEN 'Q3' ELSE 'Q2' END AS quarter, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date >= '2025-04-01' AND o.order_date <= '2025-09-30' GROUP BY r.region_name, p.category, quarter ORDER BY r.region_name, quarter, revenue DESC LIMIT 500",
+   "reason": "To explain why APAC's revenue fell so much from Q2 to Q3 2025 compared to other regions, we need to break down the revenue decline by product category and region.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT r.region_name, c.segment, CASE WHEN o.order_date >= '2025-07-01' THEN 'Q3' ELSE 'Q2' END AS quarter, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date >= '2025-04-01' AND o.order_date <= '2025-09-30' GROUP BY r.region_name, c.segment, quarter ORDER BY r.region_name, quarter, revenue DESC LIMIT 500",
+   "reason": "We checked revenue drop by category, let's check by customer segment across regions to see if enterprise or specific segments drove the drop in APAC vs other regions.",
+   "signal": null
+  },
+  {
+   "step": "final",
+   "tools": [
+    "assemble"
+   ],
+   "plan": {
+    "base_step": 2,
+    "columns": []
+   }
+  }
+ ],
+ "repairs": [
+  {
+   "step": 1,
+   "signal": "sanity",
+   "detail": "The result hit the 500-row cap; the query probably lacks an aggregation or a filter.",
+   "via": "repair",
+   "accepted": true,
+   "attempts": 1,
+   "before": {
+    "sql": "SELECT p.category, p.product_name, r.region_name, SUBSTRING(o.order_date, 1, 7) AS order_month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date >= '2025-04-01' AND o.order_date <= '2025-09-30' GROUP BY r.region_name, p.category, p.product_name, SUBSTRING(o.order_date, 1, 7) ORDER BY r.region_name, revenue DESC LIMIT 500",
+    "ok": true,
+    "rows": 500,
+    "error": null
+   },
+   "after": {
+    "sql": "SELECT r.region_name, CASE WHEN o.order_date >= '2025-07-01' THEN 'Q3' ELSE 'Q2' END AS quarter, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date >= '2025-04-01' AND o.order_date <= '2025-09-30' GROUP BY r.region_name, quarter ORDER BY r.region_name, quarter LIMIT 500",
+    "ok": true,
+    "rows": 8,
+    "error": null
+   },
+   "effect": "n/a"
+  }
+ ],
+ "selected_step": 2,
+ "selected_result": {
+  "sql": "-- assembled: rows from step 2\nSELECT r.region_name, p.category, CASE WHEN o.order_date >= '2025-07-01' THEN 'Q3' ELSE 'Q2' END AS quarter, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date >= '2025-04-01' AND o.order_date <= '2025-09-30' GROUP BY r.region_name, p.category, quarter ORDER BY r.region_name, quarter, revenue DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "region_name",
+   "category",
+   "quarter",
+   "revenue"
+  ],
+  "rows": [
+   [
+    "APAC",
+    "Hardware",
+    "Q2",
+    572289.5445
+   ],
+   [
+    "APAC",
+    "Services",
+    "Q2",
+    141015.21
+   ],
+   [
+    "APAC",
+    "Software",
+    "Q2",
+    120267.21149999999
+   ],
+   [
+    "APAC",
+    "Accessories",
+    "Q2",
+    19136.884
+   ],
+   [
+    "APAC",
+    "Hardware",
+    "Q3",
+    142696.824
+   ],
+   [
+    "APAC",
+    "Services",
+    "Q3",
+    136587.265
+   ],
+   [
+    "APAC",
+    "Software",
+    "Q3",
+    98632.21149999999
+   ],
+   [
+    "APAC",
+    "Accessories",
+    "Q3",
+    16394.685
+   ],
+   [
+    "EMEA",
+    "Hardware",
+    "Q2",
+    648395.959
+   ],
+   [
+    "EMEA",
+    "Services",
+    "Q2",
+    138985.895
+   ],
+   [
+    "EMEA",
+    "Software",
+    "Q2",
+    130474.00499999999
+   ],
+   [
+    "EMEA",
+    "Accessories",
+    "Q2",
+    18370.631
+   ],
+   [
+    "EMEA",
+    "Hardware",
+    "Q3",
+    202467.1015
+   ],
+   [
+    "EMEA",
+    "Services",
+    "Q3",
+    188565.7385
+   ],
+   [
+    "EMEA",
+    "Software",
+    "Q3",
+    159318.531
+   ],
+   [
+    "EMEA",
+    "Accessories",
+    "Q3",
+    26791.1435
+   ],
+   [
+    "LATAM",
+    "Hardware",
+    "Q2",
+    355417.0075
+   ],
+   [
+    "LATAM",
+    "Services",
+    "Q2",
+    81836.5155
+   ],
+   [
+    "LATAM",
+    "Software",
+    "Q2",
+    72551.927
+   ],
+   [
+    "LATAM",
+    "Accessories",
+    "Q2",
+    11809.423499999999
+   ]
+  ],
+  "row_count": 32
+ },
+ "answer": "APAC's completed revenue fell from Q2 to Q3 2025 primarily due to a sharp drop in Hardware revenue, which went from 572,289.54 in Q2 down to 142,696.82 in Q3. Software also decreased from 120,267.21 to 98,632.21, Services from 141,015.21 to 136,587.27, and Accessories from 19,136.88 to 16,394.69.",
+ "key_numbers": [
+  "572289.5445",
+  "142696.824",
+  "120267.21149999999",
+  "98632.21149999999",
+  "141015.21",
+  "136587.265",
+  "19136.884",
+  "16394.685"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You fix one SQLite query. A concrete problem was detected and is described below",
+   "prompt_hash": "c13c8a34ea0b46182ff7bab94a5f5e2562781699f79232ef8093ff824373295f",
+   "cache_hit": false,
+   "latency_ms": 1874.9,
+   "input_tokens": 3141,
+   "output_tokens": 362,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "6c3d7fa9e18456098d92a614801be3890f1fc203dd55945890b7d4dc86ab2eb6",
+   "cache_hit": false,
+   "latency_ms": 927.0,
+   "input_tokens": 657,
+   "output_tokens": 53,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You are continuing an analysis of a read-only SQLite database. The user's questi",
+   "prompt_hash": "2d0a68282dba27a954128c3105aa485b6e909d55ca5f5175a61a6a5b5bebf0dd",
+   "cache_hit": false,
+   "latency_ms": 1566.7,
+   "input_tokens": 3291,
+   "output_tokens": 275,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You are continuing an analysis of a read-only SQLite database. The user's questi",
+   "prompt_hash": "3a99a3a6a19222c9983262e9fbceab86763d08c1dc1de31e76a46187c6d2d1f7",
+   "cache_hit": false,
+   "latency_ms": 1654.5,
+   "input_tokens": 3699,
+   "output_tokens": 251,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "Several queries were run to answer one question. Choose the final result table t",
+   "prompt_hash": "2dbf20ee6f1975e362174f360f8bfe1730e170572cbbefa206e7d983ecd92cb6",
+   "cache_hit": false,
+   "latency_ms": 1002.5,
+   "input_tokens": 1557,
+   "output_tokens": 24,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "fdf4bf9f335cbe3efded1a25d6bab0c5d581309086768ce1971fe273977db80a",
+   "cache_hit": false,
+   "latency_ms": 1443.1,
+   "input_tokens": 1336,
+   "output_tokens": 289,
+   "original_latency_ms": null,
+   "cache_namespace": "router"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "1b4119c643ceafa1fbc217a352667517210e3b0440b02a66826aa26e917bef84",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2946,
+   "output_tokens": 384,
+   "original_latency_ms": 1753.1,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 8.63,
+ "latency_live_s": 10.384,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "driver not named: [\"any_of: [{'pattern': 'fewer\\\\\\\\s+(completed\\\\\\\\s+)?orders'}, {'pattern': 'order\\\\\\\\s+(volume|count|counts|numbers)'}, {'pattern': '(number|count|volume)\\\\\\\\s+of\\\\\\\\s+(completed\\\\\\\\s+)?orders'}, {'pattern': 'orders\\\\\\\\s+(fell|dropped|declined|decreased|shrank)'}]\"]"
+ }
+}

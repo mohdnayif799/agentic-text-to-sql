@@ -106,11 +106,16 @@ class TestNoQuotaError:
         assert all(i["state"] == ev.EVALUATED for i in p["items"])
 
     def test_existing_scoring_is_unchanged(self, settings, questions, tmp_path):
-        """The harness self-test still scores 17/17 on both arms."""
+        """The harness self-test scores 15/15 on both arms.
+
+        The two refusal probes are not machine-scored: they stay pending until
+        adjudicated, so they are in neither the numerator nor the denominator.
+        """
         p = run(settings, questions, tmp_path / "r.json", make_factory(set()))
         for arm in ("agent", "baseline"):
-            assert p["summaries"][arm]["task_success"] == "17/17 (100%)"
-            assert p["summaries"][arm]["denominator"] == 17
+            assert p["summaries"][arm]["task_success"] == "15/15 (100%)"
+            assert p["summaries"][arm]["denominator"] == 15
+        assert p["pending_adjudication"] == ["s01", "s02"]
 
     def test_database_untouched(self, settings, questions, tmp_path):
         p = run(settings, questions, tmp_path / "r.json", make_factory(set()))
@@ -282,4 +287,4 @@ class TestResume:
         run(settings, questions, out, make_factory(set(ids[15:])))
         final = run(settings, questions, out, make_factory(set()), resume=True)
         for arm in ("agent", "baseline"):
-            assert final["summaries"][arm]["task_success"] == "17/17 (100%)"
+            assert final["summaries"][arm]["task_success"] == "15/15 (100%)"

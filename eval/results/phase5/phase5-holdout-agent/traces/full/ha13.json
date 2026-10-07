@@ -1,0 +1,98 @@
+{
+ "question_id": "ha13",
+ "type": "recovery",
+ "arch": "full",
+ "question": "How much did we spend on marketing in Q3 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT SUM(amount) FROM marketing_spend WHERE month >= '2025-07' AND month <= '2025-09'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "SUM(amount)\n532065.66"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT SUM(amount) FROM marketing_spend WHERE month >= '2025-07' AND month <= '2025-09'",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT SUM(amount) FROM marketing_spend WHERE month >= '2025-07' AND month <= '2025-09'",
+  "ok": true,
+  "columns": [
+   "SUM(amount)"
+  ],
+  "rows": [
+   [
+    532065.66
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "We spent a total of 532065.66 on marketing in Q3 2025.",
+ "key_numbers": [
+  "532065.66"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "f041172a46fec21e8c25e8eaadf50eec4d0f36032a21fe1a1325c89bb4dc45f3",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2762,
+   "output_tokens": 131,
+   "original_latency_ms": 1285.9,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "ccfb825aa93164409e7618eb3701fde1ebcbbf815c832895a9d5500613a9897c",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 468,
+   "output_tokens": 64,
+   "original_latency_ms": 942.1,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "27ab382659ba2ac0b8770e6bc57a09bb17fa877453b351682e7b6f700e4d9aec",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 356,
+   "output_tokens": 46,
+   "original_latency_ms": 911.2,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.022,
+ "latency_live_s": 3.161,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

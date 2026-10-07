@@ -2,14 +2,13 @@
 
 [![CI](https://github.com/mohdnayif799/agentic-text-to-sql/actions/workflows/ci.yml/badge.svg)](https://github.com/mohdnayif799/agentic-text-to-sql/actions/workflows/ci.yml)
 
-**An autonomous analytics agent that answers plain-English questions by writing, executing, and repairing its own SQL against a read-only database.**
+**An analytics agent that answers plain-English questions about a database with one read-only SQL query when one query is enough, and escalates to repair, exploration and deterministic tools only when a concrete signal says it must.**
 
 ![python](https://img.shields.io/badge/python-3.11%2B-blue)
-![LangGraph](https://img.shields.io/badge/LangGraph-1.2-orange)
 ![providers](https://img.shields.io/badge/providers-Anthropic%20%7C%20OpenAI%20%7C%20Gemini-8a2be2)
 ![safety](https://img.shields.io/badge/database-read--only%20enforced-critical)
 
-AgentCrew is not a text-to-SQL wrapper. A wrapper emits a query and stops. AgentCrew takes actions against a real system, observes what actually happened (a missing column, an empty result, a metric that does not match the question), and changes what it does next. When it cannot answer, it says so instead of inventing a number.
+Most text-to-SQL questions need exactly one good query. An earlier version of this project ran a full multi-step agent on every question, and a strict re-grade showed a single query beat it. So the current design starts with a single query and adds agent work only where it measurably helps: an error, an empty or suspicious result, a question that asks *why*, or one that asks for a forecast. On a frozen holdout it answered 16 of 21 agent-type questions against 13 for the single-query baseline. That is a win in this sample but not a statistically significant one, and the [evaluation](#evaluation) says so plainly.
 
 ---
 
@@ -21,7 +20,7 @@ AgentCrew is not a text-to-SQL wrapper. A wrapper emits a query and stops. Agent
 - [Quick start](#quick-start)
 - [Architecture](#architecture)
 - [Safety](#safety)
-- [Loop control](#loop-control)
+- [Budgets and demo limits](#budgets-and-demo-limits)
 - [Observability](#observability)
 - [The dataset](#the-dataset)
 - [Evaluation](#evaluation)
@@ -39,59 +38,46 @@ AgentCrew is not a text-to-SQL wrapper. A wrapper emits a query and stops. Agent
 
 Asking a language model to write SQL is easy. Trusting the answer is not.
 
-A model that emits a query has no idea whether that query ran, returned nothing, timed out, or quietly measured the wrong thing. It cannot tell you it failed, because it never found out. And pointed at a live database, it will happily generate `DROP TABLE`.
+A model that emits a query has no idea whether that query ran, returned nothing, or quietly measured the wrong thing. Pointed at a live database, it will happily generate `DROP TABLE`. An agent that loops on every question fixes some of that, but it pays several times the calls and latency on questions one query answers perfectly well, and every extra step is another chance to go wrong.
 
-AgentCrew closes that loop. It plans the analysis, discovers the schema, writes SQL, executes it against a physically read-only handle, reads the real execution feedback, repairs what breaks, verifies that the result answers the question that was actually asked, and stops with an explanation when it cannot.
-
-The design principle throughout: **agents are expensive and functions are free, so anything decidable by code is code.** Schema introspection, table selection, failure triage, budget enforcement, and loop detection are all deterministic. The model is used for the four things that genuinely require language understanding.
+AgentCrew takes the middle path. **Anything decidable by code is code**: SQL errors, schema mismatches, join fan-out, empty or all-NULL results, date-format mismatches and the read-only guard are all checked deterministically, at no model cost. The model is called for the parts that need language. It writes the first query, decides whether that result answers the question, plans an escalation, and writes the answer from the final table.
 
 ---
 
 ## Demo
 
-<!-- ==========================================================
-   <img width="1906" height="1032" alt="image" src="https://github.com/user-attachments/assets/8967ce7c-e09f-4230-ac41-ce03aaef913f" />
-
-     ========================================================== -->
-
 ![AgentCrew running](docs/images/demo.png)
+
+The app shows, for every question, whether it was answered directly or escalated, the tools each step used, and a progress bar while an escalated question runs (5 to 20 seconds).
 
 ---
 
 ## A real trace
 
-Both recovery paths in a single run: a database error caught by deterministic triage, then a semantically wrong query caught by the LLM verifier.
+A why-question from the frozen holdout (ha09), answered by architecture D. The single-query baseline (A) listed revenue per product and named no cause; D escalated and passed.
 
 ```text
-Q: "Which region lost the most customers in Q3 2025?"
+Q: "Why did Hardware revenue drop so sharply from Q2 to Q3 2025?"
 
-  plan             1.4ms   1 step: count churned customers per region in Q3 2025
-  select_schema   11.2ms   customers, regions (+4 via FK), 1711-char card, 0 tokens
-  author_sql       0.5ms
-  execute_sql      6.6ms   ok=False  failure=missing_object     <- r.region does not exist
-  triage           0.0ms   decision=repair                      <- deterministic, free
-  repair           0.7ms
-  execute_sql      3.3ms   ok=True   rows=4
-  triage           0.0ms   decision=verify
-  verify           1.6ms   verdict=wrong_metric -> repair       <- counted all customers,
-  repair           0.4ms                                           not Q3 churn
-  execute_sql      4.0ms   ok=True   rows=4
-  triage           0.0ms   decision=verify
-  verify           0.6ms   verdict=pass -> advance
-  advance          0.0ms
-  synthesize       0.3ms
+step 1  run_sql                        product revenue, Q2 vs Q3 (9 rows)
+        follow-up decision             "...does not explain the underlying cause"  -> escalate
+step 2  compute:decompose_change       revenue = orders x AOV = units x price x (1 - discount)
+          number of orders      699 -> 238      -66%   largest contributor
+          units sold           2,741 -> 778     -72%   largest contributor
+          average unit price   1,003 -> 1,009   +0.5%  about the same
+          1 - average discount  0.95 -> 0.95    -0.2%  about the same
+step 3  compute:contribution_by_dimension  revenue by channel: every channel fell ~71%
+final   stack                          the two analyses, one table
 
-status=done  attempts=3  verified=True
-llm_calls=7  sql_executions=3  repairs=2
+answer: "Hardware revenue dropped from 2,615,311.92 to 744,611.11, largely driven by
+the number of orders ... units sold dropped from 2,741 to 778 ... average unit price
+and 1 - average discount remained about the same ... so they do not explain the
+difference."
 
-region_name   | churned_customers
-APAC          | 44
-EMEA          | 11
-North America |  9
-LATAM         |  3
+path=escalated  llm_calls=5  latency 13.0 s (as if live)
 ```
 
-The two failures are caught by *different* mechanisms. The missing column costs nothing to detect, because the database says so. The wrong metric ran cleanly and returned plausible rows; only an independent semantic check catches that.
+The decomposition and its SQL are built in code from the data dictionary's metric definitions, never written by the model. The model only chose the metric and the two quarters.
 
 ---
 
@@ -108,57 +94,63 @@ python scripts/build_database.py
 streamlit run app.py
 ```
 
-Enter an API key for Anthropic, OpenAI, or Google Gemini directly in the sidebar. No `.env` file is required. The key is used only for that session and is never written to disk, logged, or included in traces.
+Enter an API key for Anthropic, OpenAI, or Google Gemini in the sidebar. No `.env` file is required. The key is used only for that session and is never written to disk, logged, or included in traces.
 
-No API key? The entire test suite runs offline with no network and no model:
+No API key? The test suite runs offline with no network and no model:
 
 ```bash
 pip install -r requirements-dev.txt
 pytest
-python scripts/run_eval.py --provider fake
 ```
-
-Every dependency is pinned exactly and verified installing together into a clean virtualenv on Python 3.12.
 
 ---
 
 ## Architecture
 
-Eleven nodes: **five LLM calls, six deterministic functions.**
+Four control flows share one context and differ only in what they do after the first query. `AGENTCREW_ARCH` selects one. The app uses **D** by default.
 
-<p align="center">
-  <img src="docs/images/architecture.png" alt="AgentCrew architecture: 5 LLM steps, 6 deterministic steps" width="800">
-</p>
-
-| Node | Kind | Why it exists |
+| | Architecture | What it does |
 | --- | --- | --- |
-| `plan` | LLM | Decomposition and genuine ambiguity detection need language understanding |
-| `select_schema` | deterministic | Introspection is a `sqlalchemy.inspect()` call; ranking is token overlap plus one-hop foreign-key closure. Zero tokens, microseconds |
-| `author_sql` | LLM | Writing SQL from intent is the core language task |
-| `execute_sql` | deterministic | Guard, run, capture. Errors are returned as data so the agent can read them |
-| `triage` | deterministic | Classifies failures for free, and is the only place that can write routing decisions |
-| `verify` | LLM | Semantic check. Runs only on queries that executed and returned rows |
-| `repair` | LLM | Rewrites using the real database error, not introspection |
-| `advance` | deterministic | Commits a verified step, resets per-step state |
-| `synthesize` | LLM | Writes prose over verified results only |
-| `clarify` | deterministic | Terminal. Asks rather than guessing |
-| `fail` | deterministic | Terminal. Explains the stop reason and never invents an answer |
+| A | `baseline` | One SQL query from the shared context, one retry only if it errors, then one answer call. |
+| B | `v1` | The original LangGraph agent: plan, author, execute, triage, verify, repair on every question. Kept as a reference. |
+| C | `router` | A's exact first query, then escalation on deterministic signals or one small follow-up decision; repair and follow-up queries. |
+| D | `full` | C, plus exploration with lookups and deterministic tools, and verification checks, once it escalates. **Default.** |
 
-### Why the graph owns control flow
+**Shared context.** Every SQL-writing call gets the same context:
+- the schema, the data's date range and today's date;
+- the real values of every low-cardinality text column;
+- a YAML data dictionary (definitions, metric formulas, join paths; no facts about the data);
+- the two or three most similar verified example questions with their SQL;
+- the user's question verbatim.
 
-The common agent pattern hands a model a bag of tools and lets it loop until it declares itself done. AgentCrew deliberately does not. **The graph decides what happens next; the model only decides content.** Every LLM call returns a validated Pydantic object, and nothing downstream parses free text.
+**D, step by step:**
 
-A model-driven loop can wander, repeat itself, or fail to terminate. A graph-driven loop has a bounded, enumerable state space, which is why the repair loop, the budget logic, and the loop detector are all covered by offline tests with no API key.
+1. **One query first.** A's query, byte for byte. When it is enough, D answers directly with A's own answer call, so a direct D answer is A's answer.
+2. **Escalate only on a signal.** These signals are deterministic and cost no model calls:
+   - an SQL error or a guard rejection;
+   - an unknown or ambiguous column (sqlglot schema check);
+   - a join that fans out an aggregate;
+   - an empty result, an all-NULL result, or a result that hit the row cap;
+   - a question that asks for a forecast or a fitted trend.
 
-Routing functions in LangGraph cannot mutate state, so every decision is computed inside a node and written to `state["next_action"]`; the routers are one-line pure projections. The compiled topology is asserted in `tests/test_graph_topology.py`, so the diagram above cannot silently drift from the code.
+   Otherwise one small structured call decides whether the result answers the question.
+3. **Repair with discipline.** A repair sees the exact problem. The original result is kept, and a fix is accepted only if it clears that signal. An SQL error is first retried exactly as A retries it, so D recovers wherever A does.
+4. **Explore with tools.** One validated JSON action per step (no free-form tool calling):
+   - lookups: `get_distinct_values`, `search_values` (fuzzy match to real values), `sample_rows`;
+   - `run_sql`;
+   - compute functions: percent change, year-over-year growth, period comparison, share of total, z-score anomalies, linear trend forecast, correlation;
+   - metric analyses: `decompose_change` and `contribution_by_dimension`.
+5. **Two openings are fixed by rule.** A *why* question starts with a metric decomposition, so every component is compared: a component that stayed flat is stated as such. A *forecast or trend* question starts with the series query and a deterministic fit. The fit uses x = evenly spaced period numbers, and the output states that convention.
+6. **Verify.** On the escalated path every query is checked for:
+   - count x average = total, within 1%;
+   - percentages within 0-100;
+   - date-format mismatches (a `'YYYY-MM'` column compared with day dates);
+   - query dates that miss the periods the question names.
+7. **One final table.** The prose is written from that table only, so every number in the answer can be traced to a row the evaluation also grades.
 
-### Schema selection without an LLM
+**Never worse than A when escalation fails.** If every escalated step fails, is rejected or returns nothing usable, D's final table and answer are A's own. An invalid model reply in a repair, decision or follow-up call ends that part of the work, not the run.
 
-Dumping a full schema into the prompt is the usual approach, and it degrades as schemas grow. AgentCrew ranks tables by token overlap against table and column names, then expands one foreign-key hop.
-
-That expansion is what makes it work rather than merely cheap: *"total revenue by region"* names neither `orders` nor `order_items`, but the query is impossible without them.
-
-The rendered schema card also samples distinct values for low-cardinality columns, both text and numeric. A column whose only values are `0.0, 0.05, 0.1, 0.15` is unmistakably a rate, which stops a model writing `unit_price - discount` when it means `unit_price * (1 - discount)`. Identifiers are excluded, because their values carry no meaning worth spending context on.
+The original agent's graph design (B) is documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
@@ -174,40 +166,24 @@ Read-only is enforced in **three independent layers**, and the strongest one is 
 
 Blocked: `DROP`, `DELETE`, `UPDATE`, `INSERT`, `ALTER`, `CREATE`, `TRUNCATE`, `MERGE`, `PRAGMA`, `ATTACH`, `DETACH`, `VACUUM`, statement batching, and writes hidden inside CTEs.
 
-Delete every other check and the agent still cannot write, because the handle physically cannot. The AST layer exists to give the *agent* a clean, explainable error it can repair from.
+The SQL that D's metric tools generate goes through the same guard as model SQL. Metric and dimension names are checked against an allowlist before any SQL exists, and values are quoted as literals, never spliced. Tests cover hostile names and every statement the metric layer can build.
 
-Why AST parsing instead of a keyword blocklist: blocklists fail on comments, string literals containing `DROP`, casing, and whitespace. There is an explicit test asserting that `SELECT COUNT(*) FROM customers /* ; DROP TABLE customers; */` remains **allowed**, because a `DROP` inside a comment is not a statement, so nobody later "hardens" the guard into rejecting valid SQL that merely contains a scary substring.
-
-The guard is covered by 55 tests, including a 15-payload adversarial audit that asserts zero row-count change. Every evaluation run also takes table checksums before and after and **asserts** they are unchanged.
-
-Ask it to `Delete all customers in the LATAM region.` and watch it refuse, explain, and stay useful.
+Delete every other check and the agent still cannot write, because the handle physically cannot. Ask it to `Delete all customers in the LATAM region.` and watch it refuse.
 
 ---
 
-## Loop control
+## Budgets and demo limits
 
-Three independent stopping mechanisms, unit-tested without a model, database, or graph.
-
-| Mechanism | Behaviour |
-| --- | --- |
-| Budgets | 3 attempts per step, 4 steps, 30 LLM calls, 24 SQL executions, 180-second wall clock |
-| Fingerprint loop detection | Queries are normalised through sqlglot and hashed, so attempts differing only in whitespace, casing, or aliasing collide |
-| Monotonic progress | A step advances only on a passing verification |
-
-A repeated query does not consume a fresh retry; a second repeat aborts the step. Measured: the agent stops after **2** executions instead of burning the full budget on `generate -> fail -> regenerate identical -> fail`.
-
-Any breach ends the run with a written explanation, never a fabricated answer. LangGraph's own `recursion_limit` is a backstop. If it ever fires, that is a bug in the budget logic.
+- **Per question:** at most 3 steps (the first query counts as one) and 3 attempts per step for A, C and D. B keeps its own budgets (steps, attempts, a 30-call ceiling, a 180-second wall clock) and loop detection.
+- **Demo mode:** on the server's key, each browser session gets 5 runs at those fixed budgets. The limits are enforced server-side, whatever the sidebar sends. A visitor's own key is never capped. A quota refusal shows a friendly message and does not use up a demo run.
 
 ---
 
 ## Observability
 
-Two sinks, and the split is deliberate.
-
-- **JSONL tracer.** Always on, local, zero dependencies. Every node entry and exit, tool call, SQL execution, retry, verdict, and token count is written to `data/traces/run_<id>.json`. This is what the UI trace panel reads.
-- **Langfuse.** Optional, environment-gated, strictly additive. If it is disabled or its network call throws, the run is unaffected.
-
-Core debuggability never depends on a SaaS being reachable.
+- **One log line per run** on stderr: provider, model, architecture, status, path (direct or escalated), the tools of each step (for example `run_sql>compute:decompose_change>stack`), seconds and LLM calls. Never the question text and never a key.
+- **Evaluation traces:** every evaluated question writes a trace with every query, result preview, LLM call (live or cached), repair and judge verdict, with keys redacted.
+- **B's traces:** the original agent also writes JSONL traces to `data/traces/`, with optional Langfuse forwarding.
 
 ---
 
@@ -235,95 +211,52 @@ erDiagram
 | `support_tickets` | 2,773 |
 | `marketing_spend` | 288 |
 
-The data is not uniform noise. Two signals are deliberately planted so diagnostic questions have discoverable answers: an APAC churn spike in Q3 2025, and a Hardware-driven revenue decline preceded by a marketing cut. Both margins are decisive rather than coin flips: APAC lost 44 customers in Q3 against 11 for the next region, and Hardware fell by 1.87M while every other category grew.
-
-Without planted signals, *"why did revenue fall?"* has no correct answer and the evaluation means nothing.
+The data is not uniform noise. Signals are planted so diagnostic questions have discoverable answers: an APAC churn spike in Q3 2025 and a Hardware-driven revenue decline.
 
 ---
 
 ## Evaluation
 
-### Methodology
+The full method is pre-registered in [eval/PROTOCOL.md](eval/PROTOCOL.md). The final results, with every per-question outcome, are in [eval/results/phase5_report.md](eval/results/phase5_report.md).
 
-Grading is **execution-based**. Each question carries a reference SQL query; the harness runs it against the same database and compares the agent's returned rows. There are no hardcoded expected values, which rot when data is regenerated, and no LLM judge, which is not reproducible.
+**Setup.**
+- **Holdouts:** two frozen sets: `holdout_agent` (21 questions, 3 each of multi-hop, term matching, why, statistics, recovery, ambiguous, conditional branch) and `holdout_easy` (12 single-query questions). A SHA-256 manifest froze them before any architecture saw them. They were run once.
+- **Gold:** hand-written SQL or pandas, executed and checked. Grading is strict result-set matching; why-questions use a rule-based driver check plus a per-fact judge.
+- **Configuration:** every architecture used the same model (Gemini 3.5 Flash-Lite), temperature 0, a fixed "today", the same shared context and the same 3-step / 3-attempt limits.
 
-| Check | Meaning |
-| --- | --- |
-| `scalar` | Result must contain the reference number, with optional relative tolerance |
-| `top_label` | The highest-ranked label must match. Order-sensitive |
-| `label_set` | The reference's label set must be present |
-| `nonempty` | Used for open-ended diagnostics where many shapes are valid |
-| `must_not_mutate` | Verified by table checksums taken before and after the whole run |
+**holdout_agent (21)**
 
-The set is 18 questions: 3 easy, 7 medium, 5 hard, 2 destructive-request safety probes, and 1 ambiguity probe. Seventeen are machine-scored; the ambiguity probe has no reference SQL and is reported under manual review rather than counted as a pass or a fail.
+| | A baseline | B v1 | C router | D full |
+| --- | --- | --- | --- | --- |
+| Passed | 13 | 9 | 15 | **16** |
+| Wilson 95% | 0.41-0.79 | 0.24-0.63 | 0.50-0.86 | 0.55-0.89 |
+| LLM calls per question | 2.1 | 5.9 | 3.9 | 3.7 |
+| Latency per question (as if live) | 3.8 s | 11.0 s | 6.1 s | 5.7 s |
 
-### The baseline is deliberately strong
+**holdout_easy (12):** all four architectures pass 12/12. That is a tie; D is not worse than A. Calls per question are A 2.0, B 4.0, C 3.0 and D 3.0; latency is A 3.9 s, B 5.1 s, C 4.9 s and D 4.9 s.
 
-`agentcrew/baseline.py` is a single-agent text-to-SQL implementation that receives the **same model, the same deterministically selected schema card, the same read-only guard, and one retry on failure**. It lacks only the thing under test: multi-step planning, deterministic triage, and semantic verification.
+**Paired comparisons** (exact McNemar test on discordant questions):
+- **D vs A, the pre-registered primary comparison:** D passes 3 questions A fails and fails none A passes, p = 0.25. **D beats A in this sample, but not significantly**; significance would need at least a 6-0 split.
+- **C vs A:** 2-0, p = 0.50.
+- **D vs B (secondary):** 8-1, p = 0.039. B is a reference arm and this was not the pre-registered decision. It also depends on how one answer's wording is graded: requiring the conditional branch to be named correctly on ha19 makes it 8-2, p = 0.11.
 
-Weakening the baseline would produce a flattering number and teach nothing.
+**Where the gains came from.** Two of D's three wins (a misspelled product name, a trend-residual query that returned nothing) come from the repair step D shares with C. One (a why-question) comes from D's own decomposition tools. D vs C is 1-0.
 
-### Quota-resilient execution
+**Disclosures:**
+- **Authorship:** the questions, the gold answers and the agent share an author.
+- **Holdout texts were read** during the screening of a development set. The holdout was blind to results, not to its own text.
+- **Rules added after development failures:** several were added after failures on the development sets, before the holdout run. They are the metric decomposition tools, why-question decomposition, plain-language component names, the forecast signal and trend plan, retries for provider errors, deterministic metric SQL, and fallback to A's result. Each is listed with the failure that prompted it in the report.
+- **Protocol amendments:** three pre-run amendments are recorded in the protocol.
+- **Judge and sample size:** the judge is the same model as the one under test, behind rule-based checks. With 21 questions, only large effects are measurable.
 
-The real evaluation was run against Gemini 3.5 Flash-Lite on a free tier, and the daily quota was exhausted six times. The harness is built for exactly that:
-
-- results are saved **incrementally after every completed question**;
-- quota exhaustion is detected as a typed `QuotaExhaustedError`, distinct from transient overload;
-- unevaluated questions are marked `not_evaluated_quota` with `success: null`, and are **never scored as failures**;
-- the agent and baseline arms are **paired per question**, so a half-finished pair is discarded rather than biasing the comparison;
-- `--resume` skips questions already fully evaluated and continues from the first unevaluated one.
-
-A partial run is reported with a prominent coverage banner and can never be mistaken for a complete one.
+**Earlier evaluation.** The original agent (B) was first evaluated with lenient checks. A strict re-grade of the same runs ([eval/results/legacy_v1_strict.md](eval/results/legacy_v1_strict.md)) found the single-query baseline ahead, 13/13 against 11/13. That result is why the design changed to "one query first".
 
 ```bash
-python scripts/run_eval.py --provider gemini --model gemini-3.5-flash-lite
-python scripts/run_eval.py --provider gemini --model gemini-3.5-flash-lite --resume
+python scripts/run_eval_v2.py --set holdout_agent --arch baseline router full --run NAME
+python scripts/report_v2.py --run NAME
 ```
 
-### Results
-
-Full run, 18 questions, Gemini 3.5 Flash-Lite, completed across six quota windows.
-
-| Metric | AgentCrew | Baseline |
-| --- | --- | --- |
-| Task success (as measured) | 15/17 (88%) | 16/17 (94%) |
-| Task success (q15 reference fixed) | 16/17 | 17/17 |
-| SQL execution success | 17/17 | 17/17 |
-| Destructive-request probes | 2/2 refused | 2/2 refused |
-| Tables mutated | none | none |
-| LLM calls | 78 | 19 |
-| Total tokens | 69,576 | 16,991 |
-| Median latency | 4.77s | 1.50s |
-
-Two failures were root-caused after the run:
-
-- **Q05.** AgentCrew computed `SUM(qty * unit_price - discount)` instead of `SUM(qty * unit_price * (1 - discount))`, reading a rate column as a flat currency amount. The fix extends low-cardinality value sampling to numeric columns, so the schema card now exposes `discount` as `0.0, 0.05, 0.1`.
-- **Q15.** **Both arms failed against a defective reference query.** The ground truth grouped by `customer_name`, but names are not unique in the dataset: 1,400 customers share only 726 distinct names, and the "top spender" was four different people summed together. Grouping by `customer_id` gives the answer both arms actually returned. The reference query was wrong; the agents were right.
-
-The corrected row fixes only q15's broken reference query, which grouped by non-unique customer names. The q05 fix (D14) is **not counted**: it was derived by inspecting a failure inside this set, so re-scoring the same 17 questions would validate a post-hoc fix on the data that motivated it. A fair re-measurement uses held-out questions written after the fixes; see `eval/heldout.yaml`.
-
-#### Held-out check (5 questions written after the fixes)
-
-| Metric | AgentCrew | Baseline |
-| --- | --- | --- |
-| Task success | 5/5 (100%) | 5/5 (100%) |
-| LLM calls | 20 | 5 |
-| Total tokens | 16,918 | 4,873 |
-| Median latency | 4.25s | 1.37s |
-
-Five questions is a small sample, so a one-question difference between the arms would be noise.
-
-### What the evaluation actually demonstrated
-
-The orchestration **did not improve accuracy**, and that finding is reported rather than buried.
-
-The measured reasons are visible in the numbers. `repairs = 1` across 17 questions: the self-correction loop, the centrepiece of the architecture, fired once. `sql_execution_success` was 17/17, so there was almost nothing to correct. Verification caught zero wrong-metric errors.
-
-There is also a limitation in the evaluation itself worth stating plainly: nearly every question, including the ones labelled hard, is answerable with a single SQL query. Only one question is genuinely multi-step, and it is graded `nonempty`. **The question set cannot exercise the architecture's main hypothesised advantage.**
-
-The honest conclusion is that on a largely single-query workload, a four-stage pipeline costs roughly 4x the tokens and 3x the latency for no accuracy gain. What it buys instead is bounded failure behaviour, full traceability, and the ability to recover from execution errors: insurance against failures that this particular model on this particular schema did not produce.
-
-One question separates the arms on a sample of seventeen, which is well inside run-to-run variance for a stochastic model. The correct claim is *"no measurable accuracy benefit on this set"*, not *"the baseline is better."*
+Every live call is cached on disk; per-minute rate limits are waited out; a daily-limit stop or a persistent provider error marks the question *not evaluated*, and rerunning the same command resumes.
 
 ---
 
@@ -331,9 +264,9 @@ One question separates the arms on a sample of seventeen, which is well inside r
 
 Anthropic, OpenAI, and Google Gemini are all first-class. A single `PROVIDERS` registry is the only place that knows a provider's models, credential field, key format, and install command, so a fourth provider is one dictionary entry plus a client class.
 
-Model selection is scoped per provider in the UI, which makes a provider/model mismatch **structurally impossible** rather than merely validated. Selecting OpenAI cannot leave a Claude model in place. A `Custom...` option accepts any model ID, so the app does not go stale when new models ship.
+Model selection is scoped per provider in the UI, which makes a provider/model mismatch **structurally impossible** rather than merely validated. A `Custom...` option accepts any model ID.
 
-Key-format validation is provider-appropriate rather than uniform: Anthropic and OpenAI keys are checked against stable prefixes, while Gemini makes **no format assumption**, because Google is mid-migration from `AIza...` to `AQ....` and both are currently valid.
+Key-format validation is provider-appropriate: Anthropic and OpenAI keys are checked against stable prefixes, while Gemini makes **no format assumption**, because Google is mid-migration from `AIza...` to `AQ....` and both are currently valid.
 
 ---
 
@@ -352,7 +285,7 @@ python mcp_server.py
 | `get_sample_rows` | Real rows, so value formats are not guessed |
 | `execute_readonly_sql` | Guarded, row-capped, timed execution |
 
-This is an **adapter, not a second implementation**. It delegates to the exact functions the agent uses, so the two cannot drift. The in-process agent does not route through MCP, because that would add a JSON-RPC hop for zero capability.
+This is an **adapter, not a second implementation**. It delegates to the exact functions the agent uses, so the two cannot drift.
 
 ---
 
@@ -362,54 +295,46 @@ This is an **adapter, not a second implementation**. It delegates to the exact f
 pytest
 ```
 
-**216 tests, all offline.** No API key, no network, no quota. The provider is simulated by a rule-based scripted analyst, so the entire graph (planning, authoring, execution, triage, repair, verification, synthesis, budgets, and loop detection) is exercised against the real database with only the model faked.
+**683 tests, all offline.** No API key, no network, no quota. Models are simulated by scripted clients, and everything else runs against the real database.
 
-| Suite | Tests | Covers |
-| --- | --- | --- |
-| `test_components.py` | 46 | Schema selection, budgets, loop guard, tools |
-| `test_providers.py` | 40 | Provider registry, model compatibility, credential isolation |
-| `test_safety.py` | 35 | AST guard allow and deny cases |
-| `test_safety_audit.py` | 20 | 15-payload adversarial audit |
-| `test_eval_partial.py` | 21 | Quota handling, partial evaluation, resume |
-| `test_ui_and_eval.py` | 17 | UI helpers, evaluation grader |
-| `test_graph.py` | 15 | End-to-end graph behaviour and every failure path |
-| `test_packaging.py` | 15 | Entry points, dependency pins, no stale imports |
-| `test_graph_topology.py` | 7 | Compiled graph matches the documented diagram |
+Highlights:
+- **Every D tool** is run through D's own dispatcher, using model-style replies (code fences, nulls, extra fields, wrong case) and 15 bad-argument cases. Each bad argument must come back as a failed step, never an exception (`test_dispatch.py`).
+- **Never worse than A:** in nine failure scenarios C's and D's final rows and answer must equal A's exactly (`test_fallback.py`).
+- **Same escalation as C:** D escalates on exactly the questions C does, in scripted runs and on the development sets replayed from the evaluation cache (`test_escalation_parity.py`).
+- **Read-only guard:** allow and deny cases plus a 15-payload adversarial audit (`test_safety.py`, `test_safety_audit.py`); metric-layer SQL safety (`test_compute_metrics.py`).
+- **Evaluation tooling:** the strict grader, the protocol rules, caching, retries, resumes and ERROR records (`test_strict_grader.py`, `test_evalrun.py`, `test_eval_sets.py`).
+- **The app:** demo-mode limits, key safety and the D interface (`test_demo_mode.py`, `test_chat_ui.py`).
 
-Tests are hermetic with respect to configuration: an autouse fixture strips `AGENTCREW_*` environment variables and disables `.env` loading, so assertions measure the code rather than the developer's machine.
+Tests are hermetic with respect to configuration: an autouse fixture strips `AGENTCREW_*` environment variables and disables `.env` loading. CI runs ruff and the full suite on pushes to `main` and on pull requests.
 
 ---
 
 ## Project layout
 
 ```text
-app.py                   Streamlit interface
+app.py                   Streamlit interface (D by default)
 mcp_server.py            MCP adapter over the same tools
 agentcrew/
   config.py              Settings (pydantic-settings, AGENTCREW_ prefix)
-  schemas.py             Pydantic contracts for every LLM output
   llm.py                 Provider registry, clients, quota classification
-  tools.py               The four database tools, single source of truth
-  prompts.py             Prompt templates
-  tracer.py              JSONL tracer plus optional Langfuse
-  baseline.py            Single-agent baseline for comparison
-  db/
-    engine.py            Read-only engine; errors returned as data
-    introspect.py        Deterministic catalog
-    selector.py          Table ranking, FK closure, schema card
-    safety.py            AST guard, LIMIT injection, query fingerprinting
-  graph/
-    state.py             TypedDict state and dependency injection
-    control.py           Budgets, loop guard, stop reasons
-    nodes.py             Eleven nodes and pure routers
-    build.py             LangGraph wiring
-scripts/                 build_database.py, run_eval.py
-eval/questions.yaml      18 questions with reference-SQL ground truth
-tests/                   216 tests
-docs/                    Architecture, decisions, evaluation, interview notes
+  tools.py               The database tools, single source of truth
+  archs/                 A baseline, C router, D full, B adapter; signals,
+                         repair, verification, exploration, final-table
+                         assembly, the app runner
+  compute/               Deterministic statistics and the metric layer
+                         (decompose_change, contribution_by_dimension)
+  context/               Shared context: data dictionary, value lists,
+                         example pool
+  db/                    Read-only engine, introspection, AST guard
+  graph/                 The original LangGraph agent (B)
+evalkit/                 Strict grader, judge, statistics (frozen)
+evalrun/                 Evaluation runner: cache, retries, resumes, sets
+scripts/                 build_database.py, run_eval_v2.py, report_v2.py,
+                         build_gold.py, build_dev_gold.py
+eval/                    Protocol, question sets, gold, results and reports
+tests/                   683 offline tests
+docs/                    The original agent's architecture, decisions, notes
 ```
-
-Only `db/` and `graph/` are subpackages, because only those contain multiple cohesive modules.
 
 ---
 
@@ -419,31 +344,29 @@ All settings use the `AGENTCREW_` prefix. Copy `.env.example` to `.env` if you p
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
+| `ARCH` | `full` | `baseline` (A), `v1` (B), `router` (C) or `full` (D) |
 | `PROVIDER` | `anthropic` | `anthropic`, `openai`, or `gemini` |
 | `MODEL` | empty | Empty means the provider's default |
-| `MAX_ATTEMPTS_PER_STEP` | 3 | Retries before giving up on a step |
-| `MAX_STEPS` | 4 | Maximum analysis steps per question |
-| `MAX_LLM_CALLS` | 30 | Global model-call ceiling |
-| `MAX_SQL_EXECUTIONS` | 24 | Global query ceiling |
-| `WALL_CLOCK_SECONDS` | 180 | Hard time limit |
-| `MAX_TABLES_IN_CONTEXT` | 8 | Schema card cap |
+| `MAX_ATTEMPTS_PER_STEP` | 3 | Attempts per step (demo mode: fixed at 3) |
+| `MAX_STEPS` | 4 | Steps per question; for A, C and D the first query counts (demo mode: fixed at 3) |
 | `MAX_RESULT_ROWS` | 500 | Row cap on every query |
 | `ALLOW_WRITE_MODE` | `false` | Leave off; the handle is read-only regardless |
 
-Never commit a real API key. `.env` is gitignored.
+B also reads `MAX_LLM_CALLS`, `MAX_SQL_EXECUTIONS`, `WALL_CLOCK_SECONDS` and `MAX_TABLES_IN_CONTEXT`. Never commit a real API key. `.env` is gitignored.
 
 ---
 
 ## Known limitations
 
-Stated plainly, because these are the interesting questions.
+Stated plainly, from the holdout error analysis in the [Phase 5 report](eval/results/phase5_report.md).
 
-- **SQLite only.** Porting to PostgreSQL needs a different read-only mechanism, a role rather than a URI flag, plus sqlglot dialect changes.
-- **Lexical schema selection has a ceiling.** Token overlap plus foreign-key closure works at this scale. A 500-table warehouse with names like `DIM_CUST_X1` would need embeddings or a learned ranker.
-- **The verifier is a judge, so it can be wrong.** It reliably catches wrong-metric errors. It will not catch a subtly incorrect join that produces plausible numbers, which is exactly how Q05 slipped through.
-- **No cross-question memory.** Every question starts fresh. Deliberate; nothing in the use case justified more.
-- **Plans are shallow.** Up to four sequential steps, no branching. Genuinely exploratory analysis would need a different design.
-- **Cost.** Roughly 4x the baseline's tokens. Whether that is worth it is a per-workload question, which is what the evaluation harness measures.
+- **Small samples.** 21 + 12 holdout questions measure only large effects. D's 3-0 win over A is not significant.
+- **Most of D's edge is the shared repair step.** D's own tools decided one holdout question.
+- **Comparing a change across groups.** "Why did APAC fall more than the other regions?" needs each component's change in every group, which the decomposition does not yet compare.
+- **Attributing a spike against a baseline.** Answers led with a cross-tab cell instead of the one dimension that concentrates the change, and none compared the spike with earlier quarters.
+- **Ambiguous questions.** The right reading was chosen, but the assumption was not stated, which the grading requires.
+- **Conditional questions.** A single query can return a leftover NULL row from the branch that does not apply. Its answer can also name the wrong branch while the table is right, and the answer-text check does not catch that.
+- **SQLite only.** PostgreSQL would need a read-only role instead of a URI flag, plus dialect changes.
 
 ---
 
@@ -451,14 +374,13 @@ Stated plainly, because these are the interesting questions.
 
 | Document | Contents |
 | --- | --- |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Graph diagram, per-node justification, state, safety layers, loop control |
-| [DECISIONS.md](docs/DECISIONS.md) | Decision log: what changed from the original design and why, including real bugs found |
-| [EVALUATION.md](docs/EVALUATION.md) | Grading method, baseline design, how to run it |
+| [eval/PROTOCOL.md](eval/PROTOCOL.md) | Pre-registered evaluation protocol and amendments |
+| [eval/results/phase5_report.md](eval/results/phase5_report.md) | Final holdout results, error analysis, disclosures |
+| [eval/results/phase4_report.md](eval/results/phase4_report.md) | How D was built: each development failure and its fix |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | The original agent's graph (B) |
+| [DECISIONS.md](docs/DECISIONS.md) | Decision log for the original agent |
+| [EVALUATION.md](docs/EVALUATION.md) | The original agent's first evaluation |
 | [INTERVIEW_NOTES.md](docs/INTERVIEW_NOTES.md) | Answers to the questions this project invites |
-
-The decision log is the most useful entry point for reviewers. It records thirteen architectural decisions with the evidence behind each one, including a LangGraph routing bug caught by four failing tests, a pandas 3.0 dtype change that silently disabled chart rendering, and a test suite that passed only because a stale editable install was shadowing the repository.
-
-
 
 ## Author
 
@@ -467,6 +389,3 @@ The decision log is the most useful entry point for reviewers. It records thirte
 CSE (AI&ML) student
 
 [GitHub](https://github.com/mohdnayif799) · [LinkedIn](https://www.linkedin.com/in/muhammed-nayifuddin/) · [Email](mailto:mohdnayif799@gmail.com)
-
-
-

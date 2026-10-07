@@ -1,0 +1,125 @@
+{
+ "question_id": "ha19",
+ "type": "segment_comparison",
+ "arch": "full",
+ "question": "Compare the 2025 average completed order value of Enterprise and SMB customers. If Enterprise's is more than 20% higher than SMB's, break down Enterprise's 2025 completed revenue by product category; otherwise, break down SMB's 2025 completed revenue by product category.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.category, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = CASE WHEN (SELECT SUM(oi2.quantity * oi2.unit_price * (1 - oi2.discount)) / COUNT(DISTINCT o2.order_id) FROM orders AS o2 JOIN customers AS c2 ON o2.customer_id = c2.customer_id JOIN order_items AS oi2 ON o2.order_id = oi2.order_id WHERE o2.status = 'completed' AND o2.order_date >= '2025-01-01' AND o2.order_date <= '2025-12-31' AND c2.segment = 'Enterprise') > 1.2 * (SELECT SUM(oi2.quantity * oi2.unit_price * (1 - oi2.discount)) / COUNT(DISTINCT o2.order_id) FROM orders AS o2 JOIN customers AS c2 ON o2.customer_id = c2.customer_id JOIN order_items AS oi2 ON o2.order_id = oi2.order_id WHERE o2.status = 'completed' AND o2.order_date >= '2025-01-01' AND o2.order_date <= '2025-12-31' AND c2.segment = 'SMB') THEN 'Enterprise' ELSE 'SMB' END GROUP BY p.category ORDER BY completed_revenue DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "category | completed_revenue\nHardware | 3171929.6655\nServices | 979587.305\nSoftware | 869276.058\nAccessories | 134633.953"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.category, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = CASE WHEN (SELECT SUM(oi2.quantity * oi2.unit_price * (1 - oi2.discount)) / COUNT(DISTINCT o2.order_id) FROM orders AS o2 JOIN customers AS c2 ON o2.customer_id = c2.customer_id JOIN order_items AS oi2 ON o2.order_id = oi2.order_id WHERE o2.status = 'completed' AND o2.order_date >= '2025-01-01' AND o2.order_date <= '2025-12-31' AND c2.segment = 'Enterprise') > 1.2 * (SELECT SUM(oi2.quantity * oi2.unit_price * (1 - oi2.discount)) / COUNT(DISTINCT o2.order_id) FROM orders AS o2 JOIN customers AS c2 ON o2.customer_id = c2.customer_id JOIN order_items AS oi2 ON o2.order_id = oi2.order_id WHERE o2.status = 'completed' AND o2.order_date >= '2025-01-01' AND o2.order_date <= '2025-12-31' AND c2.segment = 'SMB') THEN 'Enterprise' ELSE 'SMB' END GROUP BY p.category ORDER BY completed_revenue DESC LIMIT 500",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT p.category, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = CASE WHEN (SELECT SUM(oi2.quantity * oi2.unit_price * (1 - oi2.discount)) / COUNT(DISTINCT o2.order_id) FROM orders AS o2 JOIN customers AS c2 ON o2.customer_id = c2.customer_id JOIN order_items AS oi2 ON o2.order_id = oi2.order_id WHERE o2.status = 'completed' AND o2.order_date >= '2025-01-01' AND o2.order_date <= '2025-12-31' AND c2.segment = 'Enterprise') > 1.2 * (SELECT SUM(oi2.quantity * oi2.unit_price * (1 - oi2.discount)) / COUNT(DISTINCT o2.order_id) FROM orders AS o2 JOIN customers AS c2 ON o2.customer_id = c2.customer_id JOIN order_items AS oi2 ON o2.order_id = oi2.order_id WHERE o2.status = 'completed' AND o2.order_date >= '2025-01-01' AND o2.order_date <= '2025-12-31' AND c2.segment = 'SMB') THEN 'Enterprise' ELSE 'SMB' END GROUP BY p.category ORDER BY completed_revenue DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "category",
+   "completed_revenue"
+  ],
+  "rows": [
+   [
+    "Hardware",
+    3171929.6655
+   ],
+   [
+    "Services",
+    979587.305
+   ],
+   [
+    "Software",
+    869276.058
+   ],
+   [
+    "Accessories",
+    134633.953
+   ]
+  ],
+  "row_count": 4
+ },
+ "answer": "Assuming Enterprise's average completed order value was more than 20% higher than SMB's, Enterprise's 2025 completed revenue by product category consists of Hardware at 3171929.67, Services at 979587.31, Software at 869276.06, and Accessories at 134633.95.",
+ "key_numbers": [
+  "3171929.6655",
+  "979587.305",
+  "869276.058",
+  "134633.953"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "6200e0ff892f71966a6e4a864cfada23e8028e15f94e1d0b5674e30ebb2e204e",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2987,
+   "output_tokens": 786,
+   "original_latency_ms": 2902.1,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "b1514a19f597eb02c57ea29f7cb1dbc44d7d713550f86b4acf8fa5a525e3d468",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3675,
+   "output_tokens": 534,
+   "original_latency_ms": 4070.1,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "7d75e39e94309c439c431291860023dfef4c56d92e30270bcc848206b5e922ea",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 980,
+   "output_tokens": 173,
+   "original_latency_ms": 2310.5,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "36661e143243171d119f609d185f1426be8d6b44c385ed93091d853bf3b7a2b2",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 868,
+   "output_tokens": 41,
+   "original_latency_ms": 1656.0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.059,
+ "latency_live_s": 10.997,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "4 row(s) match"
+ }
+}

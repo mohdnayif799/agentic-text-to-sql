@@ -1,0 +1,48 @@
+# Strict re-grade of the legacy (v1-era) runs under eval protocol v2.
+#
+# The legacy questions were graded with lenient checks (`scalar`: the number
+# appears anywhere; `top_label`: first text cell only). To re-grade the stored
+# SQL strictly, each question's gold is derived mechanically from its frozen
+# reference query:
+#
+#   scalar     -> the whole reference result (all rows, all columns)
+#   top_label  -> the first `top_n` reference rows, label column only
+#                 (top_n = the number the question asks for; 1 for "which X")
+#   label_set  -> every reference row, label column only
+#   nonempty   -> skipped, unless the question fully determines the result
+#
+# `columns` are indexes into the reference result. Default tolerance applies
+# (protocol v2), not the legacy per-question tolerances.
+
+original:
+  source: eval/results.json        # 2026-09-03, gemini-3.5-flash-lite, both arms
+  questions: eval/questions.yaml
+  specs:
+    q01: {}
+    q02: {}
+    q03: {columns: [0]}
+    q04: {top_n: 1, columns: [0]}
+    q05: {}
+    q06: {top_n: 1, columns: [0]}
+    q07: {top_n: 1, columns: [0]}
+    q08: {}
+    q09: {top_n: 1, columns: [0]}
+    q10: {skip: "nonempty; the question does not fix the shape (two rows or one row with two columns). Both arms returned the correct two values in one row."}
+    q11: {top_n: 1, columns: [0]}
+    q12: {skip: "why-question; v2 grades these with a rubric judge, and the run stored no answer text"}
+    q13: {}
+    q14: {}
+    q15: {top_n: 5, columns: [0]}
+    s01: {skip: "refusal probe; the run stored no answer text to adjudicate"}
+    s02: {skip: "refusal probe; the run stored no answer text to adjudicate"}
+    a01: {skip: "ambiguity probe with no ground truth"}
+
+heldout:
+  source: eval/results_heldout.json   # 2026-09-30, gemini-3.5-flash-lite, both arms
+  questions: eval/heldout.yaml
+  specs:
+    h01: {}
+    h02: {}
+    h03: {top_n: 1, columns: [0]}
+    h04: {top_n: 1, columns: [0]}
+    h05: {}

@@ -1,0 +1,311 @@
+{
+ "question_id": "ha08",
+ "type": "why",
+ "arch": "full",
+ "question": "Why did customer churn spike in Q3 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The query only shows the count of churned customers by segment and region, but does not explain the root cause of why the spike occurred."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT c.segment, r.region_name, COUNT(c.customer_id) AS churned_count FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id WHERE c.churn_date >= '2025-07-01' AND c.churn_date <= '2025-09-30' GROUP BY c.segment, r.region_name ORDER BY churned_count DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 11,
+   "preview": "segment | region_name | churned_count\nMid-Market | APAC | 24\nSMB | APAC | 14\nEnterprise | APAC | 6\nMid-Market | EMEA | 6\nSMB | North America | 5\n... 6 more row(s)"
+  },
+  {
+   "sql": "-- compute: decompose_change",
+   "ok": false,
+   "failure": "none",
+   "error": "decompose_change: churn_rate cannot be split by period; compare groups",
+   "row_count": 0,
+   "preview": "ERROR (none): decompose_change: churn_rate cannot be split by period; compare groups"
+  },
+  {
+   "sql": "SELECT c.segment, r.region_name, SUM(CASE WHEN c.churn_date BETWEEN '2025-04-01' AND '2025-06-30' THEN 1 ELSE 0 END) AS q2_churn, SUM(CASE WHEN c.churn_date BETWEEN '2025-07-01' AND '2025-09-30' THEN 1 ELSE 0 END) AS q3_churn FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id GROUP BY c.segment, r.region_name ORDER BY q3_churn DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 12,
+   "preview": "segment | region_name | q2_churn | q3_churn\nMid-Market | APAC | 2 | 24\nSMB | APAC | 1 | 14\nEnterprise | APAC | 2 | 6\nMid-Market | EMEA | 4 | 6\nSMB | North America | 2 | 5\n... 7 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT c.segment, r.region_name, COUNT(c.customer_id) AS churned_count FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id WHERE c.churn_date >= '2025-07-01' AND c.churn_date <= '2025-09-30' GROUP BY c.segment, r.region_name ORDER BY churned_count DESC LIMIT 500",
+   "reason": "",
+   "signal": null
+  },
+  {
+   "step": 2,
+   "tools": [
+    "compute:decompose_change"
+   ],
+   "sql": "-- compute: decompose_change",
+   "reason": "Compare the churn rate in Q3 2025 with Q2 2025 across regions and segments to explain the spike.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT c.segment, r.region_name, SUM(CASE WHEN c.churn_date BETWEEN '2025-04-01' AND '2025-06-30' THEN 1 ELSE 0 END) AS q2_churn, SUM(CASE WHEN c.churn_date BETWEEN '2025-07-01' AND '2025-09-30' THEN 1 ELSE 0 END) AS q3_churn FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id GROUP BY c.segment, r.region_name ORDER BY q3_churn DESC LIMIT 500",
+   "reason": "Compare churn counts and rates by region and segment between Q2 2025 and Q3 2025 to see where the spike originated.",
+   "signal": null
+  },
+  {
+   "step": "final",
+   "tools": [
+    "assemble"
+   ],
+   "plan": {
+    "base_step": 3,
+    "columns": []
+   }
+  }
+ ],
+ "repairs": [],
+ "selected_step": 3,
+ "selected_result": {
+  "sql": "-- assembled: rows from step 3\nSELECT c.segment, r.region_name, SUM(CASE WHEN c.churn_date BETWEEN '2025-04-01' AND '2025-06-30' THEN 1 ELSE 0 END) AS q2_churn, SUM(CASE WHEN c.churn_date BETWEEN '2025-07-01' AND '2025-09-30' THEN 1 ELSE 0 END) AS q3_churn FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id GROUP BY c.segment, r.region_name ORDER BY q3_churn DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "segment",
+   "region_name",
+   "q2_churn",
+   "q3_churn"
+  ],
+  "rows": [
+   [
+    "Mid-Market",
+    "APAC",
+    2,
+    24
+   ],
+   [
+    "SMB",
+    "APAC",
+    1,
+    14
+   ],
+   [
+    "Enterprise",
+    "APAC",
+    2,
+    6
+   ],
+   [
+    "Mid-Market",
+    "EMEA",
+    4,
+    6
+   ],
+   [
+    "SMB",
+    "North America",
+    2,
+    5
+   ],
+   [
+    "SMB",
+    "EMEA",
+    0,
+    4
+   ],
+   [
+    "Enterprise",
+    "North America",
+    1,
+    3
+   ],
+   [
+    "SMB",
+    "LATAM",
+    1,
+    2
+   ],
+   [
+    "Enterprise",
+    "EMEA",
+    1,
+    1
+   ],
+   [
+    "Enterprise",
+    "LATAM",
+    0,
+    1
+   ],
+   [
+    "Mid-Market",
+    "North America",
+    4,
+    1
+   ],
+   [
+    "Mid-Market",
+    "LATAM",
+    1,
+    0
+   ]
+  ],
+  "row_count": 12
+ },
+ "answer": "Assuming the question refers to the segments and regions with the highest churn in Q3 2025, the spike was driven primarily by the Mid-Market segment in APAC with 24 churns (up from 2 in Q2), followed by the SMB segment in APAC with 14 churns (up from 1 in Q2). Other segments and regions experienced much lower Q3 churn figures, ranging from 0 to 6.",
+ "key_numbers": [
+  "24",
+  "2",
+  "14",
+  "1",
+  "6",
+  "4",
+  "5",
+  "0",
+  "3",
+  "1"
+ ],
+ "caveats": [],
+ "judge": {
+  "verdict": "fail",
+  "reason": "required fact(s) not stated: [1, 2]",
+  "facts": [
+   {
+    "fact": "The Q3 2025 churn spike is concentrated in APAC: 44 of the 67 customers who churned in Q3 2025 were APAC customers.",
+    "verdict": "no",
+    "quote": "",
+    "quote_verified": false,
+    "counts_as_yes": false,
+    "reason": "The answer does not state the total number of churned customers in Q3 2025 (67) as specified in the required fact."
+   },
+   {
+    "fact": "This is unusual: APAC had about 1 to 5 churns in each earlier quarter shown, and no other region had a comparable jump in Q3 2025 (3 to 11 churns each).",
+    "verdict": "no",
+    "quote": "",
+    "quote_verified": false,
+    "counts_as_yes": false,
+    "reason": "The answer does not state the required fact about historical APAC churn or the comparison to other regions."
+   }
+  ],
+  "disqualifying": {
+   "verdict": "yes",
+   "quote": "Assuming the question refers to the segments and regions with the highest churn in Q3 2025, the spike was driven primarily by the Mid-Market segment in APAC with 24 churns (up from 2 in Q2), followed by the SMB segment in APAC with 14 churns (up from 1 in Q2).",
+   "quote_verified": true,
+   "counts_as_yes": true,
+   "reason": "The answer violates the disqualifying claim: 'Gives a segment, channel, product or another region as the main driver'."
+  }
+ },
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question that asks why. A first query has been run. ",
+   "prompt_hash": "81bbd3de85dd465d2eca82bde433b497ea56e611d897fc4c611d16dc00c6aab0",
+   "cache_hit": false,
+   "latency_ms": 1270.4,
+   "input_tokens": 4455,
+   "output_tokens": 202,
+   "original_latency_ms": null,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You plan the next step of an analysis of a read-only SQLite database. Choose exa",
+   "prompt_hash": "e31388356b93b6faa135b30a3a0583918f7bb8d22d78c0c1b83aa6a857b3581a",
+   "cache_hit": false,
+   "latency_ms": 1804.7,
+   "input_tokens": 4296,
+   "output_tokens": 218,
+   "original_latency_ms": null,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "Several queries were run to answer one question. Choose the final result table t",
+   "prompt_hash": "b671049d84df2be3d946d664be70bfaedbb800bd2a3ea41b9e27960260c1a11b",
+   "cache_hit": false,
+   "latency_ms": 770.0,
+   "input_tokens": 875,
+   "output_tokens": 17,
+   "original_latency_ms": null,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "dfc63aa6874006589cd6d5a49a2d8222d928ca9be5ebc83106015f024b67712e",
+   "cache_hit": false,
+   "latency_ms": 1218.1,
+   "input_tokens": 731,
+   "output_tokens": 169,
+   "original_latency_ms": null,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "594c458744008a66dbb83f417debb6e304d982828b5eb2521fd1a44630bf16f9",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2757,
+   "output_tokens": 232,
+   "original_latency_ms": 1539.1,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "d7d401dc6cf47abda29779c0f6eac3e6ab8ee479b85b5f45bc132691c73983b3",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 497,
+   "output_tokens": 52,
+   "original_latency_ms": 851.8,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "7156177591811673b9ae6d6bcbfb5e55f773660d5fb867450fd0ce4efc6ac930",
+   "cache_hit": false,
+   "latency_ms": 814.1,
+   "input_tokens": 920,
+   "output_tokens": 55,
+   "original_latency_ms": null
+  },
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "d512c87145a75b745eee1b20d1177a2c7fe653d0e439e5c34f6387330a149823",
+   "cache_hit": false,
+   "latency_ms": 916.2,
+   "input_tokens": 927,
+   "output_tokens": 48,
+   "original_latency_ms": null
+  },
+  {
+   "role": "You are a strict checker grading an analytics assistant's answer. You receive a ",
+   "prompt_hash": "e94ef87b95dc6a6d9910bc4dd285368588f4848ee61405fc76cbb47e5e5bfc54",
+   "cache_hit": false,
+   "latency_ms": 1031.4,
+   "input_tokens": 880,
+   "output_tokens": 127,
+   "original_latency_ms": null
+  }
+ ],
+ "latency_s": 5.127,
+ "latency_live_s": 7.518,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": true,
+  "end_to_end": false,
+  "detail": "driver named; judge fail"
+ }
+}
