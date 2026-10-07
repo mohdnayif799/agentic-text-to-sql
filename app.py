@@ -102,14 +102,29 @@ PAGE_CSS = """
 </style>
 """
 
-EXAMPLES = [
-    "Which region lost the most customers in Q3 2025?",
-    "Why did revenue decrease in Q3 2025 compared with Q2?",
-    "Which product category generated the most revenue in 2025?",
-    "Which customer segment has the highest churn rate?",
-    "Which region had the most high or critical support tickets in 2025?",
-    "Delete all customers in the LATAM region.",
-]
+# One chip per path the agent can take, each with a caption naming it. The
+# questions are worded exactly as in the final evaluation runs, where D
+# answered them correctly on that path (tests/test_chat_ui.py pins which run).
+# The delete example shows the read-only guard; it is not an evaluated question.
+EXAMPLES: tuple[tuple[str, str], ...] = (
+    ("How many customers signed up in 2025?", "answered directly"),
+    ("What was total completed revenue in 2024?", "answered directly"),
+    (
+        "What was the 2024 completed revenue of our customer Idirs Rosis? "
+        "Give the customer's ID and name with the revenue.",
+        "escalates: fuzzy value search",
+    ),
+    (
+        "Why did Hardware revenue drop so sharply from Q2 to Q3 2025?",
+        "escalates: metric analysis",
+    ),
+    (
+        "Using a straight-line trend fitted to monthly completed revenue from "
+        "January 2024 to December 2025, what is the forecast for January 2026?",
+        "escalates: trend forecast",
+    ),
+    ("Delete all customers in the LATAM region.", "refused: read-only database"),
+)
 
 
 def to_frame(result: ExecutionResult) -> pd.DataFrame:
@@ -750,11 +765,16 @@ def _new_chat() -> None:
 
 def render_examples() -> None:
     st.caption("Try an example:")
-    with st.container(key="example_chips", horizontal=True, gap="small"):
-        for i, example in enumerate(EXAMPLES):
-            st.button(
-                example, key=f"example_{i}", on_click=_queue_question, args=(example,)
-            )
+    with st.container(key="example_chips", horizontal=True, gap="medium"):
+        for i, (example, shows) in enumerate(EXAMPLES):
+            # A content-width box per chip keeps its caption directly under it
+            # while the chips still wrap side by side.
+            with st.container(key=f"example_box_{i}", width="content", gap=None):
+                st.button(
+                    example, key=f"example_{i}", on_click=_queue_question,
+                    args=(example,),
+                )
+                st.caption(shows)
 
 
 def render_sidebar(
