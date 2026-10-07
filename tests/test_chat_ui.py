@@ -9,6 +9,7 @@ which `test_full_reply_is_still_rendered` pins down.
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 import sys
 import tomllib
@@ -20,6 +21,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 from ui_harness import (
     FakeAgent,
+    all_nodes,
     ask,
     everything_rendered,
     sidebar_captions,
@@ -29,9 +31,27 @@ from ui_harness import (
 )
 
 from agentcrew.schemas import ExecutionResult, StepResult
+from evalrun.sets import load_questions
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE_COUNT = 6
+DELETE_EXAMPLE = "Delete all customers in the LATAM region."
+
+# Where each example chip comes from, in chip order: its question set and id,
+# the final run where D answered it correctly, and the path and a tool D took
+# there. eval/runs/ is local (gitignored); results.json files under
+# eval/results/ are committed.
+EVALUATED = (
+    ("holdout_easy", "he10", "eval/results/phase5/phase5-holdout-easy",
+     "direct", "run_sql"),
+    ("holdout_easy", "he02", "eval/results/phase5/phase5-holdout-easy",
+     "direct", "run_sql"),
+    ("dev2", "dv01", "eval/runs/phase4d-dev2", "escalated", "search_values"),
+    ("holdout_agent", "ha09", "eval/results/phase5/phase5-holdout-agent",
+     "escalated", "compute:decompose_change"),
+    ("holdout_agent", "ha12", "eval/results/phase5/phase5-holdout-agent",
+     "escalated", "compute:linear_trend_forecast"),
+)
 
 # Emoji and pictograph blocks, plus the variation selector that turns a plain
 # character into an emoji.
@@ -40,6 +60,17 @@ EMOJI = re.compile("[☀-➿⬀-⯿\U0001f000-\U0001faff️]")
 
 def example_buttons(at: AppTest) -> list:
     return [b for b in at.button if (b.key or "").startswith("example_")]
+
+
+def chip_boxes(at: AppTest) -> list[list[str]]:
+    """Each example chip's box, top to bottom: the chip's label, then the
+    text of everything under it in the same box."""
+    boxes = []
+    for node in all_nodes(at._tree):
+        kids = list(getattr(node, "children", {}).values())
+        if kids and (getattr(kids[0], "key", None) or "").startswith("example_"):
+            boxes.append([kids[0].label, *(k.value for k in kids[1:])])
+    return boxes
 
 
 def user_bubbles(at: AppTest) -> list[str]:
@@ -140,6 +171,47 @@ class TestExampleChips:
     ) -> None:
         at = ask(start_app(), "q")
         assert example_buttons(at) == []
+
+    def test_each_chip_has_its_caption_under_it(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        examples = load_app(monkeypatch).EXAMPLES
+        assert chip_boxes(start_app()) == [list(pair) for pair in examples]
+        assert [shows for _, shows in examples] == [
+            "answered directly",
+            "answered directly",
+            "escalates: fuzzy value search",
+            "escalates: metric analysis",
+            "escalates: trend forecast",
+            "refused: read-only database",
+        ]
+
+    def test_examples_are_evaluated_questions_word_for_word(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Every chip but the delete example is the exact text of a question
+        in a frozen evaluation set; the delete example stays last."""
+        questions = [q for q, _ in load_app(monkeypatch).EXAMPLES]
+        expected = []
+        for set_name, qid, *_ in EVALUATED:
+            texts = {q["id"]: q["question"] for q in load_questions(set_name)}
+            expected.append(texts[qid])
+        assert questions == [*expected, DELETE_EXAMPLE]
+
+    @pytest.mark.parametrize(("set_name", "qid", "run", "path", "tool"), EVALUATED)
+    def test_d_answered_each_example_correctly_on_its_path(
+        self, set_name: str, qid: str, run: str, path: str, tool: str
+    ) -> None:
+        results = ROOT / run / "results.json"
+        if not results.exists():
+            pytest.skip(f"{run} is a local run (eval/runs/ is gitignored)")
+        payload = json.loads(results.read_text(encoding="utf-8"))
+        assert payload["set"] == set_name and payload["complete"]
+        (item,) = [i for i in payload["items"]
+                   if i["id"] == qid and i["arch"] == "full"]
+        assert item["end_to_end"] is True
+        assert item["path"] == path
+        assert tool in [t for step in item["tools"] for t in step]
 
 
 # ---------------------------------------------------------------------------
