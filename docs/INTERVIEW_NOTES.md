@@ -47,6 +47,8 @@ unit-test. LangGraph gives me a state machine where control flow is code.
 CrewAI's role-and-task abstraction is faster to prototype but it hides the
 control flow inside the framework, which is exactly the part I wanted to own
 and test. LangGraph also has the larger production footprint in 2026.
+This applies to the original v1 agent; the new default, architecture D, is
+plain Python control flow with no LangGraph.
 
 ### How does state work?
 
@@ -134,7 +136,7 @@ literals containing `DROP`, casing, and whitespace. Parsing doesn't.
 
 Because in-process it adds nothing — a JSON-RPC hop and a serialisation
 boundary to reach code in the same interpreter, for zero capability. So the
-graph calls the tool functions directly.
+agents call the tool functions directly.
 
 What MCP does buy is reuse *outside* the process: the same four tools, with
 the same read-only guard, mountable in Claude Desktop or Cursor. That's real,
@@ -195,6 +197,7 @@ In order of value:
    useful negative result.
 3. Route easy questions to the baseline path and hard ones to the full graph,
    using the eval to set the threshold. That directly attacks the 4× cost.
+   (Done since: this is now architecture D.)
 
 ### Why is this genuinely agentic and not "ChatGPT for SQL"?
 
