@@ -1,8 +1,10 @@
 # Architecture
 
-## The system in one sentence
+> OLD architecture. This page describes the original v1 LangGraph agent (architecture B), kept as reference. The NEW default is architecture D (router first, escalate only on a signal), shown in the main README.
 
-A LangGraph state machine that turns a natural-language question into one or
+## The old v1 agent in one sentence
+
+The old v1 agent is a LangGraph state machine that turns a natural-language question into one or
 more SQL queries, runs them against a physically read-only database, reads the
 real execution feedback, repairs what fails, verifies that the result actually
 answers the question, and refuses to answer when it cannot.
@@ -92,7 +94,7 @@ never a plausible agent.
 
 ## Why multiple agents at all
 
-The honest answer is that this is not five peers collaborating; it is one
+The honest answer is that the old v1 agent is not five peers collaborating; it is one
 orchestrated pipeline with specialised stages, and the specialisation earns
 its place in exactly three ways:
 
@@ -125,7 +127,7 @@ One `TypedDict` (`agentcrew/graph/state.py`) flows through every node. Two rules
 
 LangGraph routing functions **cannot mutate state** — a mutation inside a
 router is silently discarded. This was caught by four failing tests during
-development. The fix shapes the current design: every routing decision is
+development. The fix shapes the old v1 agent's design: every routing decision is
 computed in a node, written to `state["next_action"]`, and the routers are
 pure projections:
 
@@ -167,7 +169,7 @@ tested without a model, database or graph:
    collide. A repeat does not consume a fresh retry; a second repeat aborts
    the step. This catches the
    `generate → fail → regenerate identical → fail` spiral that a plain retry
-   counter would happily run to exhaustion. Measured: the agent stops after
+   counter would happily run to exhaustion. Measured: the old v1 agent stops after
    **2** executions instead of burning the full budget.
 3. **Monotonic progress** — a step only advances on a passing verification, so
    a query that runs cleanly but answers the wrong question cannot silently
@@ -194,7 +196,7 @@ Core debuggability must never depend on a SaaS being reachable.
 Evaluated honestly and included in a limited role. MCP adds nothing to the
 in-process agent: routing a call through JSON-RPC to reach code in the same
 interpreter buys latency and a serialisation boundary for zero capability. So
-the graph calls `agentcrew/tools.py` directly.
+the old v1 agent calls `agentcrew/tools.py` directly.
 
 What MCP does buy is reuse *outside* this process — the same four tools, with
 the same read-only guard and row caps, mountable in Claude Desktop or Cursor.
@@ -208,7 +210,7 @@ downstream parses free text. On a validation failure the model is shown its
 own output plus the validation error and asked once to fix it.
 
 This is a deliberate rejection of the "give the model tools and let it loop
-until it declares itself done" pattern. **The graph decides what happens next;
+until it declares itself done" pattern. **In the old v1 agent, the graph decides what happens next;
 the model only decides content.** A model-driven loop can wander, repeat
 itself or fail to terminate. A graph-driven loop has a bounded state space you
 can unit-test — which is why the offline test suite can cover the repair loop,

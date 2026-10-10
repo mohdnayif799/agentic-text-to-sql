@@ -112,9 +112,15 @@ Four control flows share one context and differ only in what they do after the f
 | | Architecture | What it does |
 | --- | --- | --- |
 | A | `baseline` | One SQL query from the shared context, one retry only if it errors, then one answer call. |
-| B | `v1` | The original LangGraph agent: plan, author, execute, triage, verify, repair on every question. Kept as a reference. |
-| C | `router` | A's exact first query, then escalation on deterministic signals or one small follow-up decision; repair and follow-up queries. |
-| D | `full` | C, plus exploration with lookups and deterministic tools, and verification checks, once it escalates. **Default.** |
+| B | `v1` (OLD, v1, original LangGraph agent, kept as reference) | The original LangGraph agent: plan, author, execute, triage, verify, repair on every question. Kept as a reference. |
+| C | `router` (NEW, router only) | A's exact first query, then escalation on deterministic signals or one small follow-up decision; repair and follow-up queries. |
+| D | `full` (NEW, default) | C, plus exploration with lookups and deterministic tools, and verification checks, once it escalates. **Default.** |
+
+**New architecture (default, architecture D): one query first, escalate only on a signal**
+
+<p align="center"><img src="docs/images/agentcrew_architecture.png" alt="AgentCrew new architecture: one query first, escalate only on a signal" width="880"></p>
+
+Blue boxes are code, orange boxes are model calls. The old v1 agent (architecture B) is a LangGraph loop and is not shown here, see docs/ARCHITECTURE.md.
 
 **Shared context.** Every SQL-writing call gets the same context:
 - the schema, the data's date range and today's date;
