@@ -1,5 +1,7 @@
 # Evaluation
 
+> OLD evaluation of the original v1 agent. The final results are in eval/results/phase5_report.md.
+
 ## What is measured
 
 | Metric | Meaning |

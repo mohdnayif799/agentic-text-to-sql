@@ -61,7 +61,7 @@ failure modes: step repetition, task derailment, and failure to recognise
 termination conditions. A graph-driven loop has a bounded, enumerable state
 space.
 
-**Chosen.** The graph owns control flow. Each LLM call returns one validated
+**Chosen.** In the old v1 agent, the graph owns control flow. Each LLM call returns one validated
 Pydantic object. Tool *use* is real — the agent inspects the schema and
 executes queries against a live database — but the orchestrator sequences it.
 
@@ -86,7 +86,7 @@ boundary for zero additional capability. Against that: the MCP server
 directory lists tens of thousands of entries, so "built an MCP server" is not
 itself a differentiator.
 
-**Chosen.** `agentcrew/tools.py` is the single implementation. The graph calls
+**Chosen.** `agentcrew/tools.py` is the single implementation. The old v1 agent (and the new D agent) call
 it directly. `mcp_server.py` is an ~80-line adapter exposing the same
 four functions so the tools — and their read-only guard — can be mounted in
 Claude Desktop, Cursor, or any MCP client.

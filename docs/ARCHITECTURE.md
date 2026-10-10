@@ -184,7 +184,7 @@ Two sinks, and the split is deliberate:
 
 - **JSONL tracer (always on, local, zero dependencies).** Every node entry and
   exit, tool call, SQL execution, retry, verdict and token count, written to
-  `data/traces/run_<id>.json`. This is what the Streamlit trace panel reads.
+  `data/traces/run_<id>.json`. This is what the Streamlit trace panel reads for v1 runs.
 - **Langfuse (optional, env-gated).** Additive only. If it is disabled or its
   network call throws, the run is unaffected — the sink swallows its own
   exceptions by design.
