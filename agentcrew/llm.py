@@ -130,11 +130,17 @@ class Usage:
     input_tokens: int = 0
     output_tokens: int = 0
     calls: int = 0
+    thoughts_tokens: int = 0
+    """Thinking tokens, which Gemini counts apart from the answer
+    (usage_metadata.thoughts_token_count). 0 when a provider reports none.
+    Last, with a default, so positional Usage(input, output, calls=...)
+    calls (evalrun/cache.py) keep working."""
 
     def add(self, other: Usage) -> None:
         self.input_tokens += other.input_tokens
         self.output_tokens += other.output_tokens
         self.calls += other.calls
+        self.thoughts_tokens += other.thoughts_tokens
 
 
 @dataclass
@@ -408,6 +414,7 @@ class GeminiClient(LLMClient):
                 input_tokens=getattr(usage, "prompt_token_count", 0) or 0,
                 output_tokens=getattr(usage, "candidates_token_count", 0) or 0,
                 calls=1,
+                thoughts_tokens=getattr(usage, "thoughts_token_count", 0) or 0,
             ),
             model=self._model,
         )
