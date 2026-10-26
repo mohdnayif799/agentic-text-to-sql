@@ -129,12 +129,16 @@ WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
 COPY --from=builder /app/data/northstar.db data/northstar.db
 
-# Only what runs: the package, the entry point and the Streamlit theme. Tests,
-# scripts, eval data and docs stay out, and .dockerignore keeps secrets out of
-# the context itself. The theme has to be copied explicitly: without it the
-# app still starts, just silently unstyled.
+# Only what runs: the package, the entry point, the Streamlit theme and the
+# fonts it loads. Tests, scripts, eval data and docs stay out, and
+# .dockerignore keeps secrets out of the context itself. The theme and static/
+# have to be copied explicitly: without them the app still starts, just
+# silently unstyled or in the browser's default font. Streamlit serves static/
+# from next to app.py (server.enableStaticServing in the theme file), so it
+# lands at /app/static.
 COPY agentcrew/ agentcrew/
 COPY .streamlit/ .streamlit/
+COPY static/ static/
 COPY app.py .
 
 # Drop root for everything that follows, including the running app. Numeric

@@ -23,11 +23,15 @@
 *
 
 # 2. Re-include what the Dockerfile COPYs. Later rules override earlier ones.
+#    static/ holds the self-hosted fonts (and their licences) that
+#    .streamlit/config.toml loads from /app/static/; without it the image
+#    builds and runs, silently in the browser's default font.
 !requirements.txt
 !app.py
 !agentcrew/
 !scripts/build_database.py
 !.streamlit/config.toml
+!static/
 
 # 3. Re-exclude junk that can live INSIDE the allowed paths. These come last
 #    so they win over step 2.
