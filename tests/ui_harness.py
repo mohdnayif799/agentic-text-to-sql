@@ -6,6 +6,9 @@ Shared by test_demo_mode.py and test_chat_ui.py. The matching fixtures
 
 from __future__ import annotations
 
+import html
+import re
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +16,7 @@ from streamlit.testing.v1 import AppTest
 
 from agentcrew.archs import ArchOutcome
 from agentcrew.archs.app_runner import AppRun
+from agentcrew.archs.outcome import RepairEvent
 from agentcrew.graph.build import RunOutcome
 from agentcrew.schemas import ExecutionResult
 
@@ -59,8 +63,22 @@ def everything_rendered(at: AppTest) -> str:
     return "\n".join(parts)
 
 
+NOTE = re.compile(r'<p class="note">(.*?)</p>', re.DOTALL)
+
+
+def note_texts(markdown: Iterable[Any]) -> list[str]:
+    """Every line of every note() in these markdown elements: app.py's small
+    muted text (captions, labels, the run summary line), unescaped."""
+    return [html.unescape(line) for m in markdown
+            for body in NOTE.findall(m.value) for line in body.split("<br>")]
+
+
 def sidebar_captions(at: AppTest) -> list[str]:
-    return [c.value for c in at.sidebar.caption]
+    return note_texts(at.sidebar.markdown)
+
+
+def main_notes(at: AppTest) -> list[str]:
+    return note_texts(at.main.markdown)
 
 
 def stub_outcome(question: str) -> RunOutcome:
@@ -90,18 +108,20 @@ def stub_outcome(question: str) -> RunOutcome:
 
 def stub_arch_run(question: str, *, path: str = "direct",
                   steps: tuple[dict[str, Any], ...] | None = None,
-                  answer: str = "Stub answer.") -> AppRun:
+                  answer: str = "Stub answer.",
+                  repairs: tuple[RepairEvent, ...] = (),
+                  result: ExecutionResult | None = None) -> AppRun:
     """A v2 architecture's run (D is the app's default), for UI tests."""
-    result = ExecutionResult(ok=True, sql="SELECT region, n FROM t",
-                             columns=["region", "n"],
-                             rows=[["APAC", 44], ["EMEA", 11]], row_count=2)
+    result = result or ExecutionResult(
+        ok=True, sql="SELECT region, n FROM t", columns=["region", "n"],
+        rows=[["APAC", 44], ["EMEA", 11]], row_count=2)
     return AppRun(
         outcome=ArchOutcome(
             arch="full", question=question, status="done", answer=answer,
             selected=result, path=path,
             steps=steps or ({"step": 1, "tools": ["run_sql"],
                              "sql": "SELECT region, n FROM t", "reason": ""},),
-            selected_step=1,
+            repairs=repairs, selected_step=1,
         ),
         llm_calls=3, seconds=0.2,
     )

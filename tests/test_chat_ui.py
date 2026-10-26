@@ -1,9 +1,12 @@
-"""Chat layout: bubbles, example chips, sidebar structure and theme.
+"""Chat layout: bubbles, example chips, sidebar structure, theme and fonts,
+and how a reply is laid out (prose answer, one muted summary line, a
+formatted table, steps collapsed under "How this was answered").
 
 Rendered through Streamlit's AppTest with the agent replaced by FakeAgent,
 so these run offline in about a second each. The reply content itself (answer,
 key figures, SQL, table, chart) must survive the layout change unchanged,
-which `test_full_reply_is_still_rendered` pins down.
+which `test_full_reply_is_still_rendered` pins down. The wording and format
+rules themselves are unit-tested in test_presentation.py.
 """
 
 from __future__ import annotations
@@ -24,12 +27,15 @@ from ui_harness import (
     all_nodes,
     ask,
     everything_rendered,
+    main_notes,
+    note_texts,
     sidebar_captions,
     start_app,
     stub_arch_run,
     stub_outcome,
 )
 
+from agentcrew.archs.outcome import RepairEvent
 from agentcrew.schemas import ExecutionResult, StepResult
 from evalrun.sets import load_questions
 
@@ -69,7 +75,7 @@ def chip_boxes(at: AppTest) -> list[list[str]]:
     for node in all_nodes(at._tree):
         kids = list(getattr(node, "children", {}).values())
         if kids and (getattr(kids[0], "key", None) or "").startswith("example_"):
-            boxes.append([kids[0].label, *(k.value for k in kids[1:])])
+            boxes.append([kids[0].label, *note_texts(kids[1:])])
     return boxes
 
 
@@ -135,19 +141,24 @@ class TestConversation:
         monkeypatch.setenv("AGENTCREW_ARCH", "v1")
         fake_agent.outcome = outcome_with_one_step()
         at = ask(start_app(), "q")
-        assert [s.value for s in at.success] == ["APAC lost the most customers."]
+        # Prose, not an alert box; one muted line, not five metric tiles.
+        assert not at.success and not at.metric
+        assert "APAC lost the most customers." in [m.value for m in at.markdown]
         assert any("APAC: 44 lost customers" in m.value for m in at.markdown)
         assert [w.value for w in at.warning] == ["Churn is inferred from churn_date."]
+        assert "1 step · 0 SQL runs · 0 repairs · 1 LLM call · 0.1 s" in main_notes(at)
         assert [c.value for c in at.code] == ["SELECT region, n FROM t"]
         assert len(at.dataframe) == 1
         assert len(at.get("vega_lite_chart")) == 1
-        assert [m.label for m in at.metric] == [
-            "Steps", "SQL runs", "Repairs", "LLM calls", "Time"
+        assert [e.label for e in at.main.expander] == [
+            "How this was answered",
+            "Step 1: Count lost customers per region (1 attempt, verified)",
+            "Agent trace", "Schema selection",
         ]
 
     def test_caption_says_questions_are_independent(self) -> None:
         at = start_app()
-        assert any("answered independently" in c.value for c in at.main.caption)
+        assert any("answered independently" in t for t in main_notes(at))
 
 
 # ---------------------------------------------------------------------------
@@ -259,34 +270,124 @@ class TestStyling:
         assert "page_icon" not in (ROOT / "app.py").read_text(encoding="utf-8")
 
     def test_theme_file_matches_the_brief(self) -> None:
-        config = tomllib.loads(
-            (ROOT / ".streamlit" / "config.toml").read_text(encoding="utf-8")
-        )
-        assert config["theme"] == {
+        config = load_config()
+        theme = {k: v for k, v in config["theme"].items() if k != "fontFaces"}
+        assert theme == {
             "base": "light",
             "primaryColor": "#2563EB",
             "backgroundColor": "#FFFFFF",
-            "secondaryBackgroundColor": "#EFF6FF",
+            "secondaryBackgroundColor": "#F8FAFC",
             "textColor": "#1E293B",
+            "codeTextColor": "#1E293B",
+            "borderColor": "#E2E8F0",
+            "dataframeHeaderBackgroundColor": "#F8FAFC",
+            "baseRadius": "0.5rem",
+            "font": "IBM Plex Sans, sans-serif",
+            "codeFont": "IBM Plex Mono, monospace",
+            "baseFontSize": 15,
+            "headingFontSizes": ["1.625rem", "1.25rem", "1.0625rem"],
+            "headingFontWeights": [600, 600, 600],
+            "codeFontSize": "0.8125rem",
+            "metricValueFontSize": "1.25rem",
+            "metricValueFontWeight": 600,
         }
+        assert [(f["family"], f["weight"]) for f in config["theme"]["fontFaces"]] == [
+            ("IBM Plex Sans", 400), ("IBM Plex Sans", 500), ("IBM Plex Sans", 600),
+            ("IBM Plex Mono", 400), ("IBM Plex Mono", 500),
+        ]
+        assert config["server"] == {"enableStaticServing": True}
         assert config["client"] == {
             "toolbarMode": "minimal", "showErrorDetails": "none"
         }
 
-    def test_charts_use_the_theme_blue(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        spec = importlib.util.spec_from_file_location("chat_ui_app", ROOT / "app.py")
-        app = importlib.util.module_from_spec(spec)
-        # dataclasses look their module up in sys.modules while executing.
-        monkeypatch.setitem(sys.modules, "chat_ui_app", app)
-        spec.loader.exec_module(app)  # main() only runs under __main__
+    def test_fonts_ship_with_the_app(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Every font file the theme names exists, is licensed, and reaches
+        the image; without that the app silently falls back to the default
+        font. The chart font is the theme's sans family."""
+        config = load_config()
+        faces = config["theme"]["fontFaces"]
+        for face in faces:
+            assert face["url"].startswith("app/static/fonts/")
+            assert (ROOT / face["url"].removeprefix("app/")).is_file()
+        families = {face["family"] for face in faces}
+        assert config["theme"]["font"].split(",")[0] in families
+        assert config["theme"]["codeFont"].split(",")[0] in families
+        for license_file in ("OFL-IBM-Plex-Sans.txt", "OFL-IBM-Plex-Mono.txt"):
+            text = (ROOT / "static" / "fonts" / license_file).read_text(encoding="utf-8")
+            assert "SIL Open Font License" in text
+        dockerignore = (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+        assert "!static/" in dockerignore
+        assert "COPY static/ static/" in (ROOT / "Dockerfile").read_text(encoding="utf-8")
+        assert load_app(monkeypatch).CHART_FONT == config["theme"]["font"].split(",")[0]
 
-        config = tomllib.loads(
-            (ROOT / ".streamlit" / "config.toml").read_text(encoding="utf-8")
-        )
+    def test_css_uses_only_documented_hooks(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Rules target this app's own markup or a keyed container's st-key-
+        class, never Streamlit's test ids or generated class names."""
+        css = re.sub(r"/\*.*?\*/", "", load_app(monkeypatch).PAGE_CSS, flags=re.DOTALL)
+        assert "data-testid" not in css and "emotion" not in css
+        classes = set(re.findall(r"\.([A-Za-z][\w-]*)", css))
+        assert {c for c in classes if not c.startswith("st-key-")} <= {
+            "user-msg-row", "user-msg", "note"}
+        assert all(a.startswith("st-key-") for a in re.findall(r'\[class\*="([^"]+)"', css))
+
+    def test_muted_text_meets_contrast_on_every_background(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        app = load_app(monkeypatch)
+        theme = load_config()["theme"]
+        assert f"color: {app.MUTED_TEXT}" in app.PAGE_CSS
+        for background in (theme["backgroundColor"], theme["secondaryBackgroundColor"]):
+            assert contrast(app.MUTED_TEXT, background) >= 4.5, background
+
+    def test_charts_use_the_theme_blue(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        app = load_app(monkeypatch)
         df = pd.DataFrame([["APAC", 44], ["EMEA", 11]], columns=["region", "n"])
         chart = app.build_chart(df)
         assert chart is not None
-        assert chart.to_dict()["mark"]["color"] == config["theme"]["primaryColor"]
+        assert chart.to_dict()["mark"]["color"] == load_config()["theme"]["primaryColor"]
+
+    def test_time_labels_draw_a_line_in_time_order(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        app = load_app(monkeypatch)
+        df = pd.DataFrame([["2025-03", 385], ["2025-01", 387], ["2025-02", 305]],
+                          columns=["month", "completed_orders"])
+        spec = app.build_chart(df).to_dict()
+        assert spec["mark"]["type"] == "line"
+        assert spec["encoding"]["x"]["sort"] == "ascending"
+        assert spec["encoding"]["y"]["axis"]["title"] == "Completed orders"
+        assert spec["height"] == 260
+        assert spec["config"]["font"] == app.CHART_FONT
+
+    def test_categories_draw_bars_by_value_never_by_id(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        app = load_app(monkeypatch)
+        df = pd.DataFrame([[9, "Lattice Ridge", 1308261.59],
+                           [1, "Cascade Beacon", 1168417.42]],
+                          columns=["product_id", "product_name", "revenue"])
+        spec = app.build_chart(df).to_dict()
+        assert spec["mark"]["type"] == "bar"
+        assert (spec["encoding"]["y"]["field"], spec["encoding"]["y"]["sort"]) == (
+            "product_name", "-x")
+        assert spec["encoding"]["x"]["field"] == "revenue"
+        assert spec["encoding"]["x"]["axis"]["format"] == "$~s"
+        assert spec["encoding"]["x"]["axis"]["title"] == "Revenue"
+
+
+def load_config() -> dict:
+    return tomllib.loads((ROOT / ".streamlit" / "config.toml").read_text(encoding="utf-8"))
+
+
+def contrast(foreground: str, background: str) -> float:
+    """WCAG 2 contrast ratio of two #RRGGBB colours."""
+    def luminance(colour: str) -> float:
+        channels = [int(colour[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        r, g, b = (c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+                   for c in channels)
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    light, dark = sorted((luminance(foreground), luminance(background)), reverse=True)
+    return (light + 0.05) / (dark + 0.05)
 
 
 
@@ -319,27 +420,75 @@ class TestArchitectureD:
 
     def test_direct_reply_says_so(self, demo_env: None, fake_agent: FakeAgent) -> None:
         at = ask(start_app(), "q")
-        assert [s.value for s in at.success] == ["Stub answer."]
-        assert any("Answered directly" in m.value for m in at.markdown)
-        assert [m.label for m in at.metric] == [
-            "Path", "Steps", "Repairs", "LLM calls", "Time"]
-        assert at.metric[0].value == "Direct"
-        assert [e.label for e in at.main.expander] == ["Step 1: run_sql"]
+        # The answer is prose, not a green alert; no metric tiles.
+        assert not at.success and not at.metric
+        assert "Stub answer." in [m.value for m in at.markdown]
+        notes = main_notes(at)
+        summary = notes.index("Direct · 1 step · 0 repairs · 3 LLM calls · 0.2 s")
+        assert notes[summary + 1] == "One query was enough, so it answered directly."
+        assert [e.label for e in at.main.expander] == [
+            "How this was answered", "Step 1: SQL query"]
+        assert not at.main.expander[0].proto.expanded
 
     def test_escalated_reply_shows_the_path_and_each_steps_tools(
         self, demo_env: None, fake_agent: FakeAgent
     ) -> None:
+        before = ExecutionResult(ok=False, sql="SELECT 1", error_message="boom")
         fake_agent.arch_run = stub_arch_run(
-            "q", path="escalated", steps=ESCALATED_STEPS, answer="Orders drove it.")
+            "q", path="escalated", steps=ESCALATED_STEPS, answer="Orders drove it.",
+            repairs=(RepairEvent(step=1, signal="error", detail="boom", before=before,
+                                 after=None, accepted=True),))
         at = ask(start_app(), "q")
-        assert at.metric[0].value == "Escalated"
-        assert any(m.value.startswith("**Escalated:**") for m in at.markdown)
+        notes = main_notes(at)
+        assert "Escalated · 2 steps · 1 repair · 3 LLM calls · 0.2 s" in notes
+        assert ("The first query failed, so it split the change into its "
+                "components.") in notes
         assert [e.label for e in at.main.expander] == [
-            "Step 1: run_sql + repair", "Step 2: compute:decompose_change"]
+            "How this was answered", "Step 1: SQL query, 1 repair",
+            "Step 2: Metric decomposition"]
+        assert "split the metric" in notes  # the step's own reason, inside
         assert len(at.dataframe) == 1 and len(at.get("vega_lite_chart")) == 1
-        assert any(c.value == "Final table: the metric analyses below, stacked."
-                   for c in at.main.caption)
+        assert "Final table: the metric analyses below, stacked." in notes
         assert not EMOJI.search(everything_rendered(at))
+
+    def test_final_table_has_plain_headers_and_formats(
+        self, demo_env: None, fake_agent: FakeAgent
+    ) -> None:
+        """The screenshot that started this: customer_id charted as the
+        value of a one-row result, raw headers, 33475.845 unformatted."""
+        row = ExecutionResult(ok=True, sql="SELECT ...",
+                              columns=["customer_id", "customer_name",
+                                       "completed_revenue"],
+                              rows=[[1133, "Idris Rossi", 33475.845]], row_count=1)
+        fake_agent.arch_run = stub_arch_run("q", result=row)
+        at = ask(start_app(), "q")
+        columns = json.loads(at.dataframe[0].proto.columns)
+        assert columns["customer_id"] == {
+            "label": "Customer ID", "alignment": "left",
+            "type_config": {"type": "number", "format": "%d"}}
+        assert columns["customer_name"]["label"] == "Customer name"
+        assert columns["completed_revenue"] == {
+            "label": "Completed revenue",
+            "type_config": {"type": "number", "format": "dollar"}}
+        assert not at.get("vega_lite_chart")  # one row: nothing to compare
+
+    def test_dollar_amounts_are_not_read_as_math(
+        self, demo_env: None, fake_agent: FakeAgent
+    ) -> None:
+        fake_agent.arch_run = stub_arch_run(
+            "q", answer="Residuals were -$348,547.32 and -$425,182.00.")
+        at = ask(start_app(), "q")
+        assert "Residuals were -\\$348,547.32 and -\\$425,182.00." in [
+            m.value for m in at.markdown]
+
+    def test_each_turn_keeps_its_own_answer_block(
+        self, demo_env: None, fake_agent: FakeAgent
+    ) -> None:
+        """The answer containers are keyed per turn; a repeated key would
+        raise on the second question."""
+        at = ask(ask(start_app(), "first"), "second")
+        assert not at.exception
+        assert [m.value for m in at.markdown].count("Stub answer.") == 2
 
     def test_progress_is_shown_only_once_a_question_escalates(
         self, monkeypatch: pytest.MonkeyPatch
@@ -370,7 +519,7 @@ class TestArchitectureD:
     ) -> None:
         fake_agent.stages = ["step 1: SQL (A's call)", "step 2: decide_next_action"]
         at = ask(start_app(), "q")
-        assert [s.value for s in at.success] == ["Stub answer."]
+        assert "Stub answer." in [m.value for m in at.markdown]
         assert not at.get("progress")  # cleared once the answer is shown
 
     def test_log_line_records_path_tools_and_calls(

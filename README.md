@@ -301,7 +301,7 @@ This is an **adapter, not a second implementation**. It delegates to the exact f
 pytest
 ```
 
-**683 tests, all offline.** No API key, no network, no quota. Models are simulated by scripted clients, and everything else runs against the real database.
+**783 tests, all offline.** No API key, no network, no quota. Models are simulated by scripted clients, and everything else runs against the real database.
 
 Highlights:
 - **Every D tool** is run through D's own dispatcher, using model-style replies (code fences, nulls, extra fields, wrong case) and 15 bad-argument cases. Each bad argument must come back as a failed step, never an exception (`test_dispatch.py`).
@@ -309,7 +309,7 @@ Highlights:
 - **Same escalation as C:** D escalates on exactly the questions C does, in scripted runs and on the development sets replayed from the evaluation cache (`test_escalation_parity.py`).
 - **Read-only guard:** allow and deny cases plus a 15-payload adversarial audit (`test_safety.py`, `test_safety_audit.py`); metric-layer SQL safety (`test_compute_metrics.py`).
 - **Evaluation tooling:** the strict grader, the protocol rules, caching, retries, resumes and ERROR records (`test_strict_grader.py`, `test_evalrun.py`, `test_eval_sets.py`).
-- **The app:** demo-mode limits, key safety and the D interface (`test_demo_mode.py`, `test_chat_ui.py`).
+- **The app:** demo-mode limits, key safety, the D interface and its display rules: headers, number formats, chart choice, step labels (`test_demo_mode.py`, `test_chat_ui.py`, `test_presentation.py`).
 
 Tests are hermetic with respect to configuration: an autouse fixture strips `AGENTCREW_*` environment variables and disables `.env` loading. CI runs ruff and the full suite on pushes to `main` and on pull requests.
 
@@ -333,12 +333,16 @@ agentcrew/
                          example pool
   db/                    Read-only engine, introspection, AST guard
   graph/                 The original LangGraph agent (B)
+  presentation.py        How the app shows a run: headers, $ and %
+                         formats, chart choice, step labels, summary line
+static/fonts/            Self-hosted IBM Plex (SIL OFL), served by Streamlit
 evalkit/                 Strict grader, judge, statistics (frozen)
 evalrun/                 Evaluation runner: cache, retries, resumes, sets
 scripts/                 build_database.py, run_eval_v2.py, report_v2.py,
-                         build_gold.py, build_dev_gold.py
+                         build_gold.py, build_dev_gold.py; dev/ holds the
+                         UI preview, screenshot and font-check tools
 eval/                    Protocol, question sets, gold, results and reports
-tests/                   683 offline tests
+tests/                   783 offline tests
 docs/                    The original agent's architecture, decisions, notes
 ```
 
