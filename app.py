@@ -888,7 +888,7 @@ def key_format_warning(run: RunChoice) -> str | None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="Agentic Text-to-SQL", layout="wide")
+    st.set_page_config(page_title="AgentCrew: Text-to-SQL Agent", layout="wide")
     st.markdown(PAGE_CSS, unsafe_allow_html=True)
     st.session_state.setdefault("turns", [])
     st.session_state.setdefault("pending", None)
