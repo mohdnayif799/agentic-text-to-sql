@@ -59,9 +59,12 @@ class CountingClient(LLMClient):
             log.info("%s seconds=%.2f status=%s", fields,
                      time.perf_counter() - started, type(exc).__name__)
             raise
-        log.info("%s seconds=%.2f status=ok input_tokens=%d output_tokens=%d",
-                 fields, time.perf_counter() - started,
-                 response.usage.input_tokens, response.usage.output_tokens)
+        # thoughts_tokens: hidden thinking, counted apart from output_tokens,
+        # so a slow call shows whether the model was thinking or waiting.
+        log.info("%s seconds=%.2f status=ok input_tokens=%d output_tokens=%d "
+                 "thoughts_tokens=%d", fields, time.perf_counter() - started,
+                 response.usage.input_tokens, response.usage.output_tokens,
+                 response.usage.thoughts_tokens)
         return response
 
 

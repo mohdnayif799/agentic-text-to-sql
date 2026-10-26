@@ -21,6 +21,7 @@ from typing import Any
 
 import httpx
 import pytest
+from google.genai import types
 from ui_harness import OWN_KEY, FakeAgent, ask, sidebar_captions, start_app
 
 from agentcrew.archs.app_runner import CountingClient
@@ -120,7 +121,8 @@ class Inner(LLMClient):
         if self.error is not None:
             raise self.error
         return LLMResponse(text="SELECT 1",
-                           usage=Usage(input_tokens=1200, output_tokens=34, calls=1))
+                           usage=Usage(input_tokens=1200, output_tokens=34, calls=1,
+                                       thoughts_tokens=512))
 
 
 @pytest.fixture
@@ -158,9 +160,32 @@ class TestCallLog:
         assert line.startswith("llm_call n=2 ")
         assert 'role="You write one SQLite query."' in line
         assert "status=ok" in line
-        assert "input_tokens=1200 output_tokens=34" in line
+        assert "input_tokens=1200 output_tokens=34 thoughts_tokens=512" in line
         assert float(line.split("seconds=")[1].split()[0]) >= 0
         assert self.QUESTION not in line  # never the question text
+
+    def test_gemini_reports_its_thinking_tokens(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Gemini counts thinking separately from the answer
+        (usage_metadata.thoughts_token_count), so slow hidden thinking is
+        visible in the log rather than mistaken for a slow network."""
+
+        class Reply:
+            text = "SELECT 1"
+            usage_metadata = types.GenerateContentResponseUsageMetadata(
+                prompt_token_count=2529, candidates_token_count=100,
+                thoughts_token_count=730)
+
+        client = GeminiClient("AQ.test-key-not-real", "gemini-3.5-flash-lite")
+        monkeypatch.setattr(client._client.models, "generate_content",
+                            lambda **_: Reply())
+        usage = client.complete(system="s", user="u").usage
+        assert (usage.input_tokens, usage.output_tokens, usage.thoughts_tokens) == (
+            2529, 100, 730)
+
+    def test_thinking_tokens_are_zero_when_the_provider_reports_none(self) -> None:
+        assert Usage(input_tokens=1, output_tokens=2, calls=1).thoughts_tokens == 0
 
     def test_a_timed_out_call_is_logged_and_re_raised(
         self, llm_log: list[str]
