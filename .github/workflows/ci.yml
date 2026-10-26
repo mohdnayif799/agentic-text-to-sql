@@ -87,8 +87,8 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    # One deploy at a time, in push order, and never cancelled halfway: a
-    # newer push waits for the running deploy instead of killing it.
+    # Only one deployment runs at a time. An in-progress deployment is not
+    # cancelled, but GitHub may replace an older pending run with a newer one.
     concurrency:
       group: agentcrew-production
       cancel-in-progress: false
