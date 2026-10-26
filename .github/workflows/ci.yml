@@ -7,7 +7,9 @@ on:
 
 # Least privilege: the jobs only read the repository. No secrets are used -
 # the test suite runs offline on a scripted model, and the Docker job only
-# checks that the app starts.
+# checks that the app starts. The deploy job alone also gets id-token: write,
+# to exchange GitHub's OIDC token for short-lived Google credentials
+# (Workload Identity Federation, no stored keys).
 permissions:
   contents: read
 
@@ -69,3 +71,160 @@ jobs:
       - name: Container logs
         if: always()
         run: docker logs agentcrew
+
+  # Continuous deployment to Cloud Run. Runs only for a push to main, and only
+  # after both jobs above pass. A pull request never reaches it (the `if`
+  # below), and Google would refuse it anyway: the Workload Identity provider
+  # accepts only push events on refs/heads/main.
+  deploy:
+    name: Deploy to Cloud Run
+    needs: [test, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # id-token: write lets the job ask GitHub for an OIDC token, which
+    # google-github-actions/auth exchanges for short-lived credentials.
+    permissions:
+      contents: read
+      id-token: write
+    # Only one deployment runs at a time. An in-progress deployment is not
+    # cancelled, but GitHub may replace an older pending run with a newer one.
+    concurrency:
+      group: agentcrew-production
+      cancel-in-progress: false
+    env:
+      REGION: asia-south1
+      SERVICE: agentcrew
+      # Tagged with the commit, so every image in the registry traces back to
+      # the exact source it was built from.
+      IMAGE: asia-south1-docker.pkg.dev/text-to-sql-demo/cloud-run-source-deploy/agentcrew:${{ github.sha }}
+      LIVE_URL: https://agentcrew-732702710111.asia-south1.run.app
+    steps:
+      # persist-credentials: false keeps the GitHub token out of .git/config,
+      # so nothing later in this job can push to the repository.
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Built BEFORE authenticating: the credentials file the auth step writes
+      # into the workspace does not exist yet, so it cannot reach the build
+      # context (.dockerignore also excludes gha-creds-*.json, as a second guard).
+      - name: Build the image
+        run: docker build -t "$IMAGE" .
+
+      # The same health check as the docker job, on the exact image that will
+      # be pushed, so a broken image never leaves this runner.
+      - name: Start the container
+        run: docker run -d --name agentcrew -p 8080:8080 "$IMAGE"
+
+      - name: Wait for the health endpoint
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/_stcore/health; then
+              echo
+              echo "Healthy after ${attempt} attempt(s)."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "The app did not answer /_stcore/health within 60 seconds."
+          exit 1
+
+      - name: Container logs
+        if: always()
+        run: docker logs agentcrew
+
+      - name: Stop the container
+        run: docker rm -f agentcrew
+
+      # Keyless: GitHub's OIDC token is exchanged for credentials of the
+      # github-deployer service account. The provider path and the account
+      # email are identifiers, not secrets.
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: text-to-sql-demo
+          workload_identity_provider: projects/732702710111/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-deployer@text-to-sql-demo.iam.gserviceaccount.com
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      # The registry is asked which sha256 digest the pushed tag points to, and
+      # the deploy and the checks below use that immutable digest, not the tag,
+      # which could in principle be moved to another image.
+      - name: Push the image
+        run: |
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+          docker push "$IMAGE"
+          digest="$(gcloud artifacts docker images describe "$IMAGE" --format='value(image_summary.digest)')"
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Unexpected digest for $IMAGE: '$digest'"
+            exit 1
+          fi
+          pushed="${IMAGE%:*}@${digest}"
+          echo "Pushed $IMAGE as $pushed"
+          echo "PUSHED_IMAGE=$pushed" >> "$GITHUB_ENV"
+
+      # Only the image changes. Every other setting (CPU, memory, concurrency,
+      # timeout, instance limits, port, public access, runtime service
+      # account, Secret Manager references) is kept from the current service.
+      # gcloud waits for the new revision and fails if it does not start.
+      - name: Deploy
+        run: gcloud run services update "$SERVICE" --region="$REGION" --image="$PUSHED_IMAGE"
+
+      # Fails the job unless the service now runs the pushed digest on a
+      # ready revision that receives 100% of traffic. A manual rollback pins
+      # traffic to an older revision; that is reported here, not overridden.
+      - name: Verify the deployed revision
+        run: |
+          json="$RUNNER_TEMP/service.json"
+          gcloud run services describe "$SERVICE" --region="$REGION" --format=json > "$json"
+          deployed="$(jq -r '.spec.template.spec.containers[0].image' "$json")"
+          ready="$(jq -r '.status.latestReadyRevisionName' "$json")"
+          created="$(jq -r '.status.latestCreatedRevisionName' "$json")"
+          echo "Deployed image:  $deployed"
+          echo "Latest created:  $created"
+          echo "Latest ready:    $ready"
+          echo "Traffic:"
+          jq -c '.status.traffic[]' "$json"
+
+          # Compare digests, not tag strings: Cloud Run may report an image
+          # by digest even when it was given a tag.
+          if [[ "$deployed" != *@sha256:* || "${deployed##*@}" != "${PUSHED_IMAGE##*@}" ]]; then
+            echo "The service image is not the pushed digest ${PUSHED_IMAGE##*@}."
+            exit 1
+          fi
+          if [ "$(jq -r '.metadata.generation' "$json")" != "$(jq -r '.status.observedGeneration' "$json")" ] \
+             || [ "$(jq -r '.status.conditions[] | select(.type == "Ready") | .status' "$json")" != "True" ] \
+             || [ "$ready" != "$created" ]; then
+            echo "The newest revision is not ready, or the service has not caught up with this deploy."
+            exit 1
+          fi
+          # Exactly one revision serves traffic: the newest one, at 100%,
+          # following the latest revision rather than pinned by name.
+          serving="$(jq -c '[.status.traffic[] | select((.percent // 0) > 0)]' "$json")"
+          if [ "$(jq 'length' <<< "$serving")" != "1" ] \
+             || [ "$(jq -r '.[0].percent' <<< "$serving")" != "100" ] \
+             || [ "$(jq -r '.[0].revisionName' <<< "$serving")" != "$ready" ] \
+             || [ "$(jq -r '.[0].latestRevision // false' <<< "$serving")" != "true" ]; then
+            echo "Traffic is not 100% on the latest revision $ready (it may be pinned to an older revision)."
+            echo "To send traffic to the latest revision again: gcloud run services update-traffic $SERVICE --region=$REGION --to-latest"
+            exit 1
+          fi
+          echo "Revision $ready runs ${PUSHED_IMAGE##*@} and serves 100% of traffic."
+
+      # A server-readiness check through the public URL, with time for a cold
+      # start. It does not run an agent question; that is checked by hand.
+      - name: Check the live URL
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl -fsS --max-time 10 "$LIVE_URL/_stcore/health"; then
+              echo
+              echo "Live after ${attempt} attempt(s)."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "$LIVE_URL/_stcore/health did not return 200 within about 5 minutes."
+          exit 1

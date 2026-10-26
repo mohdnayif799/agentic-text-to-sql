@@ -35,3 +35,10 @@
 **/*.py[cod]
 **/.env
 **/.env.*
+# Short-lived Google Cloud credentials that google-github-actions/auth writes
+# into the workspace during the deploy job. The deploy job builds the image
+# before that step, so the file does not exist at build time; this rule is a
+# second guard in case a later change ever builds after authenticating. The
+# "*" in step 1 already excludes it at the top level; this also covers any
+# allowed folder.
+**/gha-creds-*.json
