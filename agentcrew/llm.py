@@ -58,6 +58,34 @@ class QuotaExhaustedError(LLMError):
     """
 
 
+class LLMTimeoutError(LLMError):
+    """The provider did not answer within the request timeout.
+
+    Raised from the transport timeout, which stays on the cause chain, so the
+    evaluation harness still classifies it as a transient provider error
+    (evalrun/backoff.py) and retries it. The app tells the visitor to try
+    again instead of failing the run.
+    """
+
+
+#: Gemini's per-request timeout. On 2026-10-26 one live question waited
+#: 89.8 s on three slow Gemini calls (about 1 s each in the evaluation), with
+#: no error to stop it; without a timeout the client waits indefinitely.
+GEMINI_TIMEOUT_SECONDS = 30
+
+
+def is_timeout_error(exc: BaseException) -> bool:
+    """A transport timeout anywhere in the cause chain. google-genai raises
+    httpx.ReadTimeout (on a chain that holds builtins.TimeoutError) when its
+    request timeout fires; matching by class name avoids importing httpx."""
+    seen: BaseException | None = exc
+    while seen is not None:
+        if isinstance(seen, TimeoutError) or "timeout" in type(seen).__name__.lower():
+            return True
+        seen = seen.__cause__ or seen.__context__
+    return False
+
+
 #: Substrings that indicate quota or rate limiting across the three providers:
 #: Gemini raises RESOURCE_EXHAUSTED, OpenAI insufficient_quota or
 #: rate_limit_exceeded, Anthropic rate_limit_error - all under HTTP 429.
@@ -310,12 +338,18 @@ class GeminiClient(LLMClient):
     def __init__(self, api_key: str | None, model: str) -> None:
         try:
             from google import genai
+            from google.genai import types
         except ImportError as exc:  # pragma: no cover
             raise LLMError("pip install google-genai") from exc
         if not api_key:
             raise LLMError("AGENTCREW_GEMINI_API_KEY is not set.")
         self._genai = genai
-        self._client = genai.Client(api_key=api_key)
+        # google-genai's HttpOptions.timeout is in milliseconds. The SDK does
+        # not retry by default, so a timed-out call fails once and fast.
+        self._client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(timeout=GEMINI_TIMEOUT_SECONDS * 1000),
+        )
         self._model = model
 
     def complete(
@@ -341,18 +375,24 @@ class GeminiClient(LLMClient):
                 config=types.GenerateContentConfig(**kwargs),
             )
 
+        timed_out = (f"Gemini call timed out after {GEMINI_TIMEOUT_SECONDS} s "
+                     "with no answer")
         try:
             resp = call(with_sampling=True)
         except Exception as exc:
             # Google deprecated temperature/top_p/top_k for Gemini 3. They are
             # currently ignored rather than rejected, but if a model starts
             # refusing them we retry without rather than failing the run.
+            if is_timeout_error(exc):
+                raise LLMTimeoutError(timed_out) from exc
             if is_quota_error(exc):
                 raise QuotaExhaustedError(f"Gemini quota/rate limit: {exc}") from exc
             if "temperature" in str(exc).lower():
                 try:
                     resp = call(with_sampling=False)
                 except Exception as inner:
+                    if is_timeout_error(inner):
+                        raise LLMTimeoutError(timed_out) from inner
                     if is_quota_error(inner):
                         raise QuotaExhaustedError(
                             f"Gemini quota/rate limit: {inner}"

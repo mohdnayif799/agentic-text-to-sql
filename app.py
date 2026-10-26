@@ -43,6 +43,7 @@ from agentcrew.graph.build import RunOutcome, build_deps, run_question  # noqa: 
 from agentcrew.llm import (  # noqa: E402
     PROVIDERS,
     SELECTABLE_PROVIDERS,
+    LLMTimeoutError,
     ProviderSpec,
     QuotaExhaustedError,
 )
@@ -223,6 +224,11 @@ OWN_QUOTA_MESSAGE = (
 DEMO_UNAVAILABLE_MESSAGE = (
     "The demo is temporarily unavailable. Try again later, or add your own key "
     "under 'Use your own API key'."
+)
+# A model call passed its request timeout (GEMINI_TIMEOUT_SECONDS). Shown on
+# either key: it is the provider being slow, not the visitor's key or input.
+SLOW_MODEL_MESSAGE = (
+    "The model is responding slowly right now. Please try again in a minute."
 )
 # Runs on the server key use fixed budgets. Otherwise the sliders would let one
 # counted run make several times as many model calls.
@@ -576,6 +582,13 @@ def execute(
         _log_run(cfg, "quota", started, calls_so_far(), arch=arch, error=exc,
                  secret=secret)
         turn.notice = OWN_QUOTA_MESSAGE if own_key else SHARED_QUOTA_MESSAGE
+        return turn, False
+    except LLMTimeoutError as exc:
+        # The provider is slow, not broken: a notice rather than an error, the
+        # same on either key, and (like every failed run) not counted.
+        _log_run(cfg, "timeout", started, calls_so_far(), arch=arch, error=exc,
+                 secret=secret)
+        turn.notice = SLOW_MODEL_MESSAGE
         return turn, False
     except Exception as exc:
         _log_run(cfg, "error", started, calls_so_far(), arch=arch, error=exc,

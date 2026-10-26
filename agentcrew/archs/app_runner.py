@@ -4,11 +4,13 @@ The evaluation runner wires architectures to cached clients; the app needs
 the plain version: a live client, the shared context for today's date, a
 count of the model calls a run made, and the stages it went through (for a
 progress indicator). Nothing here logs or stores the question, the answer or
-any key.
+any key. Each model call is logged with its role (the first line of its
+system prompt, which is fixed text), duration and token counts only.
 """
 
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -21,9 +23,22 @@ from agentcrew.db.engine import read_only_engine
 from agentcrew.llm import LLMClient, LLMResponse, build_client
 from agentcrew.tools import ToolContext
 
+# A child of app.py's "agentcrew.app" logger, which sets INFO and the stderr
+# handler (Cloud Run sends stderr to Cloud Logging). A logger outside that
+# tree would fall back to the root logger's WARNING and drop these lines.
+log = logging.getLogger("agentcrew.app.llm")
+
+
+def _role(system: str) -> str:
+    """The first line of a system prompt: fixed text naming the call's job,
+    never the question (the same label evalrun/cache.py records)."""
+    first = system.strip().splitlines()[0] if system.strip() else ""
+    return first[:80].replace('"', "'")
+
 
 class CountingClient(LLMClient):
-    """Delegates to a live client and counts its calls (one per request)."""
+    """Delegates to a live client, counts its calls (one per request) and
+    logs each one, so a slow run shows which call was slow."""
 
     def __init__(self, inner: LLMClient) -> None:
         self.inner = inner
@@ -33,8 +48,21 @@ class CountingClient(LLMClient):
     def complete(self, *, system: str, user: str, max_tokens: int = 2048,
                  temperature: float = 0.0) -> LLMResponse:
         self.calls += 1
-        return self.inner.complete(system=system, user=user, max_tokens=max_tokens,
-                                   temperature=temperature)
+        started = time.perf_counter()
+        fields = f'llm_call n={self.calls} role="{_role(system)}"'
+        try:
+            response = self.inner.complete(system=system, user=user,
+                                           max_tokens=max_tokens,
+                                           temperature=temperature)
+        except Exception as exc:
+            # Only the exception type: provider messages can echo request data.
+            log.info("%s seconds=%.2f status=%s", fields,
+                     time.perf_counter() - started, type(exc).__name__)
+            raise
+        log.info("%s seconds=%.2f status=ok input_tokens=%d output_tokens=%d",
+                 fields, time.perf_counter() - started,
+                 response.usage.input_tokens, response.usage.output_tokens)
+        return response
 
 
 @dataclass(frozen=True)
