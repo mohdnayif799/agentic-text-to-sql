@@ -2,6 +2,10 @@
 
 [![CI](https://github.com/mohdnayif799/agentic-text-to-sql/actions/workflows/ci.yml/badge.svg)](https://github.com/mohdnayif799/agentic-text-to-sql/actions/workflows/ci.yml)
 
+**Live demo:** https://agentcrew-732702710111.asia-south1.run.app
+
+> The demo scales to zero when idle, so the first load may take a little while as the Cloud Run instance starts.
+
 **An analytics agent that answers plain-English questions about a database with one read-only SQL query when one query is enough, and escalates to repair, exploration and deterministic tools only when a concrete signal says it must.**
 
 ![python](https://img.shields.io/badge/python-3.11%2B-blue)
@@ -84,7 +88,7 @@ The decomposition and its SQL are built in code from the data dictionary's metri
 ## Quick start
 
 ```bash
-git clone <your-repo-url> && cd agentcrew
+git clone https://github.com/mohdnayif799/agentic-text-to-sql.git && cd agentic-text-to-sql
 
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
