@@ -296,6 +296,7 @@ SIGNAL_WORDS = {
     "fanout": "the first query's join would have counted rows more than once",
     "empty": "the first query returned no rows",
     "sanity": "the first query's result looked wrong (all empty, or too many rows)",
+    "null_row": "the first query's result had a row with no value",
     "reconcile": "the first query's totals did not add up",
     "percent": "a percentage in the first result was out of range",
     "date_format": "the first query compared dates written in different formats",
@@ -304,7 +305,7 @@ SIGNAL_WORDS = {
 }
 #: Signals raised when a query runs, so before the follow-up decision.
 #: The verification kinds only run once a question has already escalated.
-_RAISED_ON_RUN = frozenset({"error", "schema", "fanout", "empty", "sanity"})
+_RAISED_ON_RUN = frozenset({"error", "schema", "fanout", "empty", "sanity", "null_row"})
 _SOME_CHECK = "a check on the first result asked for more work"
 
 #: What a tool did, as the end of "..., so it <phrase>."

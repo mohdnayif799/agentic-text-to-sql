@@ -11,6 +11,12 @@ Checked in this order, and only the first one is acted on:
   empty   the query ran but returned no rows
   sanity  every value is NULL, or the result hit the row cap (the query
           probably lacks an aggregation or filter)
+  null_row  some rows are NULL in every numeric column while other rows have
+          values. An aggregate over no rows still returns one row, so a query
+          that glues the branches of a conditional question together with
+          UNION ALL keeps a hollow row for the branch that does not apply.
+          Added after a holdout failure (ha20). Measures are read from the
+          result (columns holding a number), never from a row's label.
 
 One more deterministic signal is read from the question, not the result:
 
@@ -93,7 +99,42 @@ def classify(
             f"The result hit the {max_rows}-row cap; the query probably lacks "
             "an aggregation or a filter.",
         )
-    return None
+    return _null_row_signal(result)
+
+
+#: LAG and LEAD leave NULL in the first or last rows by design.
+_OFFSET_WINDOW = re.compile(r"\b(lag|lead)\s*\(", re.IGNORECASE)
+MAX_LABELS = 5
+
+
+def _is_number(cell: object) -> bool:
+    return isinstance(cell, int | float) and not isinstance(cell, bool)
+
+
+def hollow_rows(result: ExecutionResult) -> list[int]:
+    """Indexes of rows that are NULL in every measure column (a column holding
+    a number) while at least one other row has a value in one."""
+    rows = result.rows
+    measures = [j for j in range(len(result.columns))
+                if any(_is_number(row[j]) for row in rows)]
+    if not measures or _OFFSET_WINDOW.search(result.sql or ""):
+        return []
+    return [i for i, row in enumerate(rows) if all(row[j] is None for j in measures)]
+
+
+def _null_row_signal(result: ExecutionResult) -> Signal | None:
+    hollow = hollow_rows(result)
+    if not hollow:
+        return None
+    labels = [next((str(cell) for cell in result.rows[i] if cell is not None),
+                   f"row {i + 1}") for i in hollow[:MAX_LABELS]]
+    return Signal(
+        "null_row",
+        f"{len(hollow)} row(s) have no value in any numeric column while other "
+        f"rows have values: {', '.join(labels)}. A query branch or join that does "
+        "not apply to this question probably produced them. Return only the rows "
+        "that answer the question, with the other rows' values unchanged.",
+    )
 
 
 _FORECAST = re.compile(

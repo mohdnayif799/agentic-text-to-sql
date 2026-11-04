@@ -5,7 +5,8 @@ Step 0 IS architecture A's first call: the same prompt, schema and settings
 so it is byte-identical to A). The run then escalates only on a signal:
 
 1. Deterministic signals on the executed query (checks.classify: SQL error,
-   schema check, join fan-out, empty result, all-NULL or row-cap sanity)
+   schema check, join fan-out, empty result, all-NULL or row-cap sanity, a
+   hollow row among rows with values)
    -> disciplined repair of that query. No LLM call is needed to decide.
 2. If step 0 produced a usable result, one small structured call decides
    {needs_followup, reason} from the question, the SQL and a result preview.
