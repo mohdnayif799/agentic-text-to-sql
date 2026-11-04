@@ -16,7 +16,10 @@ When the run escalates, D adds:
 - for a question that asks why (is_why_question), a metric analysis first:
   one validated MetricPlan picks the metric and the comparison, and
   decompose_change splits the metric into its components (or, for a metric
-  without components, contribution_by_dimension breaks it down). If it asks
+  without components, contribution_by_dimension breaks it down). If the question
+  asks why one group changed more than the others (is_cross_group_question), the
+  planner is told so and decompose_change compares each component's change across
+  the groups, so the answer names what differs, not what fell most. If it asks
   about a sudden change (is_spike_question), the next step reads the same metric
   over the periods before it (metrics.period_history, no LLM call), so the
   answer can say what is normal. Added after a holdout failure (ha08: an answer
@@ -85,6 +88,7 @@ from agentcrew.archs.router import (
 )
 from agentcrew.archs.verify import verify
 from agentcrew.compute.metrics import (
+    GROUP_GAP_PREFIX,
     MAX_HISTORY_ROWS,
     SIMILAR_PCT,
     catalog,
@@ -128,7 +132,9 @@ each value of a dimension contributes to the change and names the largest.
     comparison is {"period_a": {"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}, \
 "period_b": {...}} (period_b is the one being explained), or \
 {"group_dimension": ..., "groups": [the group being explained, then each \
-group it is compared with], "period": {...}}, with optional "filters": \
+group it is compared with], "period": {...}}, or, with decompose_change, to \
+compare how a change differs between groups, {"period_a": {...}, "period_b": \
+{...}, "group_dimension": ..., "groups": [...]}, with optional "filters": \
 {dimension: value}.
   Metrics and their dimensions:
 {catalog}
@@ -168,7 +174,11 @@ asks about, and return its arguments as JSON:
 period_a the period it is compared with; or
   * groups of one dimension: {"group_dimension": ..., "groups": [the group \
 being explained, then each group it is compared with], "period": {...}}; the \
-period is optional.
+period is optional; or
+  * how a change differs between groups, when the question asks why one group \
+changed more or less than others: {"period_a": {...}, "period_b": {...}, \
+"group_dimension": ..., "groups": [the group being explained, then every group \
+it is compared with]}.
   Optional "filters": {dimension: value} restrict both sides. Group and \
 filter values are real values, exactly as listed under allowed values.
 - dimension: only for a metric listed without decompose_change: the dimension \
@@ -270,6 +280,38 @@ are about the same, so they do not explain the difference).
 figures (whole numbers for counts, at most two decimals otherwise).
 """
 
+#: Replaces METRIC_GUIDANCE when the table compares a change across groups: the
+#: component that fell most in a group is not the answer if it fell as much in
+#: every other group.
+ACROSS_GROUPS_GUIDANCE = f"""\
+## How to read this result
+The question asks why one group changed more or less than others. Rows whose \
+analysis starts with "{GROUP_GAP_PREFIX.strip()}" compare the percent change of \
+each component: value_b is the group being explained (side_b), value_a is the \
+average of the other groups, and change is the difference in percentage points. \
+share_of_change_pct is the component's share of the extra change, and \
+largest_contributor marks the component that explains it. comparison is "about \
+the same" when the difference is within {SIMILAR_PCT:g} points.
+Rows whose analysis starts with a group's name give that group's own figures in \
+the two periods (value_a, value_b) and their pct_change.
+Write the answer (up to six sentences) in plain words:
+- First sentence: the component marked largest_contributor, named as in the item \
+column, with its figures and pct_change in the group being explained.
+- Then how much the same component changed in each other group (their pct_change).
+- Then, for each other component, whether it changed by a similar amount in every \
+group (give the range of pct_change). Say that a component which changed similarly \
+in every group does not explain the difference, however large its own change.
+- Never write column names (such as value_a or largest_contributor); round \
+figures (whole numbers for counts, at most two decimals otherwise).
+"""
+
+#: Added to the planner's prompt when the question asks about one group against
+#: the rest, so the choice of comparison does not rest on the prompt's list alone.
+ACROSS_GROUPS_HINT = (
+    "The question compares a change across groups: use the comparison with "
+    "period_a, period_b, group_dimension and groups, listing every group."
+)
+
 #: Added to METRIC_GUIDANCE when the question asks about a sudden change.
 BASELINE_GUIDANCE = """\
 ## What is normal
@@ -297,6 +339,13 @@ _SPIKE = re.compile(
     r"|slump\w*|tank\w*|fell|fall\w*|declin\w*|collaps\w*|crash\w*)\b",
     re.IGNORECASE,
 )
+#: One thing changing more or less than the others. General English phrasing,
+#: not drawn from any question set.
+_CROSS_GROUP = re.compile(
+    r"\b(?:more|less|faster|slower|further|harder|worse|better)\b[^.?!]{0,30}?"
+    r"\b(?:than|compared\s+(?:with|to))\s+(?:the\s+|all\s+|its\s+)?others?\b",
+    re.IGNORECASE,
+)
 _METRIC_STEPS = {f"compute:{name}" for name in METRIC_TOOLS}
 _TREND_STEPS = {f"compute:{name}" for name in TREND_FUNCTIONS}
 
@@ -310,6 +359,10 @@ FORCED_REASON = (
 
 def is_why_question(question: str) -> bool:
     return _WHY.search(question) is not None
+
+
+def is_cross_group_question(question: str) -> bool:
+    return _CROSS_GROUP.search(question) is not None
 
 
 def is_spike_question(question: str) -> bool:
@@ -443,6 +496,8 @@ class Full(Router):
         """A why-question's first exploration step: a metric analysis. If no
         valid plan comes back, the ordinary loop continues instead."""
         progress.enter(f"step {number}: metric plan")
+        if is_cross_group_question(self.question):
+            reason = f"{reason} {ACROSS_GROUPS_HINT}".strip()
         try:
             plan: MetricPlan = self._structured(
                 MetricPlan, self.metric_system, self._decide_prompt(steps, reason))
@@ -521,6 +576,9 @@ class Full(Router):
         return [condition, branch]
 
     def _guidance(self, selected: ExecutionResult, stacked: bool) -> str:
+        if stacked and GROUP_GAP_PREFIX in " ".join(
+                str(row[selected.columns.index("analysis")]) for row in selected.rows):
+            return ACROSS_GROUPS_GUIDANCE
         if stacked and self.history:
             table = self.history.result.preview(limit=MAX_HISTORY_ROWS + 1)
             return METRIC_GUIDANCE + BASELINE_GUIDANCE.format(table=table)
@@ -614,6 +672,7 @@ class Full(Router):
                     if opened is not None:
                         steps.append(opened)
                         if (is_spike_question(self.question)
+                                and not self.metric_plan.comparison.across_groups
                                 and len(steps) < self.settings.max_steps
                                 and opened.result.ok and opened.result.rows):
                             history = self._history_step(len(steps) + 1)
