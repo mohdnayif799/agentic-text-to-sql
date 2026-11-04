@@ -5,7 +5,9 @@ Key: architecture, question id, model and a SHA-256 of the exact prompt
 <cache_dir>/<model>/<arch>/<question id>/<prompt hash>.json. A hit returns
 the stored text; a miss calls the live client (with backoff) and stores it
 together with its latency, so a replayed call still reports how long the
-live call took (original_latency_ms).
+live call took (original_latency_ms). Thinking tokens are stored beside the
+token counts, because Gemini bills them as output but counts them apart from
+the answer; entries saved before that was recorded read as 0.
 """
 
 from __future__ import annotations
@@ -39,6 +41,9 @@ class CallRecord:
     original_latency_ms: float | None = None
     """For a cache hit, the latency of the live call that filled the cache
     (None if it was cached before latencies were stored)."""
+    thoughts_tokens: int = 0
+    """Thinking tokens of the call (0 if the provider reports none, or if it
+    was cached before they were stored)."""
 
 
 def prompt_hash(system: str, user: str, max_tokens: int, temperature: float) -> str:
@@ -101,14 +106,16 @@ class CachingClient(LLMClient):
         path = self._dir / f"{key}.json"
         if path.exists():
             data = json.loads(path.read_text("utf-8"))
+            thoughts = data.get("thoughts_tokens", 0)
             self.records.append(CallRecord(
                 _role(system), key, True, 0.0,
                 data["input_tokens"], data["output_tokens"],
-                data.get("latency_ms"),
+                data.get("latency_ms"), thoughts,
             ))
             return LLMResponse(
                 text=data["text"],
-                usage=Usage(data["input_tokens"], data["output_tokens"], calls=1),
+                usage=Usage(data["input_tokens"], data["output_tokens"], calls=1,
+                            thoughts_tokens=thoughts),
                 model=data["model"],
             )
         if self._live is None:
@@ -130,10 +137,12 @@ class CachingClient(LLMClient):
             "text": response.text,
             "input_tokens": response.usage.input_tokens,
             "output_tokens": response.usage.output_tokens,
+            "thoughts_tokens": response.usage.thoughts_tokens,
             "latency_ms": round(latency_ms, 1),
         }, indent=1), "utf-8", newline="\n")
         self.records.append(CallRecord(
             _role(system), key, False, round(latency_ms, 1),
             response.usage.input_tokens, response.usage.output_tokens,
+            thoughts_tokens=response.usage.thoughts_tokens,
         ))
         return response
