@@ -16,7 +16,11 @@ When the run escalates, D adds:
 - for a question that asks why (is_why_question), a metric analysis first:
   one validated MetricPlan picks the metric and the comparison, and
   decompose_change splits the metric into its components (or, for a metric
-  without components, contribution_by_dimension breaks it down);
+  without components, contribution_by_dimension breaks it down). If it asks
+  about a sudden change (is_spike_question), the next step reads the same metric
+  over the periods before it (metrics.period_history, no LLM call), so the
+  answer can say what is normal. Added after a holdout failure (ha08: an answer
+  compared Q3 with Q2 only, so nothing showed that Q3 was unusual);
 - for a question that asks for a forecast or a fitted trend (C's forecast
   signal), a trend fit first: one validated TrendPlan gives the series query
   (run and verified like any query) and the fit, which linear_trend_forecast
@@ -69,6 +73,7 @@ from agentcrew.archs.explore import (
     NextAction,
     TrendPlan,
     compute,
+    history_result,
     lookup,
 )
 from agentcrew.archs.outcome import ArchOutcome, SqlAttempt
@@ -79,7 +84,12 @@ from agentcrew.archs.router import (
     StepRun,
 )
 from agentcrew.archs.verify import verify
-from agentcrew.compute.metrics import SIMILAR_PCT, catalog
+from agentcrew.compute.metrics import (
+    MAX_HISTORY_ROWS,
+    SIMILAR_PCT,
+    catalog,
+    has_dimension,
+)
 from agentcrew.config import Settings
 from agentcrew.context import SharedContext
 from agentcrew.context.values import profile_columns
@@ -260,11 +270,31 @@ are about the same, so they do not explain the difference).
 figures (whole numbers for counts, at most two decimals otherwise).
 """
 
+#: Added to METRIC_GUIDANCE when the question asks about a sudden change.
+BASELINE_GUIDANCE = """\
+## What is normal
+The same metric in the period the question asks about (the last column) and the \
+periods before it. earlier_low and earlier_high are the lowest and highest of \
+those earlier periods; a total row, if there is one, covers all values. These \
+figures count as part of the result.
+{table}
+Also say, with these figures: what was normal before for the main driver (its \
+range in the earlier periods), how much of the total in this period it accounts \
+for if there is a total row, and whether the other values moved comparably.
+"""
+
 #: Questions that ask for the cause of something. General English phrasing,
 #: not drawn from any question set.
 _WHY = re.compile(
     r"\b(why|how\s+come|what\s+(explains|explained|drove|drives|caused|causes"
     r"|led\s+to|is\s+behind|was\s+behind)|reasons?\s+(for|behind))\b",
+    re.IGNORECASE,
+)
+#: Words for a sudden change in a metric. General English phrasing, not drawn
+#: from any question set.
+_SPIKE = re.compile(
+    r"\b(spik\w*|surg\w*|jump\w*|soar\w*|sky-?rocket\w*|dip\w*|drop\w*|plung\w*"
+    r"|slump\w*|tank\w*|fell|fall\w*|declin\w*|collaps\w*|crash\w*)\b",
     re.IGNORECASE,
 )
 _METRIC_STEPS = {f"compute:{name}" for name in METRIC_TOOLS}
@@ -280,6 +310,10 @@ FORCED_REASON = (
 
 def is_why_question(question: str) -> bool:
     return _WHY.search(question) is not None
+
+
+def is_spike_question(question: str) -> bool:
+    return _SPIKE.search(question) is not None
 
 
 def _figure(value: float) -> str:
@@ -369,6 +403,9 @@ class Full(Router):
         self.conditional = kind == "conditional"
         self.condition_taken: tuple[StepRun, StepRun, str] | None = None
         """(condition step, branch step, which branch), once a branch ran."""
+        self.metric_plan: MetricPlan | None = None
+        self.history: StepRun | None = None
+        """The earlier periods of a spike or dip question, once they were read."""
         # replace(), not format(): the prompts contain literal JSON braces.
         self.system = DECIDE_SYSTEM.replace("{catalog}", catalog())
         self.metric_system = METRIC_PLAN_SYSTEM.replace("{catalog}", catalog())
@@ -411,7 +448,30 @@ class Full(Router):
                 MetricPlan, self.metric_system, self._decide_prompt(steps, reason))
         except StructuredOutputError:
             return None
+        self.metric_plan = plan
         return self._act(number, plan.to_action(), steps)
+
+    def _history_step(self, number: int) -> StepRun | None:
+        """The metric over the periods before the one the question asks about.
+        Evidence for the answer, not a table to grade: its kind keeps it out of
+        the final table. None if the plan names no period or there is no history."""
+        plan = self.metric_plan
+        period = plan.comparison.explained_period
+        if period is None:
+            return None
+        progress.enter(f"step {number}: compute:period_history")
+        dimension = (plan.dimension if has_dimension(plan.metric, plan.dimension)
+                     else None)
+        result = history_result(plan.metric, period, dimension, plan.comparison.filters,
+                                lambda sql: execute_readonly_sql(self.tools, sql))
+        if not result.ok:
+            return None
+        step = StepRun(number, result.sql, result, None,
+                       "What was normal before this period.", result.sql,
+                       kind="lookup", tool="compute:period_history")
+        step.attempts.append(SqlAttempt.from_result(result, result.sql))
+        self.history = step
+        return step
 
     def _trend_steps(self, number: int, steps: list[StepRun],
                      reason: str) -> list[StepRun]:
@@ -461,6 +521,9 @@ class Full(Router):
         return [condition, branch]
 
     def _guidance(self, selected: ExecutionResult, stacked: bool) -> str:
+        if stacked and self.history:
+            table = self.history.result.preview(limit=MAX_HISTORY_ROWS + 1)
+            return METRIC_GUIDANCE + BASELINE_GUIDANCE.format(table=table)
         if stacked:
             return METRIC_GUIDANCE
         if self.condition_taken and selected is self.condition_taken[1].result:
@@ -550,6 +613,11 @@ class Full(Router):
                     opened = self._metric_step(len(steps) + 1, steps, reason)
                     if opened is not None:
                         steps.append(opened)
+                        if (is_spike_question(self.question)
+                                and len(steps) < self.settings.max_steps
+                                and opened.result.ok and opened.result.rows):
+                            history = self._history_step(len(steps) + 1)
+                            steps += [history] if history else []
                 elif self.forecast and len(steps) + 2 <= self.settings.max_steps:
                     steps += self._trend_steps(len(steps) + 1, steps, reason)
                 elif self.conditional and len(steps) + 2 <= self.settings.max_steps:

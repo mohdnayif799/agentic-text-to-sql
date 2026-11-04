@@ -37,9 +37,11 @@ from agentcrew.compute.functions import FUNCTIONS, ComputeError
 from agentcrew.compute.metrics import (
     METRICS,
     Comparison,
+    Period,
     contribution_by_dimension,
     decompose_change,
     has_components,
+    period_history,
     validate_call,
 )
 from agentcrew.db.introspect import Catalog
@@ -347,6 +349,23 @@ def lookup(action: NextAction, tools: ToolContext) -> ExecutionResult:
     sample = get_sample_rows(tools, table, limit=5)
     return _result(sample["columns"], sample["rows"],
                    f"-- sample_rows({table})")
+
+
+def history_result(
+    metric: str,
+    period: Period,
+    dimension: str | None,
+    filters: dict[str, str],
+    run_sql: Callable[[str], ExecutionResult],
+) -> ExecutionResult:
+    """compute.metrics.period_history as a step result. A refusal is a failed
+    result, like any compute function's."""
+    label = "-- compute: period_history"
+    try:
+        df, queries = period_history(run_sql, metric, period, dimension, filters)
+    except ComputeError as exc:
+        return _error(f"period_history: {exc}", label)
+    return frame_result(df, label + "\n" + "\n".join(queries))
 
 
 def compute(
