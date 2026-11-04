@@ -42,7 +42,7 @@ def scripted(*, step0=COUNT, needs_followup=False, repair=COUNT):
             return {"done": True, "sql": "", "reason": ""}
         if "You plan the next step" in system:
             return {"action": "answer"}
-        if "You start the analysis of a question that asks" in system:
+        if "You start the analysis of a question" in system:
             return {}  # no valid plan: D continues with its ordinary loop
         if "Several queries were run" in system:
             return {"base_step": 1, "columns": []}
@@ -67,6 +67,7 @@ def builder(engine):
     ("How many customers?", {"step0": EMPTY, "repair": EMPTY + " AND 1 = 1"},
      "escalated"),
     ("Forecast monthly signups for 2026.", {}, "escalated"),
+    ("Compare signups. If 2025 is higher, show it by month.", {}, "escalated"),
     ("Why do we have so many customers?", {}, "direct"),
 ])
 def test_scripted_paths_match(settings, engine, builder, question, script, expected):

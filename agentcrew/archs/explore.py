@@ -196,6 +196,37 @@ class TrendPlan(BaseModel):
                           reason=self.reason)
 
 
+class ConditionPlan(BaseModel):
+    """The opening of a conditional question's exploration (D): one query that
+    evaluates only the condition, run and verified like any other."""
+
+    condition_sql: str = Field(description="One read-only query for the condition.")
+    reason: str = Field(default="", description="One sentence.")
+
+    @field_validator("condition_sql")
+    @classmethod
+    def _present(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("condition_sql is empty")
+        return value
+
+
+class BranchPlan(BaseModel):
+    """The branch a conditional question's evaluated condition selects (D)."""
+
+    condition_met: bool
+    branch: str = Field(description="Which branch applies and why, in one sentence.")
+    sql: str = Field(description="One read-only query for that branch only.")
+    reason: str = Field(default="", description="One sentence.")
+
+    @field_validator("sql")
+    @classmethod
+    def _present(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("sql is empty")
+        return value
+
+
 def _result(columns: list[str], rows: list[list[Any]], sql: str) -> ExecutionResult:
     return ExecutionResult(ok=True, sql=sql, columns=columns, rows=rows,
                            row_count=len(rows))

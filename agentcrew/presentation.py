@@ -302,6 +302,7 @@ SIGNAL_WORDS = {
     "date_format": "the first query compared dates written in different formats",
     "date_range": "the first query used other dates than the question",
     "forecast": "the question asks for a forecast or a fitted trend",
+    "conditional": "the answer depends on a condition in the question",
 }
 #: Signals raised when a query runs, so before the follow-up decision.
 #: The verification kinds only run once a question has already escalated.

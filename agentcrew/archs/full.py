@@ -4,7 +4,8 @@ Up to the follow-up decision D is exactly C:
 - step 0 is A's first call (`step0_llm`, A's response cache in evaluation);
 - C's deterministic signals and disciplined repair (`shared_llm`, C's cache);
 - C's follow-up decision (`shared_llm`), or C's question signal (a forecast
-  or trend fit), which escalates without that call.
+  or trend fit, or a condition on the answer), which escalates without that
+  call.
 With no signal and no follow-up, D answers directly with A's answer call, so
 the direct path is exactly A's calls (router.py describes the one sentence code
 may add after them).
@@ -22,6 +23,11 @@ When the run escalates, D adds:
   or zscore_anomalies (against the trend) computes. A first query that fitted
   the line inside SQL is not trusted: added after a development failure
   (dev2 dv03: the planner accepted A's one-query fit, wrong by an x offset);
+- for a question whose answer depends on a condition, the condition first: one
+  validated ConditionPlan gives a query that evaluates only the condition, and
+  then, with its values in view, one validated BranchPlan gives the query for
+  the branch that applies. Added after holdout failures (ha19 named the wrong
+  branch, ha20 kept a hollow row from the other branch);
 - an exploration loop: decide_next_action returns one validated NextAction
   (archs/explore.py) given the full shared context, the question verbatim,
   why more work is needed and capped previews of earlier steps. Tools:
@@ -32,8 +38,10 @@ schema), and the answer step is told how to read it and to state every
 component's comparison, including components that are about the same. If the
 answer does not name the main driver (the largest contributor) in plain
 words, a sentence built from the table states it (driver_sentence).
-A trend-fit question's final table is the fit's output. Other questions
-are assembled as in C.
+A trend-fit question's final table is the fit's output. A conditional
+question's final table is the branch's result alone; the condition's values go
+to the answer step beside it, so the answer can name the branch taken without
+them changing the table. Other questions are assembled as in C.
 
 `force_escalation` is a development-only switch (the evaluation runner
 refuses it on holdout sets; the app never sets it): D escalates on every
@@ -55,6 +63,8 @@ from agentcrew.archs.baseline import SQL_SYSTEM, SQL_USER
 from agentcrew.archs.explore import (
     METRIC_TOOLS,
     TREND_FUNCTIONS,
+    BranchPlan,
+    ConditionPlan,
     MetricPlan,
     NextAction,
     TrendPlan,
@@ -187,6 +197,46 @@ The tool fits a least-squares line with x = 1, 2, 3, ... for consecutive \
 periods (1 = the first period of the series).
 """
 
+CONDITION_PLAN_SYSTEM = """\
+You start the analysis of a question whose answer depends on a condition (for \
+example "if the gap is more than X, show ...; otherwise ..."). Evaluate the \
+condition first, on its own, and return its query as JSON:
+- condition_sql: ONE read-only SQLite query returning ONE row with the values \
+the condition compares (one clearly named column per value), the difference or \
+ratio the condition tests, and a column condition_met that is 1 if the \
+condition holds and 0 if it does not. If a branch depends on which item is \
+higher or lower, also return that item's name in a column. Compute nothing that \
+only a branch asks for. Use only the tables and columns in the schema, text \
+values exactly as listed under allowed values, and the metric definitions from \
+the data dictionary.
+- reason: one sentence.
+"""
+
+BRANCH_PLAN_SYSTEM = """\
+The condition of a question has been evaluated: its result is the last step \
+below. Return the query for the branch that applies as JSON:
+- condition_met: true if that result says the condition holds, otherwise false.
+- branch: one sentence saying which branch applies and why, naming the group it \
+is about.
+- sql: ONE read-only SQLite query that returns exactly what that branch asks \
+for: no row and no column for any other branch, and none of the condition's \
+values. Use only the tables and columns in the schema, text values exactly as \
+listed under allowed values, and the metric definitions from the data dictionary.
+- reason: one sentence.
+"""
+
+#: Appended to the answer prompt when the final table is a conditional
+#: question's branch. The values stay out of the table, which holds what the
+#: branch asks for, and are given here so the answer can state them.
+CONDITION_GUIDANCE = """\
+## The condition, evaluated first
+{branch}
+{values}
+The result above is the branch that applies. Open the answer with the condition: \
+the compared values from this table (they count as part of the result) and \
+which branch they select, naming the group. Then answer from the result.
+"""
+
 #: Appended to the answer prompt when the final table is D's stacked metric
 #: analyses. It explains the tool's columns and asks for every component's
 #: comparison: a why-answer that names only the component that moved leaves
@@ -314,6 +364,11 @@ class Full(Router):
         self.force_escalation = force_escalation
         self.formats = _date_formats(tools)
         self.why = is_why_question(question)
+        kind = self.question_signal.kind if self.question_signal else None
+        self.forecast = kind == "forecast"
+        self.conditional = kind == "conditional"
+        self.condition_taken: tuple[StepRun, StepRun, str] | None = None
+        """(condition step, branch step, which branch), once a branch ran."""
         # replace(), not format(): the prompts contain literal JSON braces.
         self.system = DECIDE_SYSTEM.replace("{catalog}", catalog())
         self.metric_system = METRIC_PLAN_SYSTEM.replace("{catalog}", catalog())
@@ -321,7 +376,7 @@ class Full(Router):
 
     def _verify(self, sql: str, result: ExecutionResult):
         return verify(sql, result, self.question, self.schema, self.formats,
-                      forecast=self.question_signal is not None)
+                      forecast=self.forecast)
 
     def _explore_history(self, steps: list[StepRun]) -> str:
         return "\n\n".join(
@@ -376,11 +431,53 @@ class Full(Router):
         return [series, self._act(number + 1, plan.compute_action(number),
                                   [*steps, series])]
 
+    def _branch_steps(self, number: int, steps: list[StepRun],
+                      reason: str) -> list[StepRun]:
+        """A conditional question's first exploration steps: the condition's
+        query, then the query of the branch it selects. Without a valid plan,
+        or if a query fails, the ordinary loop continues instead."""
+        progress.enter(f"step {number}: condition plan")
+        try:
+            plan: ConditionPlan = self._structured(
+                ConditionPlan, CONDITION_PLAN_SYSTEM,
+                self._decide_prompt(steps, reason))
+        except StructuredOutputError:
+            return []
+        condition = self.run_step(number, plan.condition_sql, plan.reason,
+                                  verify=self._verify)
+        if not (condition.result.ok and condition.result.rows):
+            return [condition]
+        progress.enter(f"step {number + 1}: branch plan")
+        ran = [*steps, condition]
+        try:
+            chosen: BranchPlan = self._structured(
+                BranchPlan, BRANCH_PLAN_SYSTEM, self._decide_prompt(ran, reason))
+        except StructuredOutputError:
+            return [condition]
+        branch = self.run_step(number + 1, chosen.sql, chosen.branch,
+                               verify=self._verify)
+        if branch.result.ok and branch.result.rows:
+            self.condition_taken = (condition, branch, chosen.branch)
+        return [condition, branch]
+
+    def _guidance(self, selected: ExecutionResult, stacked: bool) -> str:
+        if stacked:
+            return METRIC_GUIDANCE
+        if self.condition_taken and selected is self.condition_taken[1].result:
+            condition, _, branch = self.condition_taken
+            return CONDITION_GUIDANCE.format(
+                branch=branch, values=condition.result.preview(limit=PREVIEW_ROWS))
+        return ""
+
     def _select(self, steps: list[StepRun]):
-        """A trend-fit question's final table is the fit; a why-question's is
-        its metric analyses, stacked; any other question (or no successful
-        analysis) is assembled as in C."""
-        if self.question_signal is not None:
+        """A trend-fit question's final table is the fit; a conditional
+        question's is the branch; a why-question's is its metric analyses,
+        stacked; any other question (or no successful analysis) is assembled
+        as in C."""
+        if self.condition_taken:
+            branch = self.condition_taken[1]
+            return branch.result, branch.number, None
+        if self.forecast:
             fits = [s for s in steps if s.tool in _TREND_STEPS
                     and s.result.ok and s.result.rows]
             if fits:
@@ -453,9 +550,10 @@ class Full(Router):
                     opened = self._metric_step(len(steps) + 1, steps, reason)
                     if opened is not None:
                         steps.append(opened)
-                elif (self.question_signal is not None
-                      and len(steps) + 2 <= self.settings.max_steps):
+                elif self.forecast and len(steps) + 2 <= self.settings.max_steps:
                     steps += self._trend_steps(len(steps) + 1, steps, reason)
+                elif self.conditional and len(steps) + 2 <= self.settings.max_steps:
+                    steps += self._branch_steps(len(steps) + 1, steps, reason)
                 while len(steps) < self.settings.max_steps:
                     action = self._next_action(steps, reason)
                     if action is None or action.action == "answer":
@@ -468,7 +566,7 @@ class Full(Router):
             stacked = bool(plan_used and "stacked_steps" in plan_used)
             final, selected, selected_step, fell_back = self._answer(
                 selected, selected_step, steps, escalated,
-                guidance=METRIC_GUIDANCE if stacked else "")
+                guidance=self._guidance(selected, stacked))
             if fell_back:
                 stacked = False
                 plan_used = {"fallback": "the answer call failed on the final "

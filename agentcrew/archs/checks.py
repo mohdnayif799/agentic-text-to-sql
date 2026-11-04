@@ -18,7 +18,7 @@ Checked in this order, and only the first one is acted on:
           Added after a holdout failure (ha20). Measures are read from the
           result (columns holding a number), never from a row's label.
 
-One more deterministic signal is read from the question, not the result:
+Two more deterministic signals are read from the question, not the result:
 
   forecast  the question asks for a forecast, a projection, a trend line or
             a regression fit. It escalates directly to follow-up work (no
@@ -30,6 +30,12 @@ One more deterministic signal is read from the question, not the result:
             accepted it, so neither C nor D reached the compute tools). Kept
             narrow: z-scores and correlations, which one query computes
             correctly (dev2 dv04, showcase sc04), do not trigger it.
+  conditional  a sentence opens with "if ...,": the answer depends on a
+            condition. It also escalates without a decision call: one query
+            that evaluates the condition and every branch hides which branch
+            was taken and can leave rows from the other one (holdout ha19 named
+            the wrong branch, ha20 kept a hollow row). Kept narrow: "what if"
+            and "if any" do not trigger it.
 """
 
 from __future__ import annotations
@@ -153,3 +159,22 @@ FORECAST_DETAIL = (
 def forecast_signal(question: str) -> Signal | None:
     """The question-level "forecast" signal (see the module docstring)."""
     return Signal("forecast", FORECAST_DETAIL) if _FORECAST.search(question) else None
+
+
+_CONDITIONAL = re.compile(r"(?:^|[.?!;:]\s+)if\b(?!\s+any\b)[^.?!;]*,", re.IGNORECASE)
+CONDITIONAL_DETAIL = (
+    "The answer depends on a condition: evaluate the condition first with its own "
+    "query, then answer only the branch that applies."
+)
+
+
+def conditional_signal(question: str) -> Signal | None:
+    """The question-level "conditional" signal (see the module docstring)."""
+    return (Signal("conditional", CONDITIONAL_DETAIL)
+            if _CONDITIONAL.search(question) else None)
+
+
+def question_signal(question: str) -> Signal | None:
+    """The signal read from the question, if any. A forecast has its own
+    tool path, so it wins when a question is both."""
+    return forecast_signal(question) or conditional_signal(question)

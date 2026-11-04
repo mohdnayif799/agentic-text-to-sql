@@ -18,8 +18,9 @@ A's result, so the direct path is exactly A's calls. The one addition is made
 in code after that call: when the question ranks things without saying by what
 or over which period (archs/assumption.py), the answer opens with the reading
 the query used. A question that asks for a
-forecast or a fitted trend (checks.forecast_signal, zero LLM calls) skips the
-decision and escalates to follow-ups directly.
+forecast or a fitted trend, or whose answer depends on a condition
+(checks.question_signal, zero LLM calls), skips the decision and escalates to
+follow-ups directly.
 
 Disciplined repair: schema and fan-out checks run before executing (no LLM
 call); a repair gets the exact signal text; the original query and result
@@ -58,7 +59,7 @@ from agentcrew.archs.checks import (
     Schema,
     Signal,
     classify,
-    forecast_signal,
+    question_signal,
     schema_error,
     schema_of,
 )
@@ -238,7 +239,7 @@ class Router:
         self.keys = _key_index(tools)
         # Read from the question before any call; C and D share it, so they
         # stay identical up to escalation.
-        self.question_signal = forecast_signal(question)
+        self.question_signal = question_signal(question)
 
     def _followup_decision(self, first: StepRun,
                            llm: LLMClient | None = None) -> FollowupDecision:
