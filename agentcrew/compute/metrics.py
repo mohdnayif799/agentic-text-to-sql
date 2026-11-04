@@ -196,6 +196,8 @@ class Metric:
     sums: Mapping[str, tuple[tuple[str, int], ...]] = field(default_factory=dict)
     """Additive decompositions: label -> ((factor, sign), ...)."""
     periods_allowed: bool = True
+    over_time: str = ""
+    """When periods are not allowed: the metric that can compare periods."""
 
 
 METRICS: dict[str, Metric] = {m.name: m for m in (
@@ -233,7 +235,7 @@ METRICS: dict[str, Metric] = {m.name: m for m in (
     Metric("churn_rate", "churn_rate", False, "churned customers / all customers",
            products={"churned / all customers":
                      (("churned_customers", 1), ("customers", -1))},
-           periods_allowed=False),
+           periods_allowed=False, over_time="churned_customers"),
     Metric("tickets", "tickets", True, "support tickets opened"),
     Metric("ticket_resolution_days", "ticket_resolution_days", False,
            "average days from created to resolved, resolved tickets only",
@@ -432,7 +434,10 @@ def _metric(name: str) -> Metric:
 def _check(metric: Metric, comparison: Comparison) -> Source:
     source = _source_of(metric)
     if not metric.periods_allowed and (comparison.by_period or comparison.period):
-        raise ComputeError(f"{metric.name} cannot be split by period; compare groups")
+        instead = (f", or use {metric.over_time} with contribution_by_dimension to "
+                   "compare periods" if metric.over_time else "")
+        raise ComputeError(f"{metric.name} cannot be split by period; "
+                           f"compare groups{instead}")
     for dim in [*comparison.filters, comparison.group_dimension]:
         if dim:
             _dimension(source, dim)
@@ -520,14 +525,41 @@ def _decomposition_rows(metric: Metric, labels: tuple[str, str],
     return records
 
 
-def decompose_change(
-    run: Runner, metric_name: str, comparison: Comparison
-) -> tuple[pd.DataFrame, list[str]]:
+def _check_decompose(metric_name: str, comparison: Comparison
+                     ) -> tuple[Metric, Source]:
     metric = _metric(metric_name)
     if not (metric.products or metric.sums):
         raise ComputeError(f"{metric.name} has no component decomposition; "
                            "use contribution_by_dimension")
+    return metric, _check(metric, comparison)
+
+
+def _check_contribution(metric_name: str, dimension: str, comparison: Comparison
+                        ) -> tuple[Metric, Source]:
+    metric = _metric(metric_name)
+    if not metric.additive:
+        raise ComputeError(f"{metric.name} is a ratio; contributions are only "
+                           "defined for additive metrics (sums and counts)")
     source = _check(metric, comparison)
+    _dimension(source, dimension)
+    return metric, source
+
+
+def validate_call(function: str, metric_name: str, comparison: Comparison,
+                  dimension: str | None = None) -> None:
+    """Raise ComputeError if a metric tool would refuse this call. Plans run it
+    when they are parsed, so the structured-output retry can fix a refused call
+    before it costs a step; the tools run the same checks themselves."""
+    if function == "decompose_change":
+        _check_decompose(metric_name, comparison)
+    else:
+        _check_contribution(metric_name, dimension or "", comparison)
+
+
+def decompose_change(
+    run: Runner, metric_name: str, comparison: Comparison
+) -> tuple[pd.DataFrame, list[str]]:
+    metric, source = _check_decompose(metric_name, comparison)
     # Declaration order (the metric, then each decomposition's components).
     factors = list(dict.fromkeys(
         [metric.factor] + [name for parts in [*metric.products.values(),
@@ -576,13 +608,8 @@ def _contribution_rows(analysis: str, side_a: tuple[str, dict], side_b: tuple[st
 def contribution_by_dimension(
     run: Runner, metric_name: str, dimension: str, comparison: Comparison
 ) -> tuple[pd.DataFrame, list[str]]:
-    metric = _metric(metric_name)
-    if not metric.additive:
-        raise ComputeError(f"{metric.name} is a ratio; contributions are only "
-                           "defined for additive metrics (sums and counts)")
-    source = _check(metric, comparison)
+    metric, source = _check_contribution(metric_name, dimension, comparison)
     dimension = _key(dimension)
-    _dimension(source, dimension)
     aggregates = _aggregates_for([metric.factor])
     tables, queries = [], []
     for label, period, filters in comparison.sides():
@@ -606,11 +633,16 @@ def has_components(metric_name: str) -> bool:
 
 
 def catalog() -> str:
-    """Metrics and dimensions, for the decide_next_action prompt."""
+    """Metrics, dimensions and what each tool allows, for the planning prompts."""
     lines = []
     for metric in METRICS.values():
         source = _source_of(metric)
-        tools = ["decompose_change"] if (metric.products or metric.sums) else []
+        tools = []
+        if metric.products or metric.sums:
+            tools.append(
+                "decompose_change" if metric.periods_allowed else
+                "decompose_change (between groups only, not between periods; to "
+                f"compare periods use {metric.over_time})")
         if metric.additive:
             tools.append("contribution_by_dimension")
         lines.append(

@@ -40,6 +40,7 @@ from agentcrew.compute.metrics import (
     contribution_by_dimension,
     decompose_change,
     has_components,
+    validate_call,
 )
 from agentcrew.db.introspect import Catalog
 from agentcrew.schemas import ExecutionResult
@@ -76,16 +77,22 @@ class NextAction(BaseModel):
         missing = [f for f in needs.get(self.action, ()) if not getattr(self, f)]
         if missing:
             raise ValueError(f"action {self.action} needs {', '.join(missing)}")
+        if self.action == "compute" and self.function in METRIC_TOOLS:
+            comparison = Comparison.model_validate(self.params.get("comparison") or {})
+            validate_call(self.function, self.params.get("metric", ""), comparison,
+                          self.params.get("dimension"))
         return self
 
 
 class MetricPlan(BaseModel):
     """The metric analysis that opens a why-question's exploration (D).
 
-    The metric name is checked against the metric allowlist (METRICS, which
-    mirrors the data dictionary's metric definitions) when the model's JSON
-    is validated, before any SQL exists; the comparison's dimension names are
-    checked against each source's dimension allowlist when the SQL is built.
+    Checked when the model's JSON is validated, before any SQL exists: the
+    metric against the allowlist (METRICS, which mirrors the data dictionary's
+    metric definitions), and the call against what the chosen tool allows
+    (metrics.validate_call). A refusal goes back to the model as the reason for
+    the one structured-output retry, so a plan the tool would refuse costs no
+    step. Added after a holdout failure (ha08: churn_rate between periods).
     """
 
     metric: str = Field(description="One of the listed metrics.")
@@ -109,7 +116,12 @@ class MetricPlan(BaseModel):
         if not has_components(self.metric) and not self.dimension:
             raise ValueError(f"{self.metric} has no components; give the dimension "
                              "whose values may explain the difference")
+        validate_call(self._function(), self.metric, self.comparison, self.dimension)
         return self
+
+    def _function(self) -> str:
+        return ("decompose_change" if has_components(self.metric)
+                else "contribution_by_dimension")
 
     def to_action(self) -> NextAction:
         """decompose_change when the metric has components, otherwise
@@ -118,10 +130,8 @@ class MetricPlan(BaseModel):
             "metric": self.metric,
             "comparison": self.comparison.model_dump(mode="json", exclude_none=True),
         }
-        if has_components(self.metric):
-            function = "decompose_change"
-        else:
-            function = "contribution_by_dimension"
+        function = self._function()
+        if function == "contribution_by_dimension":
             params["dimension"] = self.dimension
         return NextAction(action="compute", function=function, params=params,
                           reason=self.reason)

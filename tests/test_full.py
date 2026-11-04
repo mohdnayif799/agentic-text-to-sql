@@ -304,10 +304,11 @@ class TestMetricPlan:
         assert action.params["comparison"]["groups"] == ["Direct", "Partner"]
 
     def test_metrics_without_components_need_a_dimension(self):
+        comparison = {"group_dimension": "region", "groups": ["APAC", "EMEA"]}
         with pytest.raises(ValueError, match="dimension"):
-            MetricPlan(metric="tickets", comparison=METRIC_PLAN["comparison"])
+            MetricPlan(metric="tickets", comparison=comparison)
         action = MetricPlan(metric="tickets", dimension="severity",
-                            comparison=METRIC_PLAN["comparison"]).to_action()
+                            comparison=comparison).to_action()
         assert action.function == "contribution_by_dimension"
         assert action.params["dimension"] == "severity"
 
