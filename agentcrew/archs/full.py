@@ -21,7 +21,7 @@ When the run escalates, D adds:
   planner is told so and decompose_change compares each component's change across
   the groups, so the answer names what differs, not what fell most. If it asks
   about a sudden change (is_spike_question), the next step reads the same metric
-  over the periods before it (metrics.period_history, no LLM call), so the
+  over the periods before it (compute.history.period_history, no LLM call), so the
   answer can say what is normal. Added after a holdout failure (ha08: an answer
   compared Q3 with Q2 only, so nothing showed that Q3 was unusual);
 - for a question that asks for a forecast or a fitted trend (C's forecast
@@ -87,13 +87,8 @@ from agentcrew.archs.router import (
     StepRun,
 )
 from agentcrew.archs.verify import verify
-from agentcrew.compute.metrics import (
-    GROUP_GAP_PREFIX,
-    MAX_HISTORY_ROWS,
-    SIMILAR_PCT,
-    catalog,
-    has_dimension,
-)
+from agentcrew.compute.history import MAX_HISTORY_ROWS, has_dimension
+from agentcrew.compute.metrics import GROUP_GAP_PREFIX, SIMILAR_PCT, catalog
 from agentcrew.config import Settings
 from agentcrew.context import SharedContext
 from agentcrew.context.values import profile_columns

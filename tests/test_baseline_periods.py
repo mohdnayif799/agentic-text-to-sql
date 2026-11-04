@@ -11,13 +11,8 @@ import pytest
 from agentcrew.archs import run_architecture
 from agentcrew.archs.full import is_spike_question
 from agentcrew.compute.functions import ComputeError
-from agentcrew.compute.metrics import (
-    Comparison,
-    Period,
-    period_history,
-    period_label,
-    preceding_periods,
-)
+from agentcrew.compute.history import period_history, period_label, preceding_periods
+from agentcrew.compute.metrics import Comparison, Period
 from agentcrew.context import ContextBuilder
 from agentcrew.llm import FakeClient
 from agentcrew.tools import ToolContext, execute_readonly_sql

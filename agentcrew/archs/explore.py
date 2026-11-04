@@ -34,6 +34,7 @@ from pydantic import (
 from sqlalchemy import Engine, text
 
 from agentcrew.compute.functions import FUNCTIONS, ComputeError
+from agentcrew.compute.history import period_history
 from agentcrew.compute.metrics import (
     METRICS,
     Comparison,
@@ -41,7 +42,6 @@ from agentcrew.compute.metrics import (
     contribution_by_dimension,
     decompose_change,
     has_components,
-    period_history,
     validate_call,
 )
 from agentcrew.db.introspect import Catalog
@@ -358,7 +358,7 @@ def history_result(
     filters: dict[str, str],
     run_sql: Callable[[str], ExecutionResult],
 ) -> ExecutionResult:
-    """compute.metrics.period_history as a step result. A refusal is a failed
+    """compute.history.period_history as a step result. A refusal is a failed
     result, like any compute function's."""
     label = "-- compute: period_history"
     try:
