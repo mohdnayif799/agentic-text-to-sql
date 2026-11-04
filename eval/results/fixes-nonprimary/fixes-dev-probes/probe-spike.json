@@ -1,0 +1,190 @@
+{
+ "note": "dev probe: ungraded, never part of any holdout",
+ "id": "probe-spike",
+ "question": "Why did marketing spend jump in Q3 2024?",
+ "expect": "Spend was 543,834 in 2024-Q1 and 570,860 in 2024-Q2, then 677,365 in 2024-Q3. The data starts in 2024, so only two earlier quarters exist.",
+ "status": "done",
+ "path": "escalated",
+ "answer": "Assuming Q3 2024 is compared to Q2 2024, the jump in marketing spend was primarily driven by Online, which was higher at 235,763.72 compared to 175,376.17 previously. Normally, Online spend ranged between 174,040.63 and 175,376.17 in earlier periods. Meanwhile, Direct was also higher at 237,222.05 compared to 189,109.48, and Partner was about the same at 204,379.43 compared to 206,374.82, so it does not explain the difference. Total marketing spend in Q3 2024 was 677,365.20.",
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT m.month, r.region_name, m.channel, SUM(m.amount) AS total_spend FROM marketing_spend AS m JOIN regions AS r ON r.region_id = m.region_id WHERE m.month BETWEEN '2024-07' AND '2024-09' GROUP BY m.month, r.region_name, m.channel ORDER BY total_spend DESC LIMIT 500",
+   "reason": "",
+   "signal": null
+  },
+  {
+   "step": 2,
+   "tools": [
+    "compute:contribution_by_dimension"
+   ],
+   "sql": "-- compute: contribution_by_dimension\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2024-04' AND '2024-06' GROUP BY 1 ORDER BY 1\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2024-07' AND '2024-09' GROUP BY 1 ORDER BY 1",
+   "reason": "Compare marketing spend between Q2 2024 and Q3 2024 by channel to see what drove the increase.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "compute:period_history"
+   ],
+   "sql": "-- compute: period_history\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2024-07' AND '2024-09' GROUP BY 1 ORDER BY 1\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2023-07' AND '2023-09' GROUP BY 1 ORDER BY 1\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2023-10' AND '2023-12' GROUP BY 1 ORDER BY 1\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2024-01' AND '2024-03' GROUP BY 1 ORDER BY 1\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2024-04' AND '2024-06' GROUP BY 1 ORDER BY 1",
+   "reason": "What was normal before this period.",
+   "signal": null
+  },
+  {
+   "step": "final",
+   "tools": [
+    "stack"
+   ],
+   "plan": {
+    "stacked_steps": [
+     2
+    ]
+   },
+   "driver_sentence_added": false
+  }
+ ],
+ "attempts": [
+  {
+   "sql": "SELECT m.month, r.region_name, m.channel, SUM(m.amount) AS total_spend FROM marketing_spend AS m JOIN regions AS r ON r.region_id = m.region_id WHERE m.month BETWEEN '2024-07' AND '2024-09' GROUP BY m.month, r.region_name, m.channel ORDER BY total_spend DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 36,
+   "preview": "month | region_name | channel | total_spend\n2024-09 | North America | Partner | 25336.22\n2024-07 | APAC | Direct | 24492.66\n2024-08 | North America | Direct | 24492.22\n2024-07 | EMEA | Partner | 24472.33\n2024-07 | North America | Online | 24258.15\n... 31 more row(s)"
+  },
+  {
+   "sql": "-- compute: contribution_by_dimension\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2024-04' AND '2024-06' GROUP BY 1 ORDER BY 1\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2024-07' AND '2024-09' GROUP BY 1 ORDER BY 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "side_a | side_b | analysis | item | value_a | value_b | change | pct_change | share_of_change_pct | comparison | largest_contributor\n2024-04-01..2024-06-30 | 2024-07-01..2024-09-30 | marketing_spend by channel | Online | 175376.17 | 235763.72 | 60387.54999999999 | 34.43315588429145 | 56.69940668362805 | higher | True\n2024-04-01..2024-06-30 | 2024-07-01..2024-09-30 | marketing_spend by channel | Direct | 189109.48 | 237222.05 | 48112.56999999998 | 25.441648932671157 | 45.17411574115065 | higher | False\n2024-04-01..2024-06-30 | 2024-07-01..2024-09-30 | marketing_spend by channel | Partner | 206374.82 | 204379.43 | -1995.390000000014 | -0.966876676137144 | -1.873522424778707 | about the same | False"
+  },
+  {
+   "sql": "-- compute: period_history\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2024-07' AND '2024-09' GROUP BY 1 ORDER BY 1\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2023-07' AND '2023-09' GROUP BY 1 ORDER BY 1\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2023-10' AND '2023-12' GROUP BY 1 ORDER BY 1\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2024-01' AND '2024-03' GROUP BY 1 ORDER BY 1\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2024-04' AND '2024-06' GROUP BY 1 ORDER BY 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "channel | 2024-Q1 | 2024-Q2 | earlier_low | earlier_high | 2024-Q3\nDirect | 164928.55 | 189109.48 | 164928.55 | 189109.48 | 237222.05\nOnline | 174040.63 | 175376.17 | 174040.63 | 175376.17 | 235763.72\nPartner | 204865.16 | 206374.82 | 204865.16 | 206374.82 | 204379.43\ntotal | 543834.34 | 570860.47 | 543834.34 | 570860.47 | 677365.2"
+  }
+ ],
+ "selected": {
+  "sql": "-- stacked: rows from step(s) 2\n-- compute: contribution_by_dimension\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2024-04' AND '2024-06' GROUP BY 1 ORDER BY 1\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2024-07' AND '2024-09' GROUP BY 1 ORDER BY 1",
+  "columns": [
+   "side_a",
+   "side_b",
+   "analysis",
+   "item",
+   "value_a",
+   "value_b",
+   "change",
+   "pct_change",
+   "share_of_change_pct",
+   "comparison",
+   "largest_contributor"
+  ],
+  "rows": [
+   [
+    "2024-04-01..2024-06-30",
+    "2024-07-01..2024-09-30",
+    "marketing_spend by channel",
+    "Online",
+    175376.17,
+    235763.72,
+    60387.54999999999,
+    34.43315588429145,
+    56.69940668362805,
+    "higher",
+    true
+   ],
+   [
+    "2024-04-01..2024-06-30",
+    "2024-07-01..2024-09-30",
+    "marketing_spend by channel",
+    "Direct",
+    189109.48,
+    237222.05,
+    48112.56999999998,
+    25.441648932671157,
+    45.17411574115065,
+    "higher",
+    false
+   ],
+   [
+    "2024-04-01..2024-06-30",
+    "2024-07-01..2024-09-30",
+    "marketing_spend by channel",
+    "Partner",
+    206374.82,
+    204379.43,
+    -1995.390000000014,
+    -0.966876676137144,
+    -1.873522424778707,
+    "about the same",
+    false
+   ]
+  ]
+ },
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question that asks why. A first query has been run. ",
+   "prompt_hash": "e60253b6d0abefbd530e596d9c4e07cfd585e26d019adaaca5ecb4eb4cb93570",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 4776,
+   "output_tokens": 153,
+   "original_latency_ms": 996.0,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You start the analysis of a question that asks why. A first query has been run. ",
+   "prompt_hash": "b1754af3fba5c7a8acc7b52f8499b065562fcc66662ea699997f892704e71fe4",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 5036,
+   "output_tokens": 154,
+   "original_latency_ms": 1256.2,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "705e8094d838751865ad2d6d85f0fc4e18608764aaa0b9abaa0fe9aa574671b6",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 1662,
+   "output_tokens": 317,
+   "original_latency_ms": 1295.0,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "3d6861e0fe7d5097b467ff9266c4d3a26745487f41d1a35046c6aa3ac51fbe5a",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2827,
+   "output_tokens": 243,
+   "original_latency_ms": 1775.9,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "7ec0a4af5221335bd48526313f64c0a2544b75185c19fd74711614914a8c3ca3",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 606,
+   "output_tokens": 54,
+   "original_latency_ms": 908.9,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ]
+}

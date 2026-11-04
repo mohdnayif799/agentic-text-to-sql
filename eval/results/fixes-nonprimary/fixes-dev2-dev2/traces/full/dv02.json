@@ -1,0 +1,101 @@
+{
+ "question_id": "dv02",
+ "type": "term_matching",
+ "arch": "full",
+ "question": "How many completed orders placed in 2024 included at least one Professional Services item?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT COUNT(DISTINCT o.order_id) AS completed_services_order_count FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' AND p.category = 'Services'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "completed_services_order_count\n1269"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT COUNT(DISTINCT o.order_id) AS completed_services_order_count FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' AND p.category = 'Services'",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT COUNT(DISTINCT o.order_id) AS completed_services_order_count FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' AND p.category = 'Services'",
+  "ok": true,
+  "columns": [
+   "completed_services_order_count"
+  ],
+  "rows": [
+   [
+    1269
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "There were 1,269 completed orders placed in 2024 that included at least one Professional Services item.",
+ "key_numbers": [
+  "1269"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "da00c0b2c813de42f1dccb6b3779f7c4d3bbee7680a7bb065ad2705f5f049dbc",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2931,
+   "output_tokens": 191,
+   "original_latency_ms": 1059.4,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "1fdd8b3ecb0ede31d1763717bb447b6acf9b5b939486cfe80133eb4d76dda232",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 547,
+   "output_tokens": 59,
+   "original_latency_ms": 790.1,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "bdcb0748e06e8279b8911cc4a69e402bf4273a8b26158fc3425e09f77e79e1c2",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 435,
+   "output_tokens": 51,
+   "original_latency_ms": 772.2,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.024,
+ "latency_live_s": 2.645,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

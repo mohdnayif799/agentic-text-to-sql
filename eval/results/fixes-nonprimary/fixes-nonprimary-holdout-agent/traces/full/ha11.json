@@ -1,0 +1,211 @@
+{
+ "question_id": "ha11",
+ "type": "statistics",
+ "arch": "full",
+ "question": "Fit a straight-line trend to monthly completed revenue from January 2024 to December 2025, using month number 1 to 24 as x. Which months fell more than 1.5 standard deviations below the trend line, using the standard deviation of the residuals, and what was each month's residual (actual minus trend, in dollars)? Label months as YYYY-MM.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The question asks for a forecast, a projection or a fitted trend line: get the series it is fitted on (one row per period), fit it from that series, and report each forecast with its period."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "WITH monthly_rev AS (SELECT SUBSTRING(o.order_date, 1, 7) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY SUBSTRING(o.order_date, 1, 7)), indexed_rev AS (SELECT month, rev, ROW_NUMBER() OVER (ORDER BY month) AS x FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(rev) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * rev) AS sum_xy FROM indexed_rev), regression AS (SELECT n, sum_x, sum_y, sum_xx, sum_xy, (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_x) / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats), residuals AS (SELECT i.month, i.rev AS actual_revenue, (r.slope * i.x + r.intercept) AS trend_revenue, (i.rev - (r.slope * i.x + r.intercept)) AS residual FROM indexed_rev AS i CROSS JOIN regression AS r), sd_calc AS (SELECT SQRT(SUM(residual * residual) / (n - 2)) AS sd_res FROM residuals CROSS JOIN regression), with_sd AS (SELECT r.month, r.residual, s.sd_res FROM residuals AS r CROSS JOIN sd_calc AS s) SELECT month, residual FROM with_sd WHERE residual < -1.5 * sd_res ORDER BY residual ASC LIMIT 500",
+   "ok": true,
+   "failure": "empty",
+   "error": null,
+   "row_count": 0,
+   "preview": "0 rows returned."
+  },
+  {
+   "sql": "WITH RECURSIVE months(m) AS (SELECT '2024-01' UNION ALL SELECT STRFTIME('%Y-%m', m || '-01', '+1 month') FROM months WHERE m < '2025-12'), monthly_rev AS (SELECT m.m AS month, COALESCE(SUM(oi.quantity * oi.unit_price * (1 - oi.discount)), 0.0) AS rev FROM months AS m LEFT JOIN orders AS o ON SUBSTRING(o.order_date, 1, 7) = m.m AND o.status = 'completed' LEFT JOIN order_items AS oi ON oi.order_id = o.order_id GROUP BY m.m), indexed_rev AS (SELECT month, rev, ROW_NUMBER() OVER (ORDER BY month) AS x FROM monthly_rev), stats AS (SELECT CAST(COUNT(*) AS REAL) AS n, SUM(x) AS sum_x, SUM(rev) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * rev) AS sum_xy FROM indexed_rev), regression AS (SELECT n, (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats), residuals AS (SELECT i.month, (i.rev - (r.slope * i.x + r.intercept)) AS residual FROM indexed_rev AS i CROSS JOIN regression AS r), sd_calc AS (SELECT SQRT(SUM(residual * residual) / (n - 2)) AS sd_res, n FROM residuals CROSS JOIN stats) SELECT r.month, ROUND(r.residual, 2) AS residual FROM residuals AS r CROSS JOIN sd_calc AS s WHERE r.residual < -1.5 * s.sd_res ORDER BY r.residual ASC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "month | residual\n2025-09 | -452444.71\n2025-08 | -425182.0\n2025-07 | -348547.32"
+  },
+  {
+   "sql": "WITH RECURSIVE months(m) AS (SELECT '2024-01' UNION ALL SELECT STRFTIME('%Y-%m', m || '-01', '+1 month') FROM months WHERE m < '2025-12') SELECT m.m AS month, COALESCE(SUM(oi.quantity * oi.unit_price * (1 - oi.discount)), 0.0) AS rev FROM months AS m LEFT JOIN orders AS o ON SUBSTRING(o.order_date, 1, 7) = m.m AND o.status = 'completed' LEFT JOIN order_items AS oi ON oi.order_id = o.order_id GROUP BY m.m ORDER BY m.m LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 24,
+   "preview": "month | rev\n2024-01 | 628957.8065\n2024-02 | 588582.8859999999\n2024-03 | 756149.951\n2024-04 | 772174.8205\n2024-05 | 837798.7595\n... 19 more row(s)"
+  },
+  {
+   "sql": "-- compute: zscore_anomalies on step 2",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "month | value | expected | residual | z_score | x_convention\n2025-07 | 748889.067 | 1097436.3864584055 | -348547.3194584055 | -1.815098217019091 | x = month number, 1 = 2024-01\n2025-08 | 692802.7975 | 1117984.7972340577 | -425181.9997340577 | -2.214181680768879 | x = month number, 1 = 2024-01\n2025-09 | 686088.4935 | 1138533.2080097098 | -452444.71450970985 | -2.3561552442358953 | x = month number, 1 = 2024-01"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql",
+    "repair"
+   ],
+   "sql": "WITH RECURSIVE months(m) AS (SELECT '2024-01' UNION ALL SELECT STRFTIME('%Y-%m', m || '-01', '+1 month') FROM months WHERE m < '2025-12'), monthly_rev AS (SELECT m.m AS month, COALESCE(SUM(oi.quantity * oi.unit_price * (1 - oi.discount)), 0.0) AS rev FROM months AS m LEFT JOIN orders AS o ON SUBSTRING(o.order_date, 1, 7) = m.m AND o.status = 'completed' LEFT JOIN order_items AS oi ON oi.order_id = o.order_id GROUP BY m.m), indexed_rev AS (SELECT month, rev, ROW_NUMBER() OVER (ORDER BY month) AS x FROM monthly_rev), stats AS (SELECT CAST(COUNT(*) AS REAL) AS n, SUM(x) AS sum_x, SUM(rev) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * rev) AS sum_xy FROM indexed_rev), regression AS (SELECT n, (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats), residuals AS (SELECT i.month, (i.rev - (r.slope * i.x + r.intercept)) AS residual FROM indexed_rev AS i CROSS JOIN regression AS r), sd_calc AS (SELECT SQRT(SUM(residual * residual) / (n - 2)) AS sd_res, n FROM residuals CROSS JOIN stats) SELECT r.month, ROUND(r.residual, 2) AS residual FROM residuals AS r CROSS JOIN sd_calc AS s WHERE r.residual < -1.5 * s.sd_res ORDER BY r.residual ASC LIMIT 500",
+   "reason": "",
+   "signal": "empty",
+   "escalation_signal": "forecast"
+  },
+  {
+   "step": 2,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH RECURSIVE months(m) AS (SELECT '2024-01' UNION ALL SELECT STRFTIME('%Y-%m', m || '-01', '+1 month') FROM months WHERE m < '2025-12') SELECT m.m AS month, COALESCE(SUM(oi.quantity * oi.unit_price * (1 - oi.discount)), 0.0) AS rev FROM months AS m LEFT JOIN orders AS o ON SUBSTRING(o.order_date, 1, 7) = m.m AND o.status = 'completed' LEFT JOIN order_items AS oi ON oi.order_id = o.order_id GROUP BY m.m ORDER BY m.m LIMIT 500",
+   "reason": "Identify monthly completed revenue points falling more than 1.5 standard deviations below the straight-line trend.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "compute:zscore_anomalies"
+   ],
+   "sql": "-- compute: zscore_anomalies on step 2",
+   "reason": "Identify monthly completed revenue points falling more than 1.5 standard deviations below the straight-line trend.",
+   "signal": null
+  }
+ ],
+ "repairs": [
+  {
+   "step": 1,
+   "signal": "empty",
+   "detail": "The query ran but returned no rows.",
+   "via": "repair",
+   "accepted": true,
+   "attempts": 1,
+   "before": {
+    "sql": "WITH monthly_rev AS (SELECT SUBSTRING(o.order_date, 1, 7) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY SUBSTRING(o.order_date, 1, 7)), indexed_rev AS (SELECT month, rev, ROW_NUMBER() OVER (ORDER BY month) AS x FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(rev) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * rev) AS sum_xy FROM indexed_rev), regression AS (SELECT n, sum_x, sum_y, sum_xx, sum_xy, (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_x) / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats), residuals AS (SELECT i.month, i.rev AS actual_revenue, (r.slope * i.x + r.intercept) AS trend_revenue, (i.rev - (r.slope * i.x + r.intercept)) AS residual FROM indexed_rev AS i CROSS JOIN regression AS r), sd_calc AS (SELECT SQRT(SUM(residual * residual) / (n - 2)) AS sd_res FROM residuals CROSS JOIN regression), with_sd AS (SELECT r.month, r.residual, s.sd_res FROM residuals AS r CROSS JOIN sd_calc AS s) SELECT month, residual FROM with_sd WHERE residual < -1.5 * sd_res ORDER BY residual ASC LIMIT 500",
+    "ok": true,
+    "rows": 0,
+    "error": null
+   },
+   "after": {
+    "sql": "WITH RECURSIVE months(m) AS (SELECT '2024-01' UNION ALL SELECT STRFTIME('%Y-%m', m || '-01', '+1 month') FROM months WHERE m < '2025-12'), monthly_rev AS (SELECT m.m AS month, COALESCE(SUM(oi.quantity * oi.unit_price * (1 - oi.discount)), 0.0) AS rev FROM months AS m LEFT JOIN orders AS o ON SUBSTRING(o.order_date, 1, 7) = m.m AND o.status = 'completed' LEFT JOIN order_items AS oi ON oi.order_id = o.order_id GROUP BY m.m), indexed_rev AS (SELECT month, rev, ROW_NUMBER() OVER (ORDER BY month) AS x FROM monthly_rev), stats AS (SELECT CAST(COUNT(*) AS REAL) AS n, SUM(x) AS sum_x, SUM(rev) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * rev) AS sum_xy FROM indexed_rev), regression AS (SELECT n, (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats), residuals AS (SELECT i.month, (i.rev - (r.slope * i.x + r.intercept)) AS residual FROM indexed_rev AS i CROSS JOIN regression AS r), sd_calc AS (SELECT SQRT(SUM(residual * residual) / (n - 2)) AS sd_res, n FROM residuals CROSS JOIN stats) SELECT r.month, ROUND(r.residual, 2) AS residual FROM residuals AS r CROSS JOIN sd_calc AS s WHERE r.residual < -1.5 * s.sd_res ORDER BY r.residual ASC LIMIT 500",
+    "ok": true,
+    "rows": 3,
+    "error": null
+   },
+   "effect": "n/a"
+  }
+ ],
+ "selected_step": 3,
+ "selected_result": {
+  "sql": "-- compute: zscore_anomalies on step 2",
+  "ok": true,
+  "columns": [
+   "month",
+   "value",
+   "expected",
+   "residual",
+   "z_score",
+   "x_convention"
+  ],
+  "rows": [
+   [
+    "2025-07",
+    748889.067,
+    1097436.3864584055,
+    -348547.3194584055,
+    -1.815098217019091,
+    "x = month number, 1 = 2024-01"
+   ],
+   [
+    "2025-08",
+    692802.7975,
+    1117984.7972340577,
+    -425181.9997340577,
+    -2.214181680768879,
+    "x = month number, 1 = 2024-01"
+   ],
+   [
+    "2025-09",
+    686088.4935,
+    1138533.2080097098,
+    -452444.71450970985,
+    -2.3561552442358953,
+    "x = month number, 1 = 2024-01"
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "Assuming months where the residual was more than 1.5 standard deviations below the trend line (meaning a z-score less than -1.5) are requested, three months met this criteria: 2025-07 with a residual of -$348,547.32, 2025-08 with a residual of -$425,182.00, and 2025-09 with a residual of -$452,444.71.",
+ "key_numbers": [
+  "-348547.3194584055",
+  "-425181.9997340577",
+  "-452444.71450970985",
+  "-1.815098217019091",
+  "-2.214181680768879",
+  "-2.3561552442358953"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question that asks for a forecast, a projection or a",
+   "prompt_hash": "5a543cfa9874c2283af6c59c7df9b9d38d0c285dba533e133ab15e67f48fa7e4",
+   "cache_hit": false,
+   "latency_ms": 1208.9,
+   "input_tokens": 4210,
+   "output_tokens": 245,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "e1ce2a760ba6231c89de6110c3b96e9cb2a698e7197d34f3662ae2edf5c54c6e",
+   "cache_hit": false,
+   "latency_ms": 1178.0,
+   "input_tokens": 808,
+   "output_tokens": 266,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "42b6b4421ea9c4559b2111419205eadf5818020eaa7db107408f4748a65c68b0",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3005,
+   "output_tokens": 842,
+   "original_latency_ms": 2606.0,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You fix one SQLite query. A concrete problem was detected and is described below",
+   "prompt_hash": "e04434ed639b48fd3a29c42a6929dcc921934fae9d1d02a514b42b05c3774571",
+   "cache_hit": false,
+   "latency_ms": 2528.9,
+   "input_tokens": 3559,
+   "output_tokens": 807,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 5.081,
+ "latency_live_s": 7.687,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "3 row(s) match"
+ }
+}

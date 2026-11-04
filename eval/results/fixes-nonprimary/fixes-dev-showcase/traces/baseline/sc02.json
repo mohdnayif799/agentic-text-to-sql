@@ -1,0 +1,88 @@
+{
+ "question_id": "sc02",
+ "type": "term_matching",
+ "arch": "baseline",
+ "question": "How much completed revenue did our reseller partners bring in from small businesses in Asia-Pacific during 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.status = 'completed' AND o.channel = 'Partner' AND c.segment = 'SMB' AND r.region_name = 'APAC' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "completed_revenue\n342941.7275"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.status = 'completed' AND o.channel = 'Partner' AND c.segment = 'SMB' AND r.region_name = 'APAC' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31'"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.status = 'completed' AND o.channel = 'Partner' AND c.segment = 'SMB' AND r.region_name = 'APAC' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31'",
+  "ok": true,
+  "columns": [
+   "completed_revenue"
+  ],
+  "rows": [
+   [
+    342941.7275
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Reseller partners brought in a completed revenue of $342,941.73 from small businesses in the Asia-Pacific region during 2025.",
+ "key_numbers": [
+  "342941.7275"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "cf90a83e2b3c296f1366fca6e3dc0a6cfb176d5a8f327f9accaf1a108ac11a19",
+   "cache_hit": false,
+   "latency_ms": 1911.1,
+   "input_tokens": 2943,
+   "output_tokens": 236,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "dcd7b6ba951473e8cc1390ff9823aa36ea6839b33fda1976365c0261d24fc3db",
+   "cache_hit": false,
+   "latency_ms": 855.1,
+   "input_tokens": 594,
+   "output_tokens": 76,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 2.775,
+ "latency_live_s": 2.775,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

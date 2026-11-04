@@ -1,0 +1,101 @@
+{
+ "question_id": "ha10",
+ "type": "statistics",
+ "arch": "full",
+ "question": "What was the median completed order value in 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH order_values AS (SELECT o.order_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS order_val FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY o.order_id), ordered AS (SELECT order_val, ROW_NUMBER() OVER (ORDER BY order_val) AS rn, COUNT(*) OVER () AS cnt FROM order_values) SELECT AVG(order_val) FROM ordered WHERE rn IN ((cnt + 1) / 2, (cnt + 2) / 2) LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "AVG(order_val)\n2096.64"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH order_values AS (SELECT o.order_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS order_val FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY o.order_id), ordered AS (SELECT order_val, ROW_NUMBER() OVER (ORDER BY order_val) AS rn, COUNT(*) OVER () AS cnt FROM order_values) SELECT AVG(order_val) FROM ordered WHERE rn IN ((cnt + 1) / 2, (cnt + 2) / 2) LIMIT 500",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH order_values AS (SELECT o.order_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS order_val FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY o.order_id), ordered AS (SELECT order_val, ROW_NUMBER() OVER (ORDER BY order_val) AS rn, COUNT(*) OVER () AS cnt FROM order_values) SELECT AVG(order_val) FROM ordered WHERE rn IN ((cnt + 1) / 2, (cnt + 2) / 2) LIMIT 500",
+  "ok": true,
+  "columns": [
+   "AVG(order_val)"
+  ],
+  "rows": [
+   [
+    2096.64
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The median completed order value in 2025 was 2096.64.",
+ "key_numbers": [
+  "2096.64"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "6e1630b9f0ff919ce2ad65ad9cc6d594d2c6b8cca0b0e8acc549230a936e5e7b",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2854,
+   "output_tokens": 269,
+   "original_latency_ms": 1326.3,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "2fc4ae8b807b00564c31f37a0cab0a8f25a5e51f77009dd3382c0e787fe5db7c",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 616,
+   "output_tokens": 57,
+   "original_latency_ms": 781.1,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "dd31a5963c4dfac59a70fdbf2356cf58f06cea98d6c6110bbc6c36e62024e57f",
+   "cache_hit": false,
+   "latency_ms": 826.7,
+   "input_tokens": 504,
+   "output_tokens": 44,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.854,
+ "latency_live_s": 2.962,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

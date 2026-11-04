@@ -1,0 +1,109 @@
+{
+ "question_id": "sc01",
+ "type": "multi_hop",
+ "arch": "full",
+ "question": "Who was our top customer by completed revenue in 2024, and what was that customer's completed revenue in 2025? Give the customer's ID and name.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT c.customer_id, c.customer_name, SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2025 FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' GROUP BY c.customer_id, c.customer_name ORDER BY rev_2024 DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "customer_id | customer_name | rev_2024 | rev_2025\n1052 | Elena Dubois | 48832.6535 | 587.808"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT c.customer_id, c.customer_name, SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2025 FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' GROUP BY c.customer_id, c.customer_name ORDER BY rev_2024 DESC LIMIT 1",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT c.customer_id, c.customer_name, SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2025 FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' GROUP BY c.customer_id, c.customer_name ORDER BY rev_2024 DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "customer_id",
+   "customer_name",
+   "rev_2024",
+   "rev_2025"
+  ],
+  "rows": [
+   [
+    1052,
+    "Elena Dubois",
+    48832.6535,
+    587.808
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Our top customer by completed revenue in 2024 was Elena Dubois (ID 1052), with a completed revenue of 48,832.65 in 2024. In 2025, that customer's completed revenue was 587.81.",
+ "key_numbers": [
+  "1052",
+  "48832.6535",
+  "587.808"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "9d639e12a3385153756f69e1e999a7ac72246f7380242cf07ccef58c0392c842",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2959,
+   "output_tokens": 318,
+   "original_latency_ms": 1578.5,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "79f553025f14afc6c76ca66f33e920b054e8b15bda8e85bf0d073a7e79d4eb33",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 722,
+   "output_tokens": 125,
+   "original_latency_ms": 897.3,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "e54fa7d213fe2b248d31a4bd74693355de0f3b4095eb7eb059e771da07edbc37",
+   "cache_hit": false,
+   "latency_ms": 731.3,
+   "input_tokens": 610,
+   "output_tokens": 65,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.784,
+ "latency_live_s": 3.26,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}
