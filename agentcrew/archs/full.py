@@ -6,7 +6,8 @@ Up to the follow-up decision D is exactly C:
 - C's follow-up decision (`shared_llm`), or C's question signal (a forecast
   or trend fit), which escalates without that call.
 With no signal and no follow-up, D answers directly with A's answer call, so
-the direct path is exactly A.
+the direct path is exactly A's calls (router.py describes the one sentence code
+may add after them).
 
 When the run escalates, D adds:
 - verification checks (archs/verify.py) on every query of the escalated

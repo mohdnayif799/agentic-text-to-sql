@@ -190,7 +190,7 @@ def question_periods(question: str) -> list[tuple[date, date]]:
 
 
 def _literal_span(text: str) -> tuple[date, date] | None:
-    text = text.rstrip("%")
+    text = text.rstrip("%").rstrip("-")
     try:
         if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
             day = date.fromisoformat(text)
@@ -204,16 +204,21 @@ def _literal_span(text: str) -> tuple[date, date] | None:
     return None
 
 
+def sql_date_spans(sql: str) -> list[tuple[date, date]]:
+    """The date literals of a query as spans; empty if it does not parse."""
+    try:
+        tree = sqlglot.parse_one(sql, read="sqlite")
+    except ParseError:
+        return []
+    return [s for lit in tree.find_all(exp.Literal) if lit.is_string
+            for s in [_literal_span(lit.this)] if s]
+
+
 def date_range_problem(sql: str, question: str) -> str | None:
     periods = question_periods(question)
     if not periods:
         return None
-    try:
-        tree = sqlglot.parse_one(sql, read="sqlite")
-    except ParseError:
-        return None
-    spans = [s for lit in tree.find_all(exp.Literal) if lit.is_string
-             for s in [_literal_span(lit.this)] if s]
+    spans = sql_date_spans(sql)
     if not spans:
         return None
     overlaps = any(a0 <= b1 and b0 <= a1 for a0, a1 in spans for b0, b1 in periods)

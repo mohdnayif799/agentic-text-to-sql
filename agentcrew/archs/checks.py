@@ -107,7 +107,7 @@ _OFFSET_WINDOW = re.compile(r"\b(lag|lead)\s*\(", re.IGNORECASE)
 MAX_LABELS = 5
 
 
-def _is_number(cell: object) -> bool:
+def is_number(cell: object) -> bool:
     return isinstance(cell, int | float) and not isinstance(cell, bool)
 
 
@@ -116,7 +116,7 @@ def hollow_rows(result: ExecutionResult) -> list[int]:
     a number) while at least one other row has a value in one."""
     rows = result.rows
     measures = [j for j in range(len(result.columns))
-                if any(_is_number(row[j]) for row in rows)]
+                if any(is_number(row[j]) for row in rows)]
     if not measures or _OFFSET_WINDOW.search(result.sql or ""):
         return []
     return [i for i, row in enumerate(rows) if all(row[j] is None for j in measures)]
