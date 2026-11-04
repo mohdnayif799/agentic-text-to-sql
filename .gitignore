@@ -28,4 +28,6 @@ gha-creds-*.json
 
 # Any .env-named file, and Windows Explorer duplicates, which can copy secrets
 *.env
+.env.*
+!.env.example
 * - Copy*
