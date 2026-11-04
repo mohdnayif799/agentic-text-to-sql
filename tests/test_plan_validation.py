@@ -51,6 +51,44 @@ class TestMetricPlan:
                        dimension="category")
 
 
+SAME = {"period_a": Q3, "period_b": Q3}
+GROUPS = {"group_dimension": "region", "groups": ["APAC", "EMEA"]}
+Y2025 = {"start": "2025-01-01", "end": "2025-12-31"}
+
+
+class TestOverlappingPeriods:
+    """A period compared with itself, or with part of itself, is not a change.
+    Found by the dev check: the planner gave sc03 the same period twice and the
+    tool returned a table of zeros."""
+
+    @pytest.mark.parametrize("periods", [
+        SAME,
+        {"period_a": Y2025, "period_b": Q3},
+        {"period_a": Q3, "period_b": Y2025},
+        {"period_a": {"start": "2025-01-01", "end": "2025-07-01"}, "period_b": Q3},
+    ])
+    @pytest.mark.parametrize("extra", [{}, GROUPS])
+    def test_rejected_with_or_without_groups(self, periods, extra):
+        with pytest.raises(ValueError, match="overlap"):
+            Comparison.model_validate({**periods, **extra})
+
+    def test_the_reason_says_what_to_do_instead(self):
+        with pytest.raises(ValueError, match="to compare groups over one period"):
+            MetricPlan(metric="revenue", comparison={**SAME, **GROUPS})
+
+    @pytest.mark.parametrize("periods", [
+        {"period_a": Q2, "period_b": Q3},
+        {"period_a": Q3, "period_b": Q2},
+    ])
+    @pytest.mark.parametrize("extra", [{}, GROUPS])
+    def test_periods_that_only_touch_are_fine(self, periods, extra):
+        assert Comparison.model_validate({**periods, **extra}).by_period
+
+    def test_groups_over_one_period_stay_fine(self):
+        comparison = Comparison.model_validate({**GROUPS, "period": Q3})
+        assert not comparison.by_period and not comparison.across_groups
+
+
 def action(function, **params):
     return {"action": "compute", "function": function, "params": params}
 
@@ -179,6 +217,17 @@ WHY = "Why did customer churn rise in Q3 2025?"
 
 
 class TestTheRetryCostsNoStep:
+    def test_a_period_compared_with_itself_is_retried_with_the_reason(self, run):
+        same = {"metric": "revenue", "reason": "x", "comparison": {**SAME, **GROUPS}}
+        fixed = {"metric": "revenue", "reason": "x",
+                 "comparison": {**GROUPS, "period": Q3}}
+        script = Script(plans=[same, fixed])
+        out = run(script, "Why does APAC bring in more revenue than EMEA in Q3 2025?")
+        assert script.calls.count("metric_plan") == 2
+        assert "overlap" in script.prompts[1]
+        assert out.selected.rows[0][0] == "EMEA"  # side_a: the groups, not a period
+        assert not all(row[6] == 0 for row in out.selected.rows)  # change
+
     def test_a_rejected_metric_plan_is_retried_with_the_reason(self, run):
         script = Script(plans=[BAD_PLAN, GOOD_PLAN])
         out = run(script, WHY)

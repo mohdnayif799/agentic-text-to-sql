@@ -310,6 +310,12 @@ class Comparison(BaseModel):
         periods = self.period_a is not None and self.period_b is not None
         if (self.period_a is None) != (self.period_b is None):
             raise ValueError("period_a and period_b go together")
+        if periods and (self.period_a.start <= self.period_b.end
+                        and self.period_b.start <= self.period_a.end):
+            raise ValueError(
+                "period_a and period_b overlap, so there is no change between them; "
+                "to compare groups over one period, give period with group_dimension "
+                "and groups")
         if self.groups and not self.group_dimension:
             raise ValueError("groups needs group_dimension")
         pair = bool(self.group_a and self.group_b)
