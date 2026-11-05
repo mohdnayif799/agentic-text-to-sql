@@ -1,0 +1,168 @@
+{
+ "question_id": "ha19",
+ "type": "segment_comparison",
+ "arch": "full",
+ "question": "Compare the 2025 average completed order value of Enterprise and SMB customers. If Enterprise's is more than 20% higher than SMB's, break down Enterprise's 2025 completed revenue by product category; otherwise, break down SMB's 2025 completed revenue by product category.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The answer depends on a condition: evaluate the condition first with its own query, then answer only the branch that applies."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "WITH enterprise_stats AS (SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev, COUNT(DISTINCT o.order_id) AS cnt FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = 'Enterprise'), smb_stats AS (SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev, COUNT(DISTINCT o.order_id) AS cnt FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = 'SMB'), comparison AS (SELECT (SELECT rev * 1.0 / cnt FROM enterprise_stats) AS ent_aov, (SELECT rev * 1.0 / cnt FROM smb_stats) AS smb_aov) SELECT p.category, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = CASE WHEN (SELECT ent_aov FROM comparison) > 1.2 * (SELECT smb_aov FROM comparison) THEN 'Enterprise' ELSE 'SMB' END GROUP BY p.category ORDER BY completed_revenue DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "category | completed_revenue\nHardware | 3171929.6655\nServices | 979587.305\nSoftware | 869276.058\nAccessories | 134633.953"
+  },
+  {
+   "sql": "WITH enterprise_stats AS (SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev, COUNT(DISTINCT o.order_id) AS cnt FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = 'Enterprise'), smb_stats AS (SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev, COUNT(DISTINCT o.order_id) AS cnt FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = 'SMB') SELECT (SELECT rev * 1.0 / cnt FROM enterprise_stats) AS enterprise_aov, (SELECT rev * 1.0 / cnt FROM smb_stats) AS smb_aov, CASE WHEN (SELECT rev * 1.0 / cnt FROM enterprise_stats) > 1.2 * (SELECT rev * 1.0 / cnt FROM smb_stats) THEN 1 ELSE 0 END AS condition_met LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "enterprise_aov | smb_aov | condition_met\n2854.422516536965 | 2838.8915096365636 | 0"
+  },
+  {
+   "sql": "SELECT p.category, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = 'SMB' GROUP BY p.category ORDER BY completed_revenue DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "category | completed_revenue\nHardware | 3171929.6655\nServices | 979587.305\nSoftware | 869276.058\nAccessories | 134633.953"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH enterprise_stats AS (SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev, COUNT(DISTINCT o.order_id) AS cnt FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = 'Enterprise'), smb_stats AS (SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev, COUNT(DISTINCT o.order_id) AS cnt FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = 'SMB'), comparison AS (SELECT (SELECT rev * 1.0 / cnt FROM enterprise_stats) AS ent_aov, (SELECT rev * 1.0 / cnt FROM smb_stats) AS smb_aov) SELECT p.category, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = CASE WHEN (SELECT ent_aov FROM comparison) > 1.2 * (SELECT smb_aov FROM comparison) THEN 'Enterprise' ELSE 'SMB' END GROUP BY p.category ORDER BY completed_revenue DESC LIMIT 500",
+   "reason": "",
+   "signal": null,
+   "escalation_signal": "conditional"
+  },
+  {
+   "step": 2,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH enterprise_stats AS (SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev, COUNT(DISTINCT o.order_id) AS cnt FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = 'Enterprise'), smb_stats AS (SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev, COUNT(DISTINCT o.order_id) AS cnt FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = 'SMB') SELECT (SELECT rev * 1.0 / cnt FROM enterprise_stats) AS enterprise_aov, (SELECT rev * 1.0 / cnt FROM smb_stats) AS smb_aov, CASE WHEN (SELECT rev * 1.0 / cnt FROM enterprise_stats) > 1.2 * (SELECT rev * 1.0 / cnt FROM smb_stats) THEN 1 ELSE 0 END AS condition_met LIMIT 500",
+   "reason": "Evaluate whether Enterprise's 2025 average completed order value is more than 20% higher than SMB's.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.category, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = 'SMB' GROUP BY p.category ORDER BY completed_revenue DESC LIMIT 500",
+   "reason": "Since Enterprise's 2025 average completed order value is not more than 20% higher than SMB's, we break down SMB's 2025 completed revenue by product category.",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 3,
+ "selected_result": {
+  "sql": "SELECT p.category, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id JOIN customers AS c ON o.customer_id = c.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = 'SMB' GROUP BY p.category ORDER BY completed_revenue DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "category",
+   "completed_revenue"
+  ],
+  "rows": [
+   [
+    "Hardware",
+    3171929.6655
+   ],
+   [
+    "Services",
+    979587.305
+   ],
+   [
+    "Software",
+    869276.058
+   ],
+   [
+    "Accessories",
+    134633.953
+   ]
+  ],
+  "row_count": 4
+ },
+ "answer": "Assuming Enterprise's 2025 average completed order value of 2854.42 is not more than 20% higher than SMB's average of 2838.89 (condition_met: 0), SMB's 2025 completed revenue by product category is broken down as follows: Hardware generated 3,171,929.67, Services generated 979,587.31, Software generated 869,276.06, and Accessories generated 134,633.95.",
+ "key_numbers": [
+  "2854.42",
+  "2838.89",
+  "3171929.6655",
+  "979587.305",
+  "869276.058",
+  "134633.953"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question whose answer depends on a condition (for ex",
+   "prompt_hash": "c5256dea9b91810d36f30e06c7a4687221fc650d8658c7b30a621bb3080b4125",
+   "cache_hit": false,
+   "latency_ms": 1297.4,
+   "input_tokens": 3611,
+   "output_tokens": 406,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "The condition of a question has been evaluated: its result is the last step belo",
+   "prompt_hash": "238ca77e9317fed80496804ca302a71282e394a0ac5d759e040fbf50bf0ca548",
+   "cache_hit": false,
+   "latency_ms": 1227.3,
+   "input_tokens": 4101,
+   "output_tokens": 271,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "e5d6fb5317b7974d7f0f269b3fd2335fde27fd5bd8b197bb8fe539f8f9a8a292",
+   "cache_hit": false,
+   "latency_ms": 1125.3,
+   "input_tokens": 844,
+   "output_tokens": 236,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "6200e0ff892f71966a6e4a864cfada23e8028e15f94e1d0b5674e30ebb2e204e",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2987,
+   "output_tokens": 705,
+   "original_latency_ms": 2021.1,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 3.744,
+ "latency_live_s": 5.765,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "4 row(s) match"
+ }
+}

@@ -1,0 +1,1097 @@
+# Holdout v2: 17 new questions that need an agent. Written and validated against the
+# data only; no architecture has been run on them. The types and their mix follow the
+# original holdout_agent, not the fixes. Gold results: eval/gold/holdout_agent_v2.json,
+# built by scripts/build_holdout_v2_gold.py with the frozen build_gold.build_entry.
+#
+# `verify` holds an independent second SQL for each gold or evidence table, written a
+# different way. The builder refuses to write the gold if the two disagree. The grader
+# never reads it.
+#
+# Canonical definitions are those of eval/holdout_agent.yaml:
+#   revenue        = SUM(quantity * unit_price * (1 - discount)) over completed orders
+#   order value    = revenue of one completed order (sum of its line items)
+#   units sold     = SUM(quantity) over completed orders
+#   churned in P   = customers.churn_date falls in period P
+#   refund rate    = refunded orders / all orders (any status), as a percentage
+#   marketing_spend.month is TEXT 'YYYY-MM'; all other dates are 'YYYY-MM-DD'
+
+# --- multi-hop: the second step depends on the first result ----------------
+- id: hv01
+  type: multi_hop
+  question: >-
+    Which region had the highest refund rate in 2025, and within that region which
+    sales channel had the most refunded orders? Give the region, the channel and the
+    number of refunded orders.
+  notes: >-
+    Hop 1: LATAM (17.27% vs EMEA 15.92%). Hop 2: Online (79 refunded vs Direct 47,
+    Partner 40). The most refunded orders overall are elsewhere, so skipping hop 1
+    gives a different region.
+  top_n: 1
+  gold:
+    sql: |
+      WITH rate AS (
+        SELECT c.region_id,
+               1.0 * SUM(o.status = 'refunded') / COUNT(*) AS r
+        FROM orders o JOIN customers c ON c.customer_id = o.customer_id
+        WHERE o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+        GROUP BY c.region_id
+      ),
+      top AS (SELECT region_id FROM rate ORDER BY r DESC LIMIT 1)
+      SELECT r.region_name, o.channel, COUNT(*) AS refunded_orders
+      FROM orders o
+      JOIN customers c ON c.customer_id = o.customer_id
+      JOIN regions r ON r.region_id = c.region_id
+      WHERE o.status = 'refunded'
+        AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+        AND c.region_id = (SELECT region_id FROM top)
+      GROUP BY r.region_name, o.channel
+      ORDER BY refunded_orders DESC
+      LIMIT 1
+  verify: |
+    SELECT x.region_name, x.channel, x.n
+    FROM (
+      SELECT r.region_name, o.channel, SUM(CASE WHEN o.status = 'refunded' THEN 1 ELSE 0 END) AS n,
+             (SELECT SUM(CASE WHEN o2.status = 'refunded' THEN 1.0 ELSE 0 END) / COUNT(*)
+              FROM orders o2, customers c2
+              WHERE o2.customer_id = c2.customer_id AND c2.region_id = r.region_id
+                AND substr(o2.order_date, 1, 4) = '2025') AS region_rate
+      FROM regions r, customers c, orders o
+      WHERE c.region_id = r.region_id AND o.customer_id = c.customer_id
+        AND substr(o.order_date, 1, 4) = '2025'
+      GROUP BY r.region_name, o.channel
+    ) x
+    ORDER BY x.region_rate DESC, x.n DESC
+    LIMIT 1
+  answer_checks:
+    - text: LATAM
+    - text: Online
+    - gold_number: [0, 2]
+      rel: 0
+      abs: 0
+
+- id: hv02
+  type: multi_hop
+  question: >-
+    Who was our biggest Enterprise customer in North America by completed revenue in
+    2024, and how many support tickets did that customer open in 2025? Give the
+    customer's ID and name with the ticket count.
+  notes: >-
+    Hop 1: customer 1175 Marco Kim (40,380 vs 936 Nils Kim 33,146). Hop 2: 0 tickets
+    in 2025, so an inner join to tickets returns nothing. Names are not unique, hence
+    the ID.
+  top_n: 1
+  gold:
+    sql: |
+      WITH top AS (
+        SELECT c.customer_id, c.customer_name
+        FROM customers c
+        JOIN regions r ON r.region_id = c.region_id
+        JOIN orders o ON o.customer_id = c.customer_id
+        JOIN order_items oi ON oi.order_id = o.order_id
+        WHERE r.region_name = 'North America' AND c.segment = 'Enterprise'
+          AND o.status = 'completed'
+          AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31'
+        GROUP BY c.customer_id, c.customer_name
+        ORDER BY SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) DESC
+        LIMIT 1
+      )
+      SELECT t.customer_id, t.customer_name,
+             (SELECT COUNT(*) FROM support_tickets s
+              WHERE s.customer_id = t.customer_id
+                AND s.created_date BETWEEN '2025-01-01' AND '2025-12-31') AS tickets_2025
+      FROM top t
+  verify: |
+    SELECT c.customer_id, c.customer_name,
+           COUNT(DISTINCT s.ticket_id) AS tickets_2025
+    FROM customers c
+    LEFT JOIN support_tickets s
+      ON s.customer_id = c.customer_id AND substr(s.created_date, 1, 4) = '2025'
+    WHERE c.customer_id = (
+      SELECT o.customer_id
+      FROM orders o, order_items oi, customers c2, regions r
+      WHERE oi.order_id = o.order_id AND c2.customer_id = o.customer_id
+        AND r.region_id = c2.region_id AND r.region_name = 'North America'
+        AND c2.segment = 'Enterprise' AND o.status = 'completed'
+        AND substr(o.order_date, 1, 4) = '2024'
+      GROUP BY o.customer_id
+      ORDER BY SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) DESC
+      LIMIT 1)
+    GROUP BY c.customer_id, c.customer_name
+  answer_checks:
+    - text: Marco Kim
+
+# --- term matching: user words must be mapped to real values ---------------
+- id: hv03
+  type: term_matching
+  question: >-
+    By what percentage did unit sales of the 'Meridan Cascaed' change from 2024 to
+    2025? Give the product's ID and name with the percentage.
+  notes: >-
+    Misspelled on purpose: the product is 'Meridian Cascade' (product_id 32). 481 units
+    in 2024, 806 in 2025, +67.57%. An exact match on the user's spelling returns no rows.
+  gold:
+    sql: |
+      SELECT p.product_id, p.product_name,
+             100.0 * (SUM(CASE WHEN o.order_date BETWEEN '2025-01-01' AND '2025-12-31' THEN oi.quantity END)
+                      - SUM(CASE WHEN o.order_date BETWEEN '2024-01-01' AND '2024-12-31' THEN oi.quantity END))
+                   / SUM(CASE WHEN o.order_date BETWEEN '2024-01-01' AND '2024-12-31' THEN oi.quantity END)
+               AS units_change_pct
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN products p ON p.product_id = oi.product_id
+      WHERE o.status = 'completed' AND p.product_name = 'Meridian Cascade'
+      GROUP BY p.product_id, p.product_name
+  verify: |
+    SELECT a.product_id, a.product_name, (1.0 * b.u / a.u - 1) * 100
+    FROM (SELECT p.product_id, p.product_name, SUM(oi.quantity) AS u
+          FROM products p, order_items oi, orders o
+          WHERE oi.product_id = p.product_id AND o.order_id = oi.order_id
+            AND o.status = 'completed' AND p.product_id = 32
+            AND substr(o.order_date, 1, 4) = '2024'
+          GROUP BY 1, 2) a,
+         (SELECT SUM(oi.quantity) AS u
+          FROM order_items oi, orders o
+          WHERE o.order_id = oi.order_id AND o.status = 'completed'
+            AND oi.product_id = 32 AND substr(o.order_date, 1, 4) = '2025') b
+  answer_checks:
+    - text: Meridian Cascade
+    - gold_number: [0, 2]
+
+- id: hv04
+  type: term_matching
+  question: >-
+    How much completed revenue did our customer Nadia Popesku bring in during 2025, and
+    how many support tickets were opened by that customer in the same year? Give the
+    customer's ID and name with both figures.
+  notes: >-
+    Misspelled on purpose: the customer is 'Nadia Popescu' (customer_id 836, a unique
+    name). 13,490.88 and 5 tickets. Joining orders to tickets directly multiplies both.
+  gold:
+    sql: |
+      SELECT c.customer_id, c.customer_name,
+             (SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount))
+              FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+              WHERE o.customer_id = c.customer_id AND o.status = 'completed'
+                AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31') AS revenue_2025,
+             (SELECT COUNT(*) FROM support_tickets t
+              WHERE t.customer_id = c.customer_id
+                AND t.created_date BETWEEN '2025-01-01' AND '2025-12-31') AS tickets_2025
+      FROM customers c
+      WHERE c.customer_name = 'Nadia Popescu'
+  verify: |
+    WITH rev AS (
+      SELECT o.customer_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS v
+      FROM order_items oi JOIN orders o ON o.order_id = oi.order_id
+      WHERE o.status = 'completed' AND substr(o.order_date, 1, 4) = '2025'
+      GROUP BY o.customer_id
+    ),
+    tk AS (
+      SELECT customer_id, COUNT(ticket_id) AS n FROM support_tickets
+      WHERE substr(created_date, 1, 4) = '2025' GROUP BY customer_id
+    )
+    SELECT c.customer_id, c.customer_name, rev.v, tk.n
+    FROM customers c
+    JOIN rev ON rev.customer_id = c.customer_id
+    JOIN tk ON tk.customer_id = c.customer_id
+    WHERE c.customer_id = 836
+  answer_checks:
+    - text: Nadia Popescu
+    - gold_number: [0, 2]
+    - gold_number: [0, 3]
+      rel: 0
+      abs: 0
+
+# --- why / drill-down: graded by driver check + rubric judge ----------------
+- id: hv05
+  type: why
+  question: Why did LATAM's completed revenue grow so much from 2024 to 2025?
+  notes: >-
+    Verified: LATAM rose about 454,000. SMB accounts for about 387,000 of it (85%),
+    nearly doubling from 397,369 to 784,224 (+97%), while Enterprise added about 64,000
+    and Mid-Market barely moved (580,223 to 583,779). No channel or category concentrates
+    the rise the same way: Direct 44%, Online 31%, Partner 25%; Hardware 48%, Services 28%,
+    Software 19%, Accessories 5%.
+  driver_checks:
+    - any_of:
+        - text: SMB
+        - pattern: "small[-\\s]+(and[-\\s]+medium[-\\s]+)?business"
+  judge_rubric:
+    required_facts:
+      - >-
+        LATAM's SMB segment drove the growth: its completed revenue went from about
+        397,000 in 2024 to about 784,000 in 2025 (about +97%), which is about 85% of
+        LATAM's increase.
+      - >-
+        The other segments added far less: Enterprise rose by about 64,000 (about
+        305,000 to 368,000) and Mid-Market barely changed (about 580,000 to 584,000).
+    disqualifying:
+      - >-
+        Says a sales channel, a product category, Enterprise or Mid-Market is the main
+        reason for the growth.
+      - >-
+        States a figure that contradicts the evidence.
+    allowed:
+      - >-
+        SMB orders or SMB buying customers rising as the way the SMB growth happened.
+      - >-
+        Naming the channels or categories that added the most, as context, as long as
+        SMB is given as the main reason.
+  evidence:
+    latam_by_segment: |
+      SELECT c.segment,
+             SUM(CASE WHEN o.order_date <= '2024-12-31' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_2024,
+             SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_2025,
+             COUNT(DISTINCT CASE WHEN o.order_date <= '2024-12-31' THEN o.order_id END) AS orders_2024,
+             COUNT(DISTINCT CASE WHEN o.order_date >= '2025-01-01' THEN o.order_id END) AS orders_2025,
+             COUNT(DISTINCT CASE WHEN o.order_date <= '2024-12-31' THEN o.customer_id END) AS buyers_2024,
+             COUNT(DISTINCT CASE WHEN o.order_date >= '2025-01-01' THEN o.customer_id END) AS buyers_2025
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN customers c ON c.customer_id = o.customer_id
+      JOIN regions r ON r.region_id = c.region_id
+      WHERE r.region_name = 'LATAM' AND o.status = 'completed'
+        AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31'
+      GROUP BY c.segment ORDER BY c.segment
+    latam_by_channel: |
+      SELECT o.channel,
+             SUM(CASE WHEN o.order_date <= '2024-12-31' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_2024,
+             SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_2025
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN customers c ON c.customer_id = o.customer_id
+      JOIN regions r ON r.region_id = c.region_id
+      WHERE r.region_name = 'LATAM' AND o.status = 'completed'
+        AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31'
+      GROUP BY o.channel ORDER BY o.channel
+    latam_by_category: |
+      SELECT p.category,
+             SUM(CASE WHEN o.order_date <= '2024-12-31' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_2024,
+             SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_2025
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN products p ON p.product_id = oi.product_id
+      JOIN customers c ON c.customer_id = o.customer_id
+      JOIN regions r ON r.region_id = c.region_id
+      WHERE r.region_name = 'LATAM' AND o.status = 'completed'
+        AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31'
+      GROUP BY p.category ORDER BY p.category
+  verify:
+    latam_by_segment: |
+      WITH lines AS (
+        SELECT cu.segment, substr(ord.order_date, 1, 4) AS y, ord.order_id, ord.customer_id,
+               it.quantity * it.unit_price * (1 - it.discount) AS v
+        FROM order_items it
+        JOIN orders ord ON ord.order_id = it.order_id
+        JOIN customers cu ON cu.customer_id = ord.customer_id
+        WHERE ord.status = 'completed' AND cu.region_id = (SELECT region_id FROM regions WHERE region_name = 'LATAM')
+      )
+      SELECT a.segment, a.r, b.r, a.o, b.o, a.b, b.b
+      FROM (SELECT segment, SUM(v) AS r, COUNT(DISTINCT order_id) AS o, COUNT(DISTINCT customer_id) AS b
+            FROM lines WHERE y = '2024' GROUP BY segment) a
+      JOIN (SELECT segment, SUM(v) AS r, COUNT(DISTINCT order_id) AS o, COUNT(DISTINCT customer_id) AS b
+            FROM lines WHERE y = '2025' GROUP BY segment) b ON b.segment = a.segment
+      ORDER BY a.segment
+    latam_by_channel: |
+      SELECT a.channel, a.v, b.v
+      FROM (SELECT ord.channel, SUM(it.quantity * it.unit_price * (1 - it.discount)) AS v
+            FROM order_items it, orders ord, customers cu
+            WHERE it.order_id = ord.order_id AND cu.customer_id = ord.customer_id AND ord.status = 'completed'
+              AND cu.region_id = 4 AND substr(ord.order_date, 1, 4) = '2024' GROUP BY 1) a,
+           (SELECT ord.channel, SUM(it.quantity * it.unit_price * (1 - it.discount)) AS v
+            FROM order_items it, orders ord, customers cu
+            WHERE it.order_id = ord.order_id AND cu.customer_id = ord.customer_id AND ord.status = 'completed'
+              AND cu.region_id = 4 AND substr(ord.order_date, 1, 4) = '2025' GROUP BY 1) b
+      WHERE a.channel = b.channel ORDER BY a.channel
+    latam_by_category: |
+      SELECT a.category, a.v, b.v
+      FROM (SELECT pr.category, SUM(it.quantity * it.unit_price * (1 - it.discount)) AS v
+            FROM order_items it, orders ord, customers cu, products pr
+            WHERE it.order_id = ord.order_id AND cu.customer_id = ord.customer_id AND pr.product_id = it.product_id
+              AND ord.status = 'completed' AND cu.region_id = 4 AND substr(ord.order_date, 1, 4) = '2024' GROUP BY 1) a,
+           (SELECT pr.category, SUM(it.quantity * it.unit_price * (1 - it.discount)) AS v
+            FROM order_items it, orders ord, customers cu, products pr
+            WHERE it.order_id = ord.order_id AND cu.customer_id = ord.customer_id AND pr.product_id = it.product_id
+              AND ord.status = 'completed' AND cu.region_id = 4 AND substr(ord.order_date, 1, 4) = '2025' GROUP BY 1) b
+      WHERE a.category = b.category ORDER BY a.category
+
+- id: hv06
+  type: why
+  question: Why was APAC's marketing spend so much lower in 2025 than in 2024?
+  notes: >-
+    Verified: APAC fell about 109,900 (617,490 to 507,598, -17.8%). Direct accounts for
+    about 69,600 of it (63%, 217,971 to 148,341), Partner about 37,000 (34%), and Online
+    was nearly flat (199,581 to 196,313). The other regions moved far less.
+  driver_checks:
+    - text: Direct
+  judge_rubric:
+    required_facts:
+      - >-
+        The Direct channel was the largest part of the cut: APAC's Direct spend fell
+        from about 218,000 in 2024 to about 148,000 in 2025 (about -32%), which is about
+        63% of APAC's decrease.
+      - >-
+        Online spend in APAC was nearly unchanged (about 200,000 to 196,000), so it does
+        not explain the decrease.
+    disqualifying:
+      - >-
+        Says the Online or Partner channel is the main reason for the decrease.
+      - >-
+        States a figure that contradicts the evidence.
+    allowed:
+      - >-
+        Partner spend also falling (about 200,000 to 163,000) as the second largest part.
+      - >-
+        Other regions' spend changing less, added as context.
+  evidence:
+    apac_spend_by_channel: |
+      SELECT m.channel,
+             SUM(CASE WHEN m.month BETWEEN '2024-01' AND '2024-12' THEN m.amount ELSE 0 END) AS spend_2024,
+             SUM(CASE WHEN m.month BETWEEN '2025-01' AND '2025-12' THEN m.amount ELSE 0 END) AS spend_2025
+      FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id
+      WHERE r.region_name = 'APAC'
+      GROUP BY m.channel ORDER BY m.channel
+    spend_change_pct_by_region: |
+      SELECT r.region_name,
+             100.0 * SUM(CASE WHEN m.month BETWEEN '2025-01' AND '2025-12' THEN m.amount ELSE 0 END)
+                   / SUM(CASE WHEN m.month BETWEEN '2024-01' AND '2024-12' THEN m.amount ELSE 0 END) - 100 AS change_pct
+      FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id
+      GROUP BY r.region_name ORDER BY r.region_name
+  verify:
+    apac_spend_by_channel: |
+      SELECT a.channel, a.v, b.v
+      FROM (SELECT channel, SUM(amount) AS v FROM marketing_spend
+            WHERE region_id = 3 AND month LIKE '2024-%' GROUP BY channel) a
+      JOIN (SELECT channel, SUM(amount) AS v FROM marketing_spend
+            WHERE region_id = 3 AND month LIKE '2025-%' GROUP BY channel) b USING (channel)
+      ORDER BY a.channel
+    spend_change_pct_by_region: |
+      SELECT (SELECT region_name FROM regions rg WHERE rg.region_id = a.region_id),
+             (b.v / a.v - 1) * 100
+      FROM (SELECT region_id, SUM(amount) AS v FROM marketing_spend WHERE month LIKE '2024-%' GROUP BY region_id) a
+      JOIN (SELECT region_id, SUM(amount) AS v FROM marketing_spend WHERE month LIKE '2025-%' GROUP BY region_id) b USING (region_id)
+      ORDER BY 1
+
+- id: hv07
+  type: why
+  question: Why did North America bring in so much more completed revenue than LATAM in 2024?
+  notes: >-
+    Verified: 3,964,290 vs 1,282,094 (3.1 times). North America had 361 buying customers
+    vs 128 (2.8 times). Orders per buying customer were the same (3.40 vs 3.39), and
+    average order value was only 9% higher (3,226 vs 2,954).
+  driver_checks:
+    - pattern: "\\b(buying\\s+customers|buyers|customers|customer\\s+base|accounts)\\b"
+  judge_rubric:
+    required_facts:
+      - >-
+        North America had far more buying customers: about 361 against about 128 in
+        2024, about 2.8 times as many.
+      - >-
+        Customers bought about as often in both regions (about 3.4 orders per buying
+        customer), and average order value was only about 9% higher in North America
+        (about 3,226 against 2,954), so neither explains most of the gap.
+    disqualifying:
+      - >-
+        Says order value, prices, discounts or product mix is the main reason for the gap.
+      - >-
+        States a figure that contradicts the evidence.
+    allowed:
+      - >-
+        North America's larger number of orders (about 1,229 against 434) as the direct
+        result of having more customers.
+      - >-
+        North America having more buying customers in every segment, SMB most of all.
+  evidence:
+    north_america_vs_latam_2024: |
+      SELECT r.region_name,
+             SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue,
+             COUNT(DISTINCT o.customer_id) AS buying_customers,
+             COUNT(DISTINCT o.order_id) AS orders,
+             1.0 * COUNT(DISTINCT o.order_id) / COUNT(DISTINCT o.customer_id) AS orders_per_buyer,
+             SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / COUNT(DISTINCT o.order_id) AS avg_order_value
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN customers c ON c.customer_id = o.customer_id
+      JOIN regions r ON r.region_id = c.region_id
+      WHERE o.status = 'completed' AND r.region_name IN ('North America', 'LATAM')
+        AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31'
+      GROUP BY r.region_name ORDER BY r.region_name
+    by_segment_2024: |
+      SELECT r.region_name, c.segment,
+             SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue,
+             COUNT(DISTINCT o.customer_id) AS buying_customers
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN customers c ON c.customer_id = o.customer_id
+      JOIN regions r ON r.region_id = c.region_id
+      WHERE o.status = 'completed' AND r.region_name IN ('North America', 'LATAM')
+        AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31'
+      GROUP BY r.region_name, c.segment ORDER BY r.region_name, c.segment
+  verify:
+    by_segment_2024: |
+      SELECT rg.region_name, cu.segment, SUM(x.v), COUNT(*)
+      FROM (SELECT ord.customer_id, SUM(it.quantity * it.unit_price * (1 - it.discount)) AS v
+            FROM orders ord, order_items it
+            WHERE it.order_id = ord.order_id AND ord.status = 'completed'
+              AND substr(ord.order_date, 1, 4) = '2024'
+            GROUP BY ord.customer_id) x
+      JOIN customers cu ON cu.customer_id = x.customer_id
+      JOIN regions rg ON rg.region_id = cu.region_id
+      WHERE rg.region_id IN (1, 4)
+      GROUP BY rg.region_name, cu.segment ORDER BY rg.region_name, cu.segment
+    north_america_vs_latam_2024: |
+      WITH per_order AS (
+        SELECT ord.order_id, ord.customer_id, cu.region_id,
+               SUM(it.quantity * it.unit_price * (1 - it.discount)) AS v
+        FROM orders ord, order_items it, customers cu
+        WHERE it.order_id = ord.order_id AND cu.customer_id = ord.customer_id
+          AND ord.status = 'completed' AND substr(ord.order_date, 1, 4) = '2024'
+        GROUP BY ord.order_id
+      )
+      SELECT rg.region_name, SUM(v), COUNT(DISTINCT customer_id), COUNT(*),
+             COUNT(*) * 1.0 / COUNT(DISTINCT customer_id), AVG(v)
+      FROM per_order JOIN regions rg ON rg.region_id = per_order.region_id
+      WHERE rg.region_id IN (1, 4)
+      GROUP BY rg.region_name ORDER BY rg.region_name
+
+# --- statistics: trends and forecasts SQLite has no built-in for -------------
+- id: hv08
+  type: statistics
+  question: >-
+    Fit a least-squares line to Accessories units sold in completed orders per quarter
+    over the 8 quarters of 2024 and 2025. What does it project for Q1 2026?
+  notes: >-
+    Quarterly units 1097, 1268, 1546, 1777, 1936, 2200, 2422, 2201; x = 1 to 8; evaluated
+    at x = 9. About 2,642.6. The result does not depend on where x starts.
+  gold:
+    sql: |
+      WITH q AS (
+        SELECT (CAST(substr(o.order_date, 1, 4) AS INTEGER) - 2024) * 4
+               + (CAST(substr(o.order_date, 6, 2) AS INTEGER) + 2) / 3 AS x,
+               SUM(oi.quantity) AS y
+        FROM orders o
+        JOIN order_items oi ON oi.order_id = o.order_id
+        JOIN products p ON p.product_id = oi.product_id
+        WHERE o.status = 'completed' AND p.category = 'Accessories'
+          AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31'
+        GROUP BY x
+      ),
+      s AS (
+        SELECT COUNT(*) * 1.0 AS n, SUM(x) * 1.0 AS sx, SUM(y) * 1.0 AS sy,
+               SUM(x * y) * 1.0 AS sxy, SUM(x * x) * 1.0 AS sxx
+        FROM q
+      )
+      SELECT (sy - (n * sxy - sx * sy) / (n * sxx - sx * sx) * sx) / n
+             + (n * sxy - sx * sy) / (n * sxx - sx * sx) * 9 AS projected_units
+      FROM s
+  verify: |
+    WITH q AS (
+      SELECT ROW_NUMBER() OVER (ORDER BY label) AS x, u AS y
+      FROM (SELECT substr(ord.order_date, 1, 4) || '-' || ((CAST(substr(ord.order_date, 6, 2) AS INTEGER) + 2) / 3) AS label,
+                   SUM(it.quantity) AS u
+            FROM order_items it, orders ord, products pr
+            WHERE it.order_id = ord.order_id AND pr.product_id = it.product_id
+              AND ord.status = 'completed' AND pr.category = 'Accessories'
+            GROUP BY label)
+    ),
+    m AS (SELECT AVG(x) AS mx, AVG(y) AS my FROM q)
+    SELECT my + SUM((x - mx) * (y - my)) / SUM((x - mx) * (x - mx)) * (9 - mx)
+    FROM q, m
+  answer_checks:
+    - gold_number: [0, 0]
+
+- id: hv09
+  type: statistics
+  question: >-
+    Over the 24 months of 2024 and 2025, which product category has the steepest upward
+    trend in monthly units sold in completed orders? Give the category and the slope of
+    a least-squares line, in units per month.
+  notes: >-
+    Slopes: Software 22.09, Accessories 20.30, Services 17.34, Hardware 9.30. The slope
+    does not depend on where x starts.
+  top_n: 1
+  gold:
+    sql: |
+      WITH m AS (
+        SELECT p.category,
+               (CAST(substr(o.order_date, 1, 4) AS INTEGER) - 2024) * 12
+               + CAST(substr(o.order_date, 6, 2) AS INTEGER) AS x,
+               SUM(oi.quantity) AS y
+        FROM orders o
+        JOIN order_items oi ON oi.order_id = o.order_id
+        JOIN products p ON p.product_id = oi.product_id
+        WHERE o.status = 'completed'
+          AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31'
+        GROUP BY p.category, x
+      )
+      SELECT category,
+             (COUNT(*) * 1.0 * SUM(x * y) - SUM(x) * 1.0 * SUM(y))
+             / (COUNT(*) * 1.0 * SUM(x * x) - SUM(x) * 1.0 * SUM(x)) AS slope
+      FROM m
+      GROUP BY category
+      ORDER BY slope DESC
+      LIMIT 1
+  verify: |
+    WITH m AS (
+      SELECT pr.category, substr(ord.order_date, 1, 7) AS label, SUM(it.quantity) AS y
+      FROM order_items it, orders ord, products pr
+      WHERE it.order_id = ord.order_id AND pr.product_id = it.product_id
+        AND ord.status = 'completed' AND substr(ord.order_date, 1, 4) IN ('2024', '2025')
+      GROUP BY 1, 2
+    ),
+    n AS (
+      SELECT category, y, ROW_NUMBER() OVER (PARTITION BY category ORDER BY label) - 1 AS x FROM m
+    ),
+    c AS (SELECT category, AVG(x) AS mx, AVG(y) AS my FROM n GROUP BY category)
+    SELECT n.category, SUM((n.x - c.mx) * (n.y - c.my)) / SUM((n.x - c.mx) * (n.x - c.mx))
+    FROM n JOIN c ON c.category = n.category
+    GROUP BY n.category
+    ORDER BY 2 DESC
+    LIMIT 1
+  answer_checks:
+    - text: Software
+    - gold_number: [0, 1]
+
+- id: hv10
+  type: statistics
+  question: >-
+    For support tickets opened in 2025 that have been resolved, what was the median
+    number of days to resolve a ticket in each region?
+  notes: >-
+    APAC 12, EMEA 11, LATAM 12, North America 11. In every region the two middle values
+    of an even count are equal, so no even-count convention is involved. The means
+    (11.48, 11.34, 11.61, 10.92) differ from the medians beyond tolerance.
+  gold:
+    sql: |
+      WITH d AS (
+        SELECT r.region_name,
+               julianday(t.resolved_date) - julianday(t.created_date) AS days,
+               ROW_NUMBER() OVER (PARTITION BY r.region_name
+                                  ORDER BY julianday(t.resolved_date) - julianday(t.created_date)) AS rn,
+               COUNT(*) OVER (PARTITION BY r.region_name) AS n
+        FROM support_tickets t
+        JOIN customers c ON c.customer_id = t.customer_id
+        JOIN regions r ON r.region_id = c.region_id
+        WHERE t.resolved_date IS NOT NULL
+          AND t.created_date BETWEEN '2025-01-01' AND '2025-12-31'
+      )
+      SELECT region_name, AVG(days) AS median_days
+      FROM d
+      WHERE rn IN ((n + 1) / 2, (n + 2) / 2)
+      GROUP BY region_name
+  verify: |
+    WITH d AS (
+      SELECT cu.region_id AS rid, julianday(t.resolved_date) - julianday(t.created_date) AS days
+      FROM support_tickets t, customers cu
+      WHERE cu.customer_id = t.customer_id AND t.resolved_date IS NOT NULL
+        AND substr(t.created_date, 1, 4) = '2025'
+    )
+    SELECT rg.region_name, v.days
+    FROM regions rg
+    JOIN (SELECT DISTINCT rid, days FROM d) v ON v.rid = rg.region_id
+    WHERE (SELECT COUNT(*) FROM d x WHERE x.rid = v.rid AND x.days <= v.days) * 2
+          >= (SELECT COUNT(*) FROM d x WHERE x.rid = v.rid)
+      AND (SELECT COUNT(*) FROM d x WHERE x.rid = v.rid AND x.days >= v.days) * 2
+          >= (SELECT COUNT(*) FROM d x WHERE x.rid = v.rid)
+  answer_checks:
+    - text: APAC
+    - text: EMEA
+    - text: LATAM
+    - text: North America
+
+# --- recovery: the obvious first query is empty or silently wrong ----------
+- id: hv11
+  type: recovery
+  question: >-
+    For each sales channel, what was marketing spend per completed order in the first
+    half of 2024?
+  notes: >-
+    Direct 939.09, Online 553.75, Partner 1,178.34. Joining spend to orders directly
+    multiplies the spend, and marketing_spend.month is 'YYYY-MM', so filtering it with
+    day-level dates silently drops a month.
+  gold:
+    sql: |
+      WITH s AS (
+        SELECT channel, SUM(amount) AS spend
+        FROM marketing_spend
+        WHERE month BETWEEN '2024-01' AND '2024-06'
+        GROUP BY channel
+      ),
+      n AS (
+        SELECT channel, COUNT(*) AS completed_orders
+        FROM orders
+        WHERE status = 'completed' AND order_date BETWEEN '2024-01-01' AND '2024-06-30'
+        GROUP BY channel
+      )
+      SELECT s.channel, s.spend / n.completed_orders AS spend_per_order
+      FROM s JOIN n ON n.channel = s.channel
+  verify: |
+    SELECT c.channel,
+           (SELECT SUM(amount) FROM marketing_spend m
+            WHERE m.channel = c.channel AND substr(m.month, 1, 4) = '2024'
+              AND CAST(substr(m.month, 6, 2) AS INTEGER) <= 6)
+           * 1.0 /
+           (SELECT SUM(o.status = 'completed') FROM orders o
+            WHERE o.channel = c.channel AND substr(o.order_date, 1, 4) = '2024'
+              AND CAST(substr(o.order_date, 6, 2) AS INTEGER) <= 6)
+    FROM (SELECT DISTINCT channel FROM orders) c
+  answer_checks:
+    - text: Direct
+    - text: Online
+    - text: Partner
+
+- id: hv12
+  type: recovery
+  question: >-
+    Of the customers who signed up in 2024, how many had no completed order during 2024?
+    Break the count down by region.
+  notes: >-
+    APAC 32, EMEA 36, LATAM 18, North America 50. A customer with only cancelled or
+    refunded orders counts as having none. Filtering a LEFT JOIN in the WHERE clause
+    silently turns it into an inner join and returns nothing useful.
+  gold:
+    sql: |
+      SELECT r.region_name, COUNT(*) AS customers
+      FROM customers c
+      JOIN regions r ON r.region_id = c.region_id
+      WHERE c.signup_date BETWEEN '2024-01-01' AND '2024-12-31'
+        AND NOT EXISTS (
+          SELECT 1 FROM orders o
+          WHERE o.customer_id = c.customer_id AND o.status = 'completed'
+            AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31')
+      GROUP BY r.region_name
+  verify: |
+    SELECT rg.region_name, SUM(CASE WHEN x.done IS NULL THEN 1 ELSE 0 END)
+    FROM regions rg
+    JOIN customers cu ON cu.region_id = rg.region_id
+    LEFT JOIN (SELECT DISTINCT customer_id AS id, 1 AS done FROM orders
+               WHERE status = 'completed' AND substr(order_date, 1, 4) = '2024') x
+      ON x.id = cu.customer_id
+    WHERE substr(cu.signup_date, 1, 4) = '2024'
+    GROUP BY rg.region_name
+  answer_checks:
+    - text: APAC
+    - text: EMEA
+    - text: LATAM
+    - text: North America
+
+# --- ambiguous: accepted interpretations written in advance ----------------
+# Pass = the result matches one accepted interpretation's gold AND the answer
+# names that interpretation's metric AND states an assumption.
+- id: hv13
+  type: ambiguous
+  question: >-
+    Which product category is growing the fastest? Give the category and its growth as a
+    percentage.
+  notes: >-
+    "Growing" could mean revenue, units or orders, from 2024 to 2025 or Q4 against Q4.
+    Accessories on revenue (59.82%, and 40.23% Q4 on Q4), Services on units (55.56%),
+    Software on orders (49.97%, ahead of Services 49.49%).
+  top_n: 1
+  interpretations:
+    - name: revenue_growth_2024_2025
+      gold:
+        sql: |
+          SELECT p.category,
+                 100.0 * SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END)
+                       / SUM(CASE WHEN o.order_date <= '2024-12-31' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - 100 AS growth_pct
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN products p ON p.product_id = oi.product_id
+          WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31'
+          GROUP BY p.category ORDER BY growth_pct DESC LIMIT 1
+      verify: |
+        SELECT a.category, (b.v / a.v - 1) * 100 AS g
+        FROM (SELECT pr.category, SUM(it.quantity * it.unit_price * (1 - it.discount)) AS v
+              FROM order_items it, orders ord, products pr
+              WHERE it.order_id = ord.order_id AND pr.product_id = it.product_id AND ord.status = 'completed'
+                AND substr(ord.order_date, 1, 4) = '2024' GROUP BY 1) a
+        JOIN (SELECT pr.category, SUM(it.quantity * it.unit_price * (1 - it.discount)) AS v
+              FROM order_items it, orders ord, products pr
+              WHERE it.order_id = ord.order_id AND pr.product_id = it.product_id AND ord.status = 'completed'
+                AND substr(ord.order_date, 1, 4) = '2025' GROUP BY 1) b USING (category)
+        ORDER BY g DESC LIMIT 1
+      answer_checks:
+        - pattern: "revenue|sales"
+    - name: units_growth_2024_2025
+      gold:
+        sql: |
+          SELECT p.category,
+                 100.0 * SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity ELSE 0 END)
+                       / SUM(CASE WHEN o.order_date <= '2024-12-31' THEN oi.quantity ELSE 0 END) - 100 AS growth_pct
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN products p ON p.product_id = oi.product_id
+          WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31'
+          GROUP BY p.category ORDER BY growth_pct DESC LIMIT 1
+      verify: |
+        SELECT a.category, (1.0 * b.v / a.v - 1) * 100 AS g
+        FROM (SELECT pr.category, SUM(it.quantity) AS v
+              FROM order_items it, orders ord, products pr
+              WHERE it.order_id = ord.order_id AND pr.product_id = it.product_id AND ord.status = 'completed'
+                AND substr(ord.order_date, 1, 4) = '2024' GROUP BY 1) a
+        JOIN (SELECT pr.category, SUM(it.quantity) AS v
+              FROM order_items it, orders ord, products pr
+              WHERE it.order_id = ord.order_id AND pr.product_id = it.product_id AND ord.status = 'completed'
+                AND substr(ord.order_date, 1, 4) = '2025' GROUP BY 1) b USING (category)
+        ORDER BY g DESC LIMIT 1
+      answer_checks:
+        - pattern: "units?|quantit|volume|sold"
+    - name: orders_growth_2024_2025
+      gold:
+        sql: |
+          SELECT p.category,
+                 100.0 * COUNT(DISTINCT CASE WHEN o.order_date >= '2025-01-01' THEN o.order_id END)
+                       / COUNT(DISTINCT CASE WHEN o.order_date <= '2024-12-31' THEN o.order_id END) - 100 AS growth_pct
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN products p ON p.product_id = oi.product_id
+          WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31'
+          GROUP BY p.category ORDER BY growth_pct DESC LIMIT 1
+      verify: |
+        SELECT a.category, (1.0 * b.v / a.v - 1) * 100 AS g
+        FROM (SELECT category, COUNT(*) AS v FROM (SELECT DISTINCT pr.category, ord.order_id
+              FROM order_items it, orders ord, products pr
+              WHERE it.order_id = ord.order_id AND pr.product_id = it.product_id AND ord.status = 'completed'
+                AND substr(ord.order_date, 1, 4) = '2024') GROUP BY 1) a
+        JOIN (SELECT category, COUNT(*) AS v FROM (SELECT DISTINCT pr.category, ord.order_id
+              FROM order_items it, orders ord, products pr
+              WHERE it.order_id = ord.order_id AND pr.product_id = it.product_id AND ord.status = 'completed'
+                AND substr(ord.order_date, 1, 4) = '2025') GROUP BY 1) b USING (category)
+        ORDER BY g DESC LIMIT 1
+      answer_checks:
+        - pattern: "orders"
+    - name: revenue_growth_q4_on_q4
+      gold:
+        sql: |
+          SELECT p.category,
+                 100.0 * SUM(CASE WHEN o.order_date >= '2025-10-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END)
+                       / SUM(CASE WHEN o.order_date <= '2024-12-31' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - 100 AS growth_pct
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN products p ON p.product_id = oi.product_id
+          WHERE o.status = 'completed'
+            AND (o.order_date BETWEEN '2024-10-01' AND '2024-12-31' OR o.order_date BETWEEN '2025-10-01' AND '2025-12-31')
+          GROUP BY p.category ORDER BY growth_pct DESC LIMIT 1
+      verify: |
+        SELECT a.category, (b.v / a.v - 1) * 100 AS g
+        FROM (SELECT pr.category, SUM(it.quantity * it.unit_price * (1 - it.discount)) AS v
+              FROM order_items it, orders ord, products pr
+              WHERE it.order_id = ord.order_id AND pr.product_id = it.product_id AND ord.status = 'completed'
+                AND substr(ord.order_date, 1, 7) IN ('2024-10', '2024-11', '2024-12') GROUP BY 1) a
+        JOIN (SELECT pr.category, SUM(it.quantity * it.unit_price * (1 - it.discount)) AS v
+              FROM order_items it, orders ord, products pr
+              WHERE it.order_id = ord.order_id AND pr.product_id = it.product_id AND ord.status = 'completed'
+                AND substr(ord.order_date, 1, 7) IN ('2025-10', '2025-11', '2025-12') GROUP BY 1) b USING (category)
+        ORDER BY g DESC LIMIT 1
+      answer_checks:
+        - pattern: "revenue|sales"
+
+- id: hv14
+  type: ambiguous
+  question: >-
+    Which region was our weakest performer in 2024? Give the region and the figure that
+    makes it the weakest.
+  notes: >-
+    "Weakest" is undefined. LATAM on revenue, completed orders, buying customers, revenue
+    per buying customer and average order value; North America on refund rate (18.51%,
+    ahead of EMEA 18.39%) and on customers churned (14); APAC on cancellation rate (17.37%).
+  top_n: 1
+  interpretations:
+    - name: lowest_revenue
+      gold:
+        sql: |
+          SELECT r.region_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id
+          WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31'
+          GROUP BY r.region_name ORDER BY revenue LIMIT 1
+      verify: |
+        SELECT (SELECT region_name FROM regions rg WHERE rg.region_id = cu.region_id), SUM(it.quantity * it.unit_price * (1 - it.discount)) AS v
+        FROM order_items it, orders ord, customers cu
+        WHERE it.order_id = ord.order_id AND cu.customer_id = ord.customer_id AND ord.status = 'completed'
+          AND substr(ord.order_date, 1, 4) = '2024'
+        GROUP BY cu.region_id ORDER BY v LIMIT 1
+      answer_checks:
+        - pattern: "revenue|sales"
+    - name: lowest_completed_orders
+      gold:
+        sql: |
+          SELECT r.region_name, COUNT(*) AS completed_orders
+          FROM orders o JOIN customers c ON c.customer_id = o.customer_id
+          JOIN regions r ON r.region_id = c.region_id
+          WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31'
+          GROUP BY r.region_name ORDER BY completed_orders LIMIT 1
+      verify: |
+        SELECT (SELECT region_name FROM regions rg WHERE rg.region_id = cu.region_id), SUM(ord.status = 'completed') AS v
+        FROM orders ord, customers cu
+        WHERE cu.customer_id = ord.customer_id AND substr(ord.order_date, 1, 4) = '2024'
+        GROUP BY cu.region_id ORDER BY v LIMIT 1
+      answer_checks:
+        - pattern: "orders"
+    - name: lowest_buying_customers
+      gold:
+        sql: |
+          SELECT r.region_name, COUNT(DISTINCT o.customer_id) AS buying_customers
+          FROM orders o JOIN customers c ON c.customer_id = o.customer_id
+          JOIN regions r ON r.region_id = c.region_id
+          WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31'
+          GROUP BY r.region_name ORDER BY buying_customers LIMIT 1
+      verify: |
+        SELECT (SELECT region_name FROM regions rg WHERE rg.region_id = cu.region_id), COUNT(*) AS v
+        FROM customers cu
+        WHERE EXISTS (SELECT 1 FROM orders ord WHERE ord.customer_id = cu.customer_id AND ord.status = 'completed'
+                      AND substr(ord.order_date, 1, 4) = '2024')
+        GROUP BY cu.region_id ORDER BY v LIMIT 1
+      answer_checks:
+        - pattern: "customers?|buyers?|accounts?"
+    - name: lowest_revenue_per_buying_customer
+      gold:
+        sql: |
+          SELECT r.region_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / COUNT(DISTINCT o.customer_id) AS revenue_per_buyer
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id
+          WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31'
+          GROUP BY r.region_name ORDER BY revenue_per_buyer LIMIT 1
+      verify: |
+        SELECT name, AVG(v) AS a FROM (
+          SELECT (SELECT region_name FROM regions rg WHERE rg.region_id = cu.region_id) AS name, cu.customer_id,
+                 SUM(it.quantity * it.unit_price * (1 - it.discount)) AS v
+          FROM order_items it, orders ord, customers cu
+          WHERE it.order_id = ord.order_id AND cu.customer_id = ord.customer_id AND ord.status = 'completed'
+            AND substr(ord.order_date, 1, 4) = '2024'
+          GROUP BY cu.customer_id)
+        GROUP BY name ORDER BY a LIMIT 1
+      answer_checks:
+        - pattern: "per (customer|account|client|buyer|buying customer)"
+    - name: lowest_average_order_value
+      gold:
+        sql: |
+          SELECT r.region_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / COUNT(DISTINCT o.order_id) AS avg_order_value
+          FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+          JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id
+          WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31'
+          GROUP BY r.region_name ORDER BY avg_order_value LIMIT 1
+      verify: |
+        SELECT name, AVG(v) AS a FROM (
+          SELECT (SELECT region_name FROM regions rg WHERE rg.region_id = cu.region_id) AS name, ord.order_id,
+                 SUM(it.quantity * it.unit_price * (1 - it.discount)) AS v
+          FROM order_items it, orders ord, customers cu
+          WHERE it.order_id = ord.order_id AND cu.customer_id = ord.customer_id AND ord.status = 'completed'
+            AND substr(ord.order_date, 1, 4) = '2024'
+          GROUP BY ord.order_id)
+        GROUP BY name ORDER BY a LIMIT 1
+      answer_checks:
+        - pattern: 'order value|\baov\b|per order'
+    - name: highest_refund_rate
+      gold:
+        sql: |
+          SELECT r.region_name, 100.0 * SUM(o.status = 'refunded') / COUNT(*) AS refund_rate_pct
+          FROM orders o JOIN customers c ON c.customer_id = o.customer_id
+          JOIN regions r ON r.region_id = c.region_id
+          WHERE o.order_date BETWEEN '2024-01-01' AND '2024-12-31'
+          GROUP BY r.region_name ORDER BY refund_rate_pct DESC LIMIT 1
+      verify: |
+        SELECT (SELECT region_name FROM regions rg WHERE rg.region_id = cu.region_id),
+               (SELECT COUNT(*) FROM orders o2, customers c2 WHERE o2.customer_id = c2.customer_id AND c2.region_id = cu.region_id
+                  AND o2.status = 'refunded' AND substr(o2.order_date, 1, 4) = '2024') * 100.0 / COUNT(*) AS v
+        FROM orders ord, customers cu
+        WHERE cu.customer_id = ord.customer_id AND substr(ord.order_date, 1, 4) = '2024'
+        GROUP BY cu.region_id ORDER BY v DESC LIMIT 1
+      answer_checks:
+        - pattern: "refund"
+    - name: highest_cancellation_rate
+      gold:
+        sql: |
+          SELECT r.region_name, 100.0 * SUM(o.status = 'cancelled') / COUNT(*) AS cancellation_rate_pct
+          FROM orders o JOIN customers c ON c.customer_id = o.customer_id
+          JOIN regions r ON r.region_id = c.region_id
+          WHERE o.order_date BETWEEN '2024-01-01' AND '2024-12-31'
+          GROUP BY r.region_name ORDER BY cancellation_rate_pct DESC LIMIT 1
+      verify: |
+        SELECT (SELECT region_name FROM regions rg WHERE rg.region_id = cu.region_id),
+               (SELECT COUNT(*) FROM orders o2, customers c2 WHERE o2.customer_id = c2.customer_id AND c2.region_id = cu.region_id
+                  AND o2.status = 'cancelled' AND substr(o2.order_date, 1, 4) = '2024') * 100.0 / COUNT(*) AS v
+        FROM orders ord, customers cu
+        WHERE cu.customer_id = ord.customer_id AND substr(ord.order_date, 1, 4) = '2024'
+        GROUP BY cu.region_id ORDER BY v DESC LIMIT 1
+      answer_checks:
+        - pattern: "cancel"
+    - name: most_customers_churned
+      gold:
+        sql: |
+          SELECT r.region_name, COUNT(*) AS churned
+          FROM customers c JOIN regions r ON r.region_id = c.region_id
+          WHERE c.churn_date BETWEEN '2024-01-01' AND '2024-12-31'
+          GROUP BY r.region_name ORDER BY churned DESC LIMIT 1
+      verify: |
+        SELECT (SELECT region_name FROM regions rg WHERE rg.region_id = cu.region_id), SUM(substr(cu.churn_date, 1, 4) = '2024') AS v
+        FROM customers cu GROUP BY cu.region_id ORDER BY v DESC LIMIT 1
+      answer_checks:
+        - pattern: "churn|lost"
+
+# --- segment comparison: across groups, and with a conditional follow-up ----
+- id: hv15
+  type: segment_comparison
+  question: >-
+    Compare the 2025 completed revenue per buying customer of EMEA and APAC. If EMEA's is
+    more than 10% higher than APAC's, list EMEA's top 3 customers by 2025 completed
+    revenue; otherwise, list APAC's top 3. Give each customer's ID, name and revenue.
+  notes: >-
+    EMEA 11,200 vs APAC 9,745 (+14.9%), so the EMEA branch applies: 1254 Sara Muller,
+    989 Chen Silva, 1283 Ines Moreau.
+  top_n: 3
+  gold:
+    sql: |
+      WITH v AS (
+        SELECT r.region_name,
+               SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / COUNT(DISTINCT o.customer_id) AS x
+        FROM orders o
+        JOIN order_items oi ON oi.order_id = o.order_id
+        JOIN customers c ON c.customer_id = o.customer_id
+        JOIN regions r ON r.region_id = c.region_id
+        WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+          AND r.region_name IN ('EMEA', 'APAC')
+        GROUP BY r.region_name
+      ),
+      pick AS (
+        SELECT CASE WHEN (SELECT x FROM v WHERE region_name = 'EMEA')
+                         > 1.1 * (SELECT x FROM v WHERE region_name = 'APAC')
+                    THEN 'EMEA' ELSE 'APAC' END AS region_name
+      )
+      SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN customers c ON c.customer_id = o.customer_id
+      JOIN regions r ON r.region_id = c.region_id
+      WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+        AND r.region_name = (SELECT region_name FROM pick)
+      GROUP BY c.customer_id, c.customer_name
+      ORDER BY revenue DESC
+      LIMIT 3
+  verify: |
+    SELECT cu.customer_id, cu.customer_name, SUM(it.quantity * it.unit_price * (1 - it.discount)) AS v
+    FROM order_items it, orders ord, customers cu
+    WHERE it.order_id = ord.order_id AND cu.customer_id = ord.customer_id
+      AND ord.status = 'completed' AND substr(ord.order_date, 1, 4) = '2025'
+      AND cu.region_id = (
+        SELECT CASE WHEN e.a > 1.1 * s.a THEN 2 ELSE 3 END
+        FROM (SELECT AVG(t) AS a FROM (SELECT SUM(i.quantity * i.unit_price * (1 - i.discount)) AS t
+              FROM order_items i, orders d, customers k
+              WHERE i.order_id = d.order_id AND k.customer_id = d.customer_id AND d.status = 'completed'
+                AND substr(d.order_date, 1, 4) = '2025' AND k.region_id = 2 GROUP BY k.customer_id)) e,
+             (SELECT AVG(t) AS a FROM (SELECT SUM(i.quantity * i.unit_price * (1 - i.discount)) AS t
+              FROM order_items i, orders d, customers k
+              WHERE i.order_id = d.order_id AND k.customer_id = d.customer_id AND d.status = 'completed'
+                AND substr(d.order_date, 1, 4) = '2025' AND k.region_id = 3 GROUP BY k.customer_id)) s)
+    GROUP BY cu.customer_id, cu.customer_name
+    ORDER BY v DESC
+    LIMIT 3
+  answer_checks:
+    - text: EMEA
+  evidence:
+    revenue_per_buyer_2025: |
+      SELECT r.region_name,
+             SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / COUNT(DISTINCT o.customer_id) AS revenue_per_buyer
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN customers c ON c.customer_id = o.customer_id
+      JOIN regions r ON r.region_id = c.region_id
+      WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+      GROUP BY r.region_name ORDER BY r.region_name
+
+- id: hv16
+  type: segment_comparison
+  question: >-
+    Did the Partner channel's share of completed orders go up from 2024 to 2025? If it did,
+    give Partner's 2025 completed orders by region. If it did not, give the 2025 completed
+    orders by region for whichever channel's share rose the most.
+  notes: >-
+    Partner fell (25.46% to 24.36%), Online fell (45.86% to 43.80%), Direct rose (28.67% to
+    31.85%), so Direct by region applies.
+  gold:
+    sql: |
+      WITH share AS (
+        SELECT channel,
+               100.0 * SUM(order_date BETWEEN '2024-01-01' AND '2024-12-31')
+                     / (SELECT COUNT(*) FROM orders WHERE status = 'completed' AND order_date BETWEEN '2024-01-01' AND '2024-12-31') AS s24,
+               100.0 * SUM(order_date BETWEEN '2025-01-01' AND '2025-12-31')
+                     / (SELECT COUNT(*) FROM orders WHERE status = 'completed' AND order_date BETWEEN '2025-01-01' AND '2025-12-31') AS s25
+        FROM orders WHERE status = 'completed'
+        GROUP BY channel
+      ),
+      pick AS (
+        SELECT CASE WHEN (SELECT s25 - s24 FROM share WHERE channel = 'Partner') > 0
+                    THEN 'Partner'
+                    ELSE (SELECT channel FROM share ORDER BY s25 - s24 DESC LIMIT 1) END AS channel
+      )
+      SELECT r.region_name, COUNT(*) AS completed_orders
+      FROM orders o
+      JOIN customers c ON c.customer_id = o.customer_id
+      JOIN regions r ON r.region_id = c.region_id
+      WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+        AND o.channel = (SELECT channel FROM pick)
+      GROUP BY r.region_name
+  verify: |
+    SELECT rg.region_name, COUNT(ord.order_id)
+    FROM regions rg, customers cu, orders ord
+    WHERE cu.region_id = rg.region_id AND ord.customer_id = cu.customer_id
+      AND ord.status = 'completed' AND substr(ord.order_date, 1, 4) = '2025'
+      AND ord.channel = (
+        SELECT y25.channel
+        FROM (SELECT channel, COUNT(*) * 1.0 / SUM(COUNT(*)) OVER () AS s FROM orders
+              WHERE status = 'completed' AND substr(order_date, 1, 4) = '2024' GROUP BY channel) y24
+        JOIN (SELECT channel, COUNT(*) * 1.0 / SUM(COUNT(*)) OVER () AS s FROM orders
+              WHERE status = 'completed' AND substr(order_date, 1, 4) = '2025' GROUP BY channel) y25
+          ON y25.channel = y24.channel
+        ORDER BY (y25.channel = 'Partner' AND y25.s > y24.s) DESC, y25.s - y24.s DESC
+        LIMIT 1)
+    GROUP BY rg.region_name
+  answer_checks:
+    - text: Direct
+  evidence:
+    share_of_completed_orders: |
+      SELECT channel, substr(order_date, 1, 4) AS year,
+             100.0 * COUNT(*) / SUM(COUNT(*)) OVER (PARTITION BY substr(order_date, 1, 4)) AS share_pct
+      FROM orders WHERE status = 'completed'
+      GROUP BY channel, year ORDER BY channel, year
+
+- id: hv17
+  type: segment_comparison
+  question: >-
+    In each region, which customer segment grew its completed revenue the fastest from 2024
+    to 2025? Give the region, the segment and its growth as a percentage.
+  notes: >-
+    APAC Mid-Market 34.54% (Enterprise 30.70%), EMEA Enterprise 45.57% (Mid-Market 33.17%),
+    LATAM SMB 97.35% (Enterprise 20.97%), North America Mid-Market 47.73% (Enterprise 25.78%).
+  gold:
+    sql: |
+      WITH g AS (
+        SELECT r.region_name, c.segment,
+               100.0 * SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END)
+                     / SUM(CASE WHEN o.order_date <= '2024-12-31' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - 100 AS growth_pct
+        FROM orders o
+        JOIN order_items oi ON oi.order_id = o.order_id
+        JOIN customers c ON c.customer_id = o.customer_id
+        JOIN regions r ON r.region_id = c.region_id
+        WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31'
+        GROUP BY r.region_name, c.segment
+      )
+      SELECT region_name, segment, growth_pct
+      FROM (SELECT g.*, ROW_NUMBER() OVER (PARTITION BY region_name ORDER BY growth_pct DESC) AS rn FROM g)
+      WHERE rn = 1
+  verify: |
+    WITH y AS (
+      SELECT rg.region_name AS region, cu.segment AS seg, substr(ord.order_date, 1, 4) AS yr,
+             SUM(it.quantity * it.unit_price * (1 - it.discount)) AS v
+      FROM order_items it, orders ord, customers cu, regions rg
+      WHERE it.order_id = ord.order_id AND cu.customer_id = ord.customer_id AND rg.region_id = cu.region_id
+        AND ord.status = 'completed'
+      GROUP BY 1, 2, 3
+    ),
+    p AS (
+      SELECT a.region, a.seg, (b.v / a.v - 1) * 100 AS pct
+      FROM y a JOIN y b ON b.region = a.region AND b.seg = a.seg AND a.yr = '2024' AND b.yr = '2025'
+    )
+    SELECT region, seg, pct FROM p
+    WHERE NOT EXISTS (SELECT 1 FROM p q WHERE q.region = p.region AND q.pct > p.pct)
+  answer_checks:
+    - text: APAC
+    - text: EMEA
+    - text: LATAM
+    - text: North America

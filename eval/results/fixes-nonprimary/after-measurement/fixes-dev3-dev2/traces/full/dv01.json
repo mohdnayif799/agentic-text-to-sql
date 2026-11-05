@@ -1,0 +1,233 @@
+{
+ "question_id": "dv01",
+ "type": "term_matching",
+ "arch": "full",
+ "question": "What was the 2024 completed revenue of our customer Idirs Rosis? Give the customer's ID and name with the revenue.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Idirs Rosis' AND o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+   "ok": true,
+   "failure": "empty",
+   "error": null,
+   "row_count": 0,
+   "preview": "0 rows returned."
+  },
+  {
+   "sql": "SELECT c.customer_id, c.customer_name, COALESCE(SUM(CASE WHEN o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN oi.quantity * oi.unit_price * (1 - oi.discount) END), 0) AS completed_revenue FROM customers AS c LEFT JOIN orders AS o ON o.customer_id = c.customer_id LEFT JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Idirs Rosis' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+   "ok": true,
+   "failure": "empty",
+   "error": null,
+   "row_count": 0,
+   "preview": "0 rows returned."
+  },
+  {
+   "sql": "SELECT c.customer_id, c.customer_name, COALESCE(SUM(CASE WHEN o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN oi.quantity * oi.unit_price * (1 - oi.discount) END), 0) AS completed_revenue FROM customers AS c LEFT JOIN orders AS o ON o.customer_id = c.customer_id LEFT JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Idirs Rosis' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+   "ok": true,
+   "failure": "empty",
+   "error": null,
+   "row_count": 0,
+   "preview": "0 rows returned."
+  },
+  {
+   "sql": "-- search_values('Idirs')",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 5,
+   "preview": "table | column | value | score\ncustomers | customer_name | Idris Rossi | 0.625\ncustomers | customer_name | Idris Larsen | 0.588\ncustomers | customer_name | Idris Vargas | 0.588\ncustomers | customer_name | Idris Kim | 0.571\ncustomers | customer_name | Idris Tan | 0.571"
+  },
+  {
+   "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Idris Rossi' AND o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "customer_id | customer_name | completed_revenue\n1133 | Idris Rossi | 33475.845"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql",
+    "repair"
+   ],
+   "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Idirs Rosis' AND o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+   "reason": "",
+   "signal": "empty"
+  },
+  {
+   "step": 2,
+   "tools": [
+    "search_values"
+   ],
+   "sql": "-- search_values('Idirs')",
+   "reason": "Check if the customer name 'Idirs Rosis' is spelled differently or exists in the database.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Idris Rossi' AND o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+   "reason": "Calculate the 2024 completed revenue for the correct customer name 'Idris Rossi'.",
+   "signal": null
+  }
+ ],
+ "repairs": [
+  {
+   "step": 1,
+   "signal": "empty",
+   "detail": "The query ran but returned no rows.",
+   "via": "repair",
+   "accepted": false,
+   "attempts": 1,
+   "before": {
+    "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Idirs Rosis' AND o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+    "ok": true,
+    "rows": 0,
+    "error": null
+   },
+   "after": {
+    "sql": "SELECT c.customer_id, c.customer_name, COALESCE(SUM(CASE WHEN o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN oi.quantity * oi.unit_price * (1 - oi.discount) END), 0) AS completed_revenue FROM customers AS c LEFT JOIN orders AS o ON o.customer_id = c.customer_id LEFT JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Idirs Rosis' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+    "ok": true,
+    "rows": 0,
+    "error": null
+   },
+   "effect": "n/a"
+  },
+  {
+   "step": 1,
+   "signal": "empty",
+   "detail": "The query ran but returned no rows.",
+   "via": "repair",
+   "accepted": false,
+   "attempts": 1,
+   "before": {
+    "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Idirs Rosis' AND o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+    "ok": true,
+    "rows": 0,
+    "error": null
+   },
+   "after": {
+    "sql": "SELECT c.customer_id, c.customer_name, COALESCE(SUM(CASE WHEN o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN oi.quantity * oi.unit_price * (1 - oi.discount) END), 0) AS completed_revenue FROM customers AS c LEFT JOIN orders AS o ON o.customer_id = c.customer_id LEFT JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Idirs Rosis' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+    "ok": true,
+    "rows": 0,
+    "error": null
+   },
+   "effect": "n/a"
+  }
+ ],
+ "selected_step": 3,
+ "selected_result": {
+  "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Idris Rossi' AND o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+  "ok": true,
+  "columns": [
+   "customer_id",
+   "customer_name",
+   "completed_revenue"
+  ],
+  "rows": [
+   [
+    1133,
+    "Idris Rossi",
+    33475.845
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Assuming the customer's name is Idris Rossi, customer ID 1133 generated a 2024 completed revenue of $33,475.85.",
+ "key_numbers": [
+  "1133",
+  "33475.845"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You plan the next step of an analysis of a read-only SQLite database. Choose exa",
+   "prompt_hash": "1f9f898159406a6f484bb16ae5b08b2a650ccdb2fc1b7175609084d88082044d",
+   "cache_hit": false,
+   "latency_ms": 1265.2,
+   "input_tokens": 4448,
+   "output_tokens": 71,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You plan the next step of an analysis of a read-only SQLite database. Choose exa",
+   "prompt_hash": "91f8d0c4eb518c2640de9ace63a792085adb6c640b069d7a8c5e29fdb6b7c2bd",
+   "cache_hit": false,
+   "latency_ms": 1116.1,
+   "input_tokens": 4578,
+   "output_tokens": 196,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "f51fcfdfc1895c6e2732eb0577847deb12e31f6b0880932268fc1a110b1d18a3",
+   "cache_hit": false,
+   "latency_ms": 848.9,
+   "input_tokens": 615,
+   "output_tokens": 84,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "e29870b73b12bb0a8f1e5056ca39fab6d0f0e65b0e370a8dfd1e516dd1e3ace9",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2975,
+   "output_tokens": 294,
+   "original_latency_ms": 1920.6,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You fix one SQLite query. A concrete problem was detected and is described below",
+   "prompt_hash": "97d02f49c619ea7b5e660411849dafc0ebc573d7e84d0ada8d4a3219ba85dee1",
+   "cache_hit": false,
+   "latency_ms": 2100.2,
+   "input_tokens": 3087,
+   "output_tokens": 437,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  },
+  {
+   "role": "You fix one SQLite query. A concrete problem was detected and is described below",
+   "prompt_hash": "97d02f49c619ea7b5e660411849dafc0ebc573d7e84d0ada8d4a3219ba85dee1",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3087,
+   "output_tokens": 437,
+   "original_latency_ms": 2100.2,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 5.418,
+ "latency_live_s": 9.439,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

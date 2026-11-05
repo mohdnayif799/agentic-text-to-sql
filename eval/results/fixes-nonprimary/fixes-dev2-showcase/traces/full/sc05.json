@@ -1,0 +1,148 @@
+{
+ "question_id": "sc05",
+ "type": "recovery",
+ "arch": "full",
+ "question": "What were LATAM's total completed revenue and total marketing spend in 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT r.region_name, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.status = 'completed' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS completed_revenue, SUM(CASE WHEN m.month >= '2025-01' AND m.month <= '2025-12' THEN m.amount ELSE 0 END) AS marketing_spend FROM regions AS r LEFT JOIN customers AS c ON c.region_id = r.region_id LEFT JOIN orders AS o ON o.customer_id = c.customer_id LEFT JOIN order_items AS oi ON oi.order_id = o.order_id LEFT JOIN marketing_spend AS m ON m.region_id = r.region_id WHERE r.region_name = 'LATAM' GROUP BY r.region_id, r.region_name LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "region_name | completed_revenue | marketing_spend\nLATAM | 125018270.1 | 2301111752.4"
+  },
+  {
+   "sql": "SELECT r.region_name, COALESCE(rev.completed_revenue, 0) AS completed_revenue, COALESCE(sp.marketing_spend, 0) AS marketing_spend FROM regions AS r LEFT JOIN (SELECT c.region_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.region_id) AS rev ON rev.region_id = r.region_id LEFT JOIN (SELECT region_id, SUM(amount) AS marketing_spend FROM marketing_spend WHERE month >= '2025-01' AND month <= '2025-12' GROUP BY region_id) AS sp ON sp.region_id = r.region_id WHERE r.region_name = 'LATAM' LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "region_name | completed_revenue | marketing_spend\nLATAM | 1736364.8625 | 583742.2"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql",
+    "repair"
+   ],
+   "sql": "SELECT r.region_name, COALESCE(rev.completed_revenue, 0) AS completed_revenue, COALESCE(sp.marketing_spend, 0) AS marketing_spend FROM regions AS r LEFT JOIN (SELECT c.region_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.region_id) AS rev ON rev.region_id = r.region_id LEFT JOIN (SELECT region_id, SUM(amount) AS marketing_spend FROM marketing_spend WHERE month >= '2025-01' AND month <= '2025-12' GROUP BY region_id) AS sp ON sp.region_id = r.region_id WHERE r.region_name = 'LATAM' LIMIT 500",
+   "reason": "",
+   "signal": "fanout"
+  }
+ ],
+ "repairs": [
+  {
+   "step": 1,
+   "signal": "fanout",
+   "detail": "Join fan-out: m is joined on m.region_id = r.region_id, a key that is not unique on either side, so SUM/COUNT/AVG values are multiplied. Aggregate each table separately (for example in subqueries) before combining them.",
+   "via": "repair",
+   "accepted": true,
+   "attempts": 1,
+   "before": {
+    "sql": "SELECT r.region_name, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.status = 'completed' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS completed_revenue, SUM(CASE WHEN m.month >= '2025-01' AND m.month <= '2025-12' THEN m.amount ELSE 0 END) AS marketing_spend FROM regions AS r LEFT JOIN customers AS c ON c.region_id = r.region_id LEFT JOIN orders AS o ON o.customer_id = c.customer_id LEFT JOIN order_items AS oi ON oi.order_id = o.order_id LEFT JOIN marketing_spend AS m ON m.region_id = r.region_id WHERE r.region_name = 'LATAM' GROUP BY r.region_id, r.region_name LIMIT 500",
+    "ok": true,
+    "rows": 1,
+    "error": null
+   },
+   "after": {
+    "sql": "SELECT r.region_name, COALESCE(rev.completed_revenue, 0) AS completed_revenue, COALESCE(sp.marketing_spend, 0) AS marketing_spend FROM regions AS r LEFT JOIN (SELECT c.region_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.region_id) AS rev ON rev.region_id = r.region_id LEFT JOIN (SELECT region_id, SUM(amount) AS marketing_spend FROM marketing_spend WHERE month >= '2025-01' AND month <= '2025-12' GROUP BY region_id) AS sp ON sp.region_id = r.region_id WHERE r.region_name = 'LATAM' LIMIT 500",
+    "ok": true,
+    "rows": 1,
+    "error": null
+   },
+   "effect": "fix"
+  }
+ ],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT r.region_name, COALESCE(rev.completed_revenue, 0) AS completed_revenue, COALESCE(sp.marketing_spend, 0) AS marketing_spend FROM regions AS r LEFT JOIN (SELECT c.region_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.region_id) AS rev ON rev.region_id = r.region_id LEFT JOIN (SELECT region_id, SUM(amount) AS marketing_spend FROM marketing_spend WHERE month >= '2025-01' AND month <= '2025-12' GROUP BY region_id) AS sp ON sp.region_id = r.region_id WHERE r.region_name = 'LATAM' LIMIT 500",
+  "ok": true,
+  "columns": [
+   "region_name",
+   "completed_revenue",
+   "marketing_spend"
+  ],
+  "rows": [
+   [
+    "LATAM",
+    1736364.8625,
+    583742.2
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "In 2025, LATAM had a total completed revenue of 1,736,364.86 and a total marketing spend of 583,742.20.",
+ "key_numbers": [
+  "1736364.8625",
+  "583742.2"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "136df413bc6a3ec620828fa75a0b8ab212d7677f7271b18d65a6d8b58f6b36fc",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 728,
+   "output_tokens": 99,
+   "original_latency_ms": 869.5,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "636072884da2b488e614bbc3585b8061cd88e4d5c9453f0bcc8172bf83c005ce",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2833,
+   "output_tokens": 340,
+   "original_latency_ms": 1345.3,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You fix one SQLite query. A concrete problem was detected and is described below",
+   "prompt_hash": "662b243295618ee3c7ab2d4282be1caea451bb6491f7840644f55522e2271042",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3074,
+   "output_tokens": 375,
+   "original_latency_ms": 1487.2,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "09f825dafbbf4554cbf06c8fcc20fda345d8a10c2050f9bf7ef95d9cc9239487",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 616,
+   "output_tokens": 47,
+   "original_latency_ms": 817.6,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.124,
+ "latency_live_s": 4.643,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

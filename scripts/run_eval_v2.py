@@ -9,6 +9,10 @@
                                    # development smoke test: D escalates on
                                    # every question (refused on holdout sets;
                                    # results do not count)
+    python scripts/run_eval_v2.py ... --cache-dir eval/runs/NAME-cache
+                                   # use this response cache instead of the one
+                                   # in eval/run_config.yaml; an empty folder
+                                   # means every call is live
 
 Configuration (provider, model, fixed "today", budgets) comes from
 eval/run_config.yaml. Results: eval/runs/<run>/results.json; traces:
@@ -21,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,6 +40,14 @@ from evalrun.runner import (  # noqa: E402
     planned_calls,
 )
 from evalrun.sets import ALL_SET_FILES, load_questions  # noqa: E402
+
+
+def run_config(cache_dir: str | None) -> RunConfig:
+    """eval/run_config.yaml, with its cache folder replaced if one is given. A
+    relative folder is under the repo. Only where replies are stored changes:
+    the provider, model, "today" and budgets stay fixed."""
+    cfg = RunConfig.load()
+    return replace(cfg, cache_dir=ROOT / cache_dir) if cache_dir else cfg
 
 
 def _print_summary(payload: dict) -> None:
@@ -75,6 +88,8 @@ def main() -> int:
     ap.add_argument("--force-escalation", action="store_true",
                     help="development smoke test: D escalates on every question "
                          "(refused on holdout sets; results do not count)")
+    ap.add_argument("--cache-dir", help="response cache folder, instead of the one "
+                                        "in eval/run_config.yaml")
     args = ap.parse_args()
     if not args.rejudge and not args.arch:
         ap.error("--arch is required unless --rejudge is given")
@@ -84,7 +99,7 @@ def main() -> int:
         except ValueError as exc:
             ap.error(str(exc))
 
-    cfg = RunConfig.load()
+    cfg = run_config(args.cache_dir)
     if args.plan_only:
         plan = planned_calls(load_questions(args.set), args.arch)
         print(f"Planned LLM calls: typical {plan['typical']}, at most {plan['max']} "

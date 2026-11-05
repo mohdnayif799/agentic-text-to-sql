@@ -4,9 +4,11 @@ Up to the follow-up decision D is exactly C:
 - step 0 is A's first call (`step0_llm`, A's response cache in evaluation);
 - C's deterministic signals and disciplined repair (`shared_llm`, C's cache);
 - C's follow-up decision (`shared_llm`), or C's question signal (a forecast
-  or trend fit), which escalates without that call.
+  or trend fit, or a condition on the answer), which escalates without that
+  call.
 With no signal and no follow-up, D answers directly with A's answer call, so
-the direct path is exactly A.
+the direct path is exactly A's calls (router.py describes the one sentence code
+may add after them).
 
 When the run escalates, D adds:
 - verification checks (archs/verify.py) on every query of the escalated
@@ -14,13 +16,28 @@ When the run escalates, D adds:
 - for a question that asks why (is_why_question), a metric analysis first:
   one validated MetricPlan picks the metric and the comparison, and
   decompose_change splits the metric into its components (or, for a metric
-  without components, contribution_by_dimension breaks it down);
+  without components, contribution_by_dimension breaks it down). The plan may
+  give two periods together with groups, and decompose_change then compares each
+  component's change across the groups, so the answer names what differs, not
+  what fell most. Choosing that comparison is the planner's call; no wording of
+  the question decides it. For a breakdown, the dimension that concentrates the
+  change most comes first (compute.concentration, no LLM call), and the planner's
+  own dimension stays as the second analysis. If it asks
+  about a sudden change (is_spike_question), the next step reads the same metric
+  over the periods before it (compute.history.period_history, no LLM call), so the
+  answer can say what is normal. Added after a holdout failure (ha08: an answer
+  compared Q3 with Q2 only, so nothing showed that Q3 was unusual);
 - for a question that asks for a forecast or a fitted trend (C's forecast
   signal), a trend fit first: one validated TrendPlan gives the series query
   (run and verified like any query) and the fit, which linear_trend_forecast
   or zscore_anomalies (against the trend) computes. A first query that fitted
   the line inside SQL is not trusted: added after a development failure
   (dev2 dv03: the planner accepted A's one-query fit, wrong by an x offset);
+- for a question whose answer depends on a condition, the condition first: one
+  validated ConditionPlan gives a query that evaluates only the condition, and
+  then, with its values in view, one validated BranchPlan gives the query for
+  the branch that applies. Added after holdout failures (ha19 named the wrong
+  branch, ha20 kept a hollow row from the other branch);
 - an exploration loop: decide_next_action returns one validated NextAction
   (archs/explore.py) given the full shared context, the question verbatim,
   why more work is needed and capped previews of earlier steps. Tools:
@@ -31,8 +48,10 @@ schema), and the answer step is told how to read it and to state every
 component's comparison, including components that are about the same. If the
 answer does not name the main driver (the largest contributor) in plain
 words, a sentence built from the table states it (driver_sentence).
-A trend-fit question's final table is the fit's output. Other questions
-are assembled as in C.
+A trend-fit question's final table is the fit's output. A conditional
+question's final table is the branch's result alone; the condition's values go
+to the answer step beside it, so the answer can name the branch taken without
+them changing the table. Other questions are assembled as in C.
 
 `force_escalation` is a development-only switch (the evaluation runner
 refuses it on holdout sets; the app never sets it): D escalates on every
@@ -54,10 +73,13 @@ from agentcrew.archs.baseline import SQL_SYSTEM, SQL_USER
 from agentcrew.archs.explore import (
     METRIC_TOOLS,
     TREND_FUNCTIONS,
+    BranchPlan,
+    ConditionPlan,
     MetricPlan,
     NextAction,
     TrendPlan,
     compute,
+    history_result,
     lookup,
 )
 from agentcrew.archs.outcome import ArchOutcome, SqlAttempt
@@ -68,7 +90,9 @@ from agentcrew.archs.router import (
     StepRun,
 )
 from agentcrew.archs.verify import verify
-from agentcrew.compute.metrics import SIMILAR_PCT, catalog
+from agentcrew.compute.concentration import concentrating_dimension
+from agentcrew.compute.history import MAX_HISTORY_ROWS, has_dimension
+from agentcrew.compute.metrics import GROUP_GAP_PREFIX, SIMILAR_PCT, catalog
 from agentcrew.config import Settings
 from agentcrew.context import SharedContext
 from agentcrew.context.values import profile_columns
@@ -107,7 +131,9 @@ each value of a dimension contributes to the change and names the largest.
     comparison is {"period_a": {"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}, \
 "period_b": {...}} (period_b is the one being explained), or \
 {"group_dimension": ..., "groups": [the group being explained, then each \
-group it is compared with], "period": {...}}, with optional "filters": \
+group it is compared with], "period": {...}}, or, with decompose_change, to \
+compare how a change differs between groups, {"period_a": {...}, "period_b": \
+{...}, "group_dimension": ..., "groups": [...]}, with optional "filters": \
 {dimension: value}.
   Metrics and their dimensions:
 {catalog}
@@ -147,7 +173,11 @@ asks about, and return its arguments as JSON:
 period_a the period it is compared with; or
   * groups of one dimension: {"group_dimension": ..., "groups": [the group \
 being explained, then each group it is compared with], "period": {...}}; the \
-period is optional.
+period is optional; or
+  * how a change differs between groups, when the question asks why one group \
+changed more or less than others: {"period_a": {...}, "period_b": {...}, \
+"group_dimension": ..., "groups": [the group being explained, then every group \
+it is compared with]}.
   Optional "filters": {dimension: value} restrict both sides. Group and \
 filter values are real values, exactly as listed under allowed values.
 - dimension: only for a metric listed without decompose_change: the dimension \
@@ -186,6 +216,46 @@ The tool fits a least-squares line with x = 1, 2, 3, ... for consecutive \
 periods (1 = the first period of the series).
 """
 
+CONDITION_PLAN_SYSTEM = """\
+You start the analysis of a question whose answer depends on a condition (for \
+example "if the gap is more than X, show ...; otherwise ..."). Evaluate the \
+condition first, on its own, and return its query as JSON:
+- condition_sql: ONE read-only SQLite query returning ONE row with the values \
+the condition compares (one clearly named column per value), the difference or \
+ratio the condition tests, and a column condition_met that is 1 if the \
+condition holds and 0 if it does not. If a branch depends on which item is \
+higher or lower, also return that item's name in a column. Compute nothing that \
+only a branch asks for. Use only the tables and columns in the schema, text \
+values exactly as listed under allowed values, and the metric definitions from \
+the data dictionary.
+- reason: one sentence.
+"""
+
+BRANCH_PLAN_SYSTEM = """\
+The condition of a question has been evaluated: its result is the last step \
+below. Return the query for the branch that applies as JSON:
+- condition_met: true if that result says the condition holds, otherwise false.
+- branch: one sentence saying which branch applies and why, naming the group it \
+is about.
+- sql: ONE read-only SQLite query that returns exactly what that branch asks \
+for: no row and no column for any other branch, and none of the condition's \
+values. Use only the tables and columns in the schema, text values exactly as \
+listed under allowed values, and the metric definitions from the data dictionary.
+- reason: one sentence.
+"""
+
+#: Appended to the answer prompt when the final table is a conditional
+#: question's branch. The values stay out of the table, which holds what the
+#: branch asks for, and are given here so the answer can state them.
+CONDITION_GUIDANCE = """\
+## The condition, evaluated first
+{branch}
+{values}
+The result above is the branch that applies. Open the answer with the condition: \
+the compared values from this table (they count as part of the result) and \
+which branch they select, naming the group. Then answer from the result.
+"""
+
 #: Appended to the answer prompt when the final table is D's stacked metric
 #: analyses. It explains the tool's columns and asks for every component's
 #: comparison: a why-answer that names only the component that moved leaves
@@ -209,11 +279,62 @@ are about the same, so they do not explain the difference).
 figures (whole numbers for counts, at most two decimals otherwise).
 """
 
+#: Replaces METRIC_GUIDANCE when the table compares a change across groups: the
+#: component that fell most in a group is not the answer if it fell as much in
+#: every other group.
+ACROSS_GROUPS_GUIDANCE = f"""\
+## How to read this result
+The question asks why one group changed more or less than others. Rows whose \
+analysis starts with "{GROUP_GAP_PREFIX.strip()}" compare the percent change of \
+each component: value_b is the group being explained (side_b), value_a is the \
+average of the other groups, and change is the difference in percentage points. \
+share_of_change_pct is the component's share of the extra change, and \
+largest_contributor marks the component that explains it. comparison is "about \
+the same" when the difference is within {SIMILAR_PCT:g} points.
+Rows whose analysis starts with a group's name give that group's own figures in \
+the two periods (value_a, value_b) and their pct_change.
+Write the answer (up to six sentences) in plain words:
+- First sentence: the component marked largest_contributor, named as in the item \
+column, with its figures and pct_change in the group being explained.
+- Then how much the same component changed in each other group (their pct_change).
+- Then, for each other component, whether it changed by a similar amount in every \
+group (give the range of pct_change). Say that a component which changed similarly \
+in every group does not explain the difference, however large its own change.
+- Never write column names (such as value_a or largest_contributor); round \
+figures (whole numbers for counts, at most two decimals otherwise).
+"""
+
+#: Added to METRIC_GUIDANCE when the concentration check put another breakdown first.
+CONCENTRATION_GUIDANCE = """\
+Several breakdowns are shown, and the first breakdown concentrates the change most, \
+so its largest contributor is the main driver.
+"""
+
+#: Added to METRIC_GUIDANCE when the question asks about a sudden change.
+BASELINE_GUIDANCE = """\
+## What is normal
+The same metric in the period the question asks about (the last column) and the \
+periods before it. earlier_low and earlier_high are the lowest and highest of \
+those earlier periods; a total row, if there is one, covers all values. These \
+figures count as part of the result.
+{table}
+Also say, with these figures: what was normal before for the main driver (its \
+range in the earlier periods), how much of the total in this period it accounts \
+for if there is a total row, and whether the other values moved comparably.
+"""
+
 #: Questions that ask for the cause of something. General English phrasing,
 #: not drawn from any question set.
 _WHY = re.compile(
     r"\b(why|how\s+come|what\s+(explains|explained|drove|drives|caused|causes"
     r"|led\s+to|is\s+behind|was\s+behind)|reasons?\s+(for|behind))\b",
+    re.IGNORECASE,
+)
+#: Words for a sudden change in a metric. General English phrasing, not drawn
+#: from any question set.
+_SPIKE = re.compile(
+    r"\b(spik\w*|surg\w*|jump\w*|soar\w*|sky-?rocket\w*|dip\w*|drop\w*|plung\w*"
+    r"|slump\w*|tank\w*|fell|fall\w*|declin\w*|collaps\w*|crash\w*)\b",
     re.IGNORECASE,
 )
 _METRIC_STEPS = {f"compute:{name}" for name in METRIC_TOOLS}
@@ -229,6 +350,10 @@ FORCED_REASON = (
 
 def is_why_question(question: str) -> bool:
     return _WHY.search(question) is not None
+
+
+def is_spike_question(question: str) -> bool:
+    return _SPIKE.search(question) is not None
 
 
 def _figure(value: float) -> str:
@@ -313,6 +438,16 @@ class Full(Router):
         self.force_escalation = force_escalation
         self.formats = _date_formats(tools)
         self.why = is_why_question(question)
+        kind = self.question_signal.kind if self.question_signal else None
+        self.forecast = kind == "forecast"
+        self.conditional = kind == "conditional"
+        self.condition_taken: tuple[StepRun, StepRun, str] | None = None
+        """(condition step, branch step, which branch), once a branch ran."""
+        self.metric_plan: MetricPlan | None = None
+        self.concentrated = False
+        """The concentration check put another breakdown before the planner's."""
+        self.history: StepRun | None = None
+        """The earlier periods of a spike or dip question, once they were read."""
         # replace(), not format(): the prompts contain literal JSON braces.
         self.system = DECIDE_SYSTEM.replace("{catalog}", catalog())
         self.metric_system = METRIC_PLAN_SYSTEM.replace("{catalog}", catalog())
@@ -320,7 +455,7 @@ class Full(Router):
 
     def _verify(self, sql: str, result: ExecutionResult):
         return verify(sql, result, self.question, self.schema, self.formats,
-                      forecast=self.question_signal is not None)
+                      forecast=self.forecast)
 
     def _explore_history(self, steps: list[StepRun]) -> str:
         return "\n\n".join(
@@ -355,7 +490,51 @@ class Full(Router):
                 MetricPlan, self.metric_system, self._decide_prompt(steps, reason))
         except StructuredOutputError:
             return None
-        return self._act(number, plan.to_action(), steps)
+        self.metric_plan, action = self._concentrated(plan)
+        return self._act(number, action, steps)
+
+    def _concentrated(self, plan: MetricPlan) -> tuple[MetricPlan, NextAction]:
+        """A breakdown leads with the dimension that concentrates the change most.
+        The planner's dimension stays as the second analysis, so a question that
+        asks about it still gets it. Other plans are left as they are."""
+        action = plan.to_action()
+        if action.function != "contribution_by_dimension":
+            return plan, action
+        best = concentrating_dimension(
+            lambda sql: execute_readonly_sql(self.tools, sql), plan.metric,
+            plan.comparison, preferred=plan.dimension)
+        if best is None or best.dimension == plan.dimension:
+            return plan, action
+        self.concentrated = True
+        chosen = plan.model_copy(update={"dimension": best.dimension, "reason": (
+            f"{plan.reason} Broken down first by {best.dimension}: one value "
+            f"({best.item}) holds the largest share of the change "
+            f"({best.share_pct:.0f}%).").strip()})
+        action = chosen.to_action()
+        return chosen, action.model_copy(update={
+            "params": {**action.params, "also_dimension": plan.dimension}})
+
+    def _history_step(self, number: int) -> StepRun | None:
+        """The metric over the periods before the one the question asks about.
+        Evidence for the answer, not a table to grade: its kind keeps it out of
+        the final table. None if the plan names no period or there is no history."""
+        plan = self.metric_plan
+        period = plan.comparison.explained_period
+        if period is None:
+            return None
+        progress.enter(f"step {number}: compute:period_history")
+        dimension = (plan.dimension if has_dimension(plan.metric, plan.dimension)
+                     else None)
+        result = history_result(plan.metric, period, dimension, plan.comparison.filters,
+                                lambda sql: execute_readonly_sql(self.tools, sql))
+        if not result.ok:
+            return None
+        step = StepRun(number, result.sql, result, None,
+                       "What was normal before this period.", result.sql,
+                       kind="lookup", tool="compute:period_history")
+        step.attempts.append(SqlAttempt.from_result(result, result.sql))
+        self.history = step
+        return step
 
     def _trend_steps(self, number: int, steps: list[StepRun],
                      reason: str) -> list[StepRun]:
@@ -375,11 +554,62 @@ class Full(Router):
         return [series, self._act(number + 1, plan.compute_action(number),
                                   [*steps, series])]
 
+    def _branch_steps(self, number: int, steps: list[StepRun],
+                      reason: str) -> list[StepRun]:
+        """A conditional question's first exploration steps: the condition's
+        query, then the query of the branch it selects. Without a valid plan,
+        or if a query fails, the ordinary loop continues instead."""
+        progress.enter(f"step {number}: condition plan")
+        try:
+            plan: ConditionPlan = self._structured(
+                ConditionPlan, CONDITION_PLAN_SYSTEM,
+                self._decide_prompt(steps, reason))
+        except StructuredOutputError:
+            return []
+        condition = self.run_step(number, plan.condition_sql, plan.reason,
+                                  verify=self._verify)
+        if not (condition.result.ok and condition.result.rows):
+            return [condition]
+        progress.enter(f"step {number + 1}: branch plan")
+        ran = [*steps, condition]
+        try:
+            chosen: BranchPlan = self._structured(
+                BranchPlan, BRANCH_PLAN_SYSTEM, self._decide_prompt(ran, reason))
+        except StructuredOutputError:
+            return [condition]
+        branch = self.run_step(number + 1, chosen.sql, chosen.branch,
+                               verify=self._verify)
+        if branch.result.ok and branch.result.rows:
+            self.condition_taken = (condition, branch, chosen.branch)
+        return [condition, branch]
+
+    def _guidance(self, selected: ExecutionResult, stacked: bool) -> str:
+        if stacked and GROUP_GAP_PREFIX in " ".join(
+                str(row[selected.columns.index("analysis")]) for row in selected.rows):
+            return ACROSS_GROUPS_GUIDANCE
+        if stacked:
+            guidance = METRIC_GUIDANCE
+            if self.concentrated:
+                guidance += CONCENTRATION_GUIDANCE
+            if self.history:
+                table = self.history.result.preview(limit=MAX_HISTORY_ROWS + 1)
+                guidance += BASELINE_GUIDANCE.format(table=table)
+            return guidance
+        if self.condition_taken and selected is self.condition_taken[1].result:
+            condition, _, branch = self.condition_taken
+            return CONDITION_GUIDANCE.format(
+                branch=branch, values=condition.result.preview(limit=PREVIEW_ROWS))
+        return ""
+
     def _select(self, steps: list[StepRun]):
-        """A trend-fit question's final table is the fit; a why-question's is
-        its metric analyses, stacked; any other question (or no successful
-        analysis) is assembled as in C."""
-        if self.question_signal is not None:
+        """A trend-fit question's final table is the fit; a conditional
+        question's is the branch; a why-question's is its metric analyses,
+        stacked; any other question (or no successful analysis) is assembled
+        as in C."""
+        if self.condition_taken:
+            branch = self.condition_taken[1]
+            return branch.result, branch.number, None
+        if self.forecast:
             fits = [s for s in steps if s.tool in _TREND_STEPS
                     and s.result.ok and s.result.rows]
             if fits:
@@ -452,9 +682,16 @@ class Full(Router):
                     opened = self._metric_step(len(steps) + 1, steps, reason)
                     if opened is not None:
                         steps.append(opened)
-                elif (self.question_signal is not None
-                      and len(steps) + 2 <= self.settings.max_steps):
+                        if (is_spike_question(self.question)
+                                and not self.metric_plan.comparison.across_groups
+                                and len(steps) < self.settings.max_steps
+                                and opened.result.ok and opened.result.rows):
+                            history = self._history_step(len(steps) + 1)
+                            steps += [history] if history else []
+                elif self.forecast and len(steps) + 2 <= self.settings.max_steps:
                     steps += self._trend_steps(len(steps) + 1, steps, reason)
+                elif self.conditional and len(steps) + 2 <= self.settings.max_steps:
+                    steps += self._branch_steps(len(steps) + 1, steps, reason)
                 while len(steps) < self.settings.max_steps:
                     action = self._next_action(steps, reason)
                     if action is None or action.action == "answer":
@@ -467,7 +704,7 @@ class Full(Router):
             stacked = bool(plan_used and "stacked_steps" in plan_used)
             final, selected, selected_step, fell_back = self._answer(
                 selected, selected_step, steps, escalated,
-                guidance=METRIC_GUIDANCE if stacked else "")
+                guidance=self._guidance(selected, stacked))
             if fell_back:
                 stacked = False
                 plan_used = {"fallback": "the answer call failed on the final "

@@ -1,0 +1,106 @@
+{
+ "question_id": "ha20",
+ "type": "segment_comparison",
+ "arch": "baseline",
+ "question": "Compare the 2025 refund rate (refunded orders as a percentage of all orders) of the Online and Direct channels. If the gap is more than 1.5 percentage points, show the 2025 refund rate by region for whichever of the two channels is higher; otherwise, give the overall 2025 refund rate across all channels.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH channel_refunds AS (SELECT channel, CAST(SUM(CASE WHEN status = 'refunded' THEN 1 ELSE 0 END) AS REAL) * 100.0 / COUNT(*) AS refund_rate FROM orders WHERE order_date >= '2025-01-01' AND order_date <= '2025-12-31' AND channel IN ('Online', 'Direct') GROUP BY channel), online_direct_gap AS (SELECT ABS(MAX(CASE WHEN channel = 'Online' THEN refund_rate END) - MAX(CASE WHEN channel = 'Direct' THEN refund_rate END)) AS gap, CASE WHEN MAX(CASE WHEN channel = 'Online' THEN refund_rate END) >= MAX(CASE WHEN channel = 'Direct' THEN refund_rate END) THEN 'Online' ELSE 'Direct' END AS higher_channel FROM channel_refunds), region_refunds AS (SELECT r.region_name, CAST(SUM(CASE WHEN o.status = 'refunded' THEN 1 ELSE 0 END) AS REAL) * 100.0 / COUNT(o.order_id) AS refund_rate FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.channel = (SELECT higher_channel FROM online_direct_gap) GROUP BY r.region_name), overall_refund AS (SELECT 'All Channels' AS region_name, CAST(SUM(CASE WHEN status = 'refunded' THEN 1 ELSE 0 END) AS REAL) * 100.0 / COUNT(*) AS refund_rate FROM orders WHERE order_date >= '2025-01-01' AND order_date <= '2025-12-31') SELECT region_name, refund_rate FROM region_refunds WHERE (SELECT gap FROM online_direct_gap) > 1.5 UNION ALL SELECT region_name, refund_rate FROM overall_refund WHERE (SELECT gap FROM online_direct_gap) <= 1.5 LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "region_name | refund_rate\nAPAC | 16.286644951140065\nEMEA | 17.639429312581065\nLATAM | 19.221411192214113\nNorth America | 16.21405750798722"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH channel_refunds AS (SELECT channel, CAST(SUM(CASE WHEN status = 'refunded' THEN 1 ELSE 0 END) AS REAL) * 100.0 / COUNT(*) AS refund_rate FROM orders WHERE order_date >= '2025-01-01' AND order_date <= '2025-12-31' AND channel IN ('Online', 'Direct') GROUP BY channel), online_direct_gap AS (SELECT ABS(MAX(CASE WHEN channel = 'Online' THEN refund_rate END) - MAX(CASE WHEN channel = 'Direct' THEN refund_rate END)) AS gap, CASE WHEN MAX(CASE WHEN channel = 'Online' THEN refund_rate END) >= MAX(CASE WHEN channel = 'Direct' THEN refund_rate END) THEN 'Online' ELSE 'Direct' END AS higher_channel FROM channel_refunds), region_refunds AS (SELECT r.region_name, CAST(SUM(CASE WHEN o.status = 'refunded' THEN 1 ELSE 0 END) AS REAL) * 100.0 / COUNT(o.order_id) AS refund_rate FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.channel = (SELECT higher_channel FROM online_direct_gap) GROUP BY r.region_name), overall_refund AS (SELECT 'All Channels' AS region_name, CAST(SUM(CASE WHEN status = 'refunded' THEN 1 ELSE 0 END) AS REAL) * 100.0 / COUNT(*) AS refund_rate FROM orders WHERE order_date >= '2025-01-01' AND order_date <= '2025-12-31') SELECT region_name, refund_rate FROM region_refunds WHERE (SELECT gap FROM online_direct_gap) > 1.5 UNION ALL SELECT region_name, refund_rate FROM overall_refund WHERE (SELECT gap FROM online_direct_gap) <= 1.5 LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH channel_refunds AS (SELECT channel, CAST(SUM(CASE WHEN status = 'refunded' THEN 1 ELSE 0 END) AS REAL) * 100.0 / COUNT(*) AS refund_rate FROM orders WHERE order_date >= '2025-01-01' AND order_date <= '2025-12-31' AND channel IN ('Online', 'Direct') GROUP BY channel), online_direct_gap AS (SELECT ABS(MAX(CASE WHEN channel = 'Online' THEN refund_rate END) - MAX(CASE WHEN channel = 'Direct' THEN refund_rate END)) AS gap, CASE WHEN MAX(CASE WHEN channel = 'Online' THEN refund_rate END) >= MAX(CASE WHEN channel = 'Direct' THEN refund_rate END) THEN 'Online' ELSE 'Direct' END AS higher_channel FROM channel_refunds), region_refunds AS (SELECT r.region_name, CAST(SUM(CASE WHEN o.status = 'refunded' THEN 1 ELSE 0 END) AS REAL) * 100.0 / COUNT(o.order_id) AS refund_rate FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.channel = (SELECT higher_channel FROM online_direct_gap) GROUP BY r.region_name), overall_refund AS (SELECT 'All Channels' AS region_name, CAST(SUM(CASE WHEN status = 'refunded' THEN 1 ELSE 0 END) AS REAL) * 100.0 / COUNT(*) AS refund_rate FROM orders WHERE order_date >= '2025-01-01' AND order_date <= '2025-12-31') SELECT region_name, refund_rate FROM region_refunds WHERE (SELECT gap FROM online_direct_gap) > 1.5 UNION ALL SELECT region_name, refund_rate FROM overall_refund WHERE (SELECT gap FROM online_direct_gap) <= 1.5 LIMIT 500",
+  "ok": true,
+  "columns": [
+   "region_name",
+   "refund_rate"
+  ],
+  "rows": [
+   [
+    "APAC",
+    16.286644951140065
+   ],
+   [
+    "EMEA",
+    17.639429312581065
+   ],
+   [
+    "LATAM",
+    19.221411192214113
+   ],
+   [
+    "North America",
+    16.21405750798722
+   ]
+  ],
+  "row_count": 4
+ },
+ "answer": "Since the gap between the Online and Direct channels' 2025 refund rates was more than 1.5 percentage points, the refund rate for the higher channel (Online) is shown by region: APAC has 16.29%, EMEA has 17.64%, LATAM has 19.22%, and North America has 16.21%.",
+ "key_numbers": [
+  "1.5",
+  "16.286644951140065",
+  "17.639429312581065",
+  "19.221411192214113",
+  "16.21405750798722"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "f12d51c3b0d6f7d59dba2644f9f8f8056d16ed5c89f763bcf3c1d614aecacd7e",
+   "cache_hit": false,
+   "latency_ms": 2093.0,
+   "input_tokens": 2851,
+   "output_tokens": 606,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "ed52001401eec28a69be94e104e5e70e3dfa08362e66d9aab47c7516c54b2d44",
+   "cache_hit": false,
+   "latency_ms": 1648.9,
+   "input_tokens": 1079,
+   "output_tokens": 201,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 3.774,
+ "latency_live_s": 3.774,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "4 row(s) match"
+ }
+}

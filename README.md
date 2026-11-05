@@ -166,7 +166,9 @@ The original agent's graph design (B) is documented in [docs/ARCHITECTURE.md](do
 
 ## Safety
 
-Read-only is enforced in **three independent layers**, and the strongest one is not the prompt.
+A request to change the data is refused first, before any model call or query, and does not use a demo run (`agentcrew/refusal.py`). That is a courtesy to the person asking, not the protection: it looks at wording, and it deliberately lets through anything unclear, such as "how many orders were deleted?".
+
+The protection is that read-only is enforced in **three independent layers**, and the strongest one is not the prompt.
 
 | Layer | Mechanism | What defeats it |
 | --- | --- | --- |
@@ -259,6 +261,8 @@ The full method is pre-registered in [eval/PROTOCOL.md](eval/PROTOCOL.md). The f
 - **Protocol amendments:** three pre-run amendments are recorded in the protocol.
 - **Judge and sample size:** the judge is the same model as the one under test, behind rule-based checks. With 21 questions, only large effects are measurable.
 
+**Later fixes (non-primary).** After Phase 5, six general fixes were written from D's five holdout failures and rerun on the same questions. **This does not replace the numbers above:** the protocol allows one primary run, and the questions are no longer blind. There were no regressions. The fixes alone took D from 16 to 18 on `holdout_agent` (both from stating an assumption), and an all-live run reached 20, but one of those two extra passes is model noise and the other passed in only one run of two. Later commits changed the code again and have been checked on the development sets only. Details, the noise analysis, and exactly what changed after the measurement are in [eval/results/fixes_nonprimary_report.md](eval/results/fixes_nonprimary_report.md).
+
 **Earlier evaluation.** The original agent (B) was first evaluated with lenient checks. A strict re-grade of the same runs ([eval/results/legacy_v1_strict.md](eval/results/legacy_v1_strict.md)) found the single-query baseline ahead, 13/13 against 11/13. That result is why the design changed to "one query first".
 
 ```bash
@@ -305,7 +309,7 @@ This is an **adapter, not a second implementation**. It delegates to the exact f
 pytest
 ```
 
-**783 tests, all offline.** No API key, no network, no quota. Models are simulated by scripted clients, and everything else runs against the real database.
+**1130 tests, all offline.** No API key, no network, no quota. Models are simulated by scripted clients, and everything else runs against the real database.
 
 Highlights:
 - **Every D tool** is run through D's own dispatcher, using model-style replies (code fences, nulls, extra fields, wrong case) and 15 bad-argument cases. Each bad argument must come back as a failed step, never an exception (`test_dispatch.py`).
@@ -328,6 +332,7 @@ agentcrew/
   config.py              Settings (pydantic-settings, AGENTCREW_ prefix)
   llm.py                 Provider registry, clients, quota classification
   tools.py               The database tools, single source of truth
+  refusal.py             Refuses a request to change the data, before any call
   archs/                 A baseline, C router, D full, B adapter; signals,
                          repair, verification, exploration, final-table
                          assembly, the app runner
@@ -346,7 +351,7 @@ scripts/                 build_database.py, run_eval_v2.py, report_v2.py,
                          build_gold.py, build_dev_gold.py; dev/ holds the
                          UI preview, screenshot and font-check tools
 eval/                    Protocol, question sets, gold, results and reports
-tests/                   783 offline tests
+tests/                   1130 offline tests
 docs/                    The original agent's architecture, decisions, notes
 ```
 
@@ -376,10 +381,11 @@ Stated plainly, from the holdout error analysis in the [Phase 5 report](eval/res
 
 - **Small samples.** 21 + 12 holdout questions measure only large effects. D's 3-0 win over A is not significant.
 - **Most of D's edge is the shared repair step.** D's own tools decided one holdout question.
-- **Comparing a change across groups.** "Why did APAC fall more than the other regions?" needs each component's change in every group, which the decomposition does not yet compare.
-- **Attributing a spike against a baseline.** Answers led with a cross-tab cell instead of the one dimension that concentrates the change, and none compared the spike with earlier quarters.
-- **Ambiguous questions.** The right reading was chosen, but the assumption was not stated, which the grading requires.
-- **Conditional questions.** A single query can return a leftover NULL row from the branch that does not apply. Its answer can also name the wrong branch while the table is right, and the answer-text check does not catch that.
+- **Comparing a change across groups.** The decomposition now compares each component's change across groups and finds the right driver, but answers can still overstate how alike the other components moved.
+- **Attributing a spike against a baseline.** Earlier periods are now in the evidence, and a breakdown leads with the dimension that concentrates the change most. Neither has yet been measured on a holdout.
+- **Conditional questions.** The condition is now evaluated first when a sentence opens with "if ...,", but other wordings still use a single query, which can leave a row from the branch that does not apply.
+- **Write requests are recognized by wording.** The first-layer refusal can miss an unusual phrasing, which then meets the read-only guard instead, or wrongly refuse a sentence that opens like a command, such as "Drop shipping revenue in 2025".
+- **Non-determinism.** First queries change between runs on identical prompts, so about 1 verdict in 33 can move with no code change.
 - **SQLite only.** PostgreSQL would need a read-only role instead of a URI flag, plus dialect changes.
 
 ---
@@ -390,6 +396,7 @@ Stated plainly, from the holdout error analysis in the [Phase 5 report](eval/res
 | --- | --- |
 | [eval/PROTOCOL.md](eval/PROTOCOL.md) | Pre-registered evaluation protocol and amendments |
 | [eval/results/phase5_report.md](eval/results/phase5_report.md) | Final holdout results, error analysis, disclosures |
+| [eval/results/fixes_nonprimary_report.md](eval/results/fixes_nonprimary_report.md) | Non-primary rerun after the fixes: regressions, noise, open problems |
 | [eval/results/phase4_report.md](eval/results/phase4_report.md) | How D was built: each development failure and its fix |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | The original agent's graph (B) |
 | [DECISIONS.md](docs/DECISIONS.md) | Decision log for the original agent |

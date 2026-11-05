@@ -1,0 +1,32 @@
+# DEV PROBES: ungraded, and never part of any holdout.
+#
+# Questions to try fixes that no development set exercises (a spike, one group
+# against the rest, a vague ranking) on the real model before a holdout run. They
+# have no gold answers, are read by hand, and count towards no score. This file is
+# not a question set: evalrun/sets.py does not list it, so the graded runner cannot
+# load it. Run with scripts/run_dev_probes.py.
+#
+# Chosen from the data, away from the holdouts' facts. `expect` is what the data
+# shows, checked by hand with read-only SQL when the probes were written.
+- id: probe-spike
+  question: Why did marketing spend jump in Q3 2024?
+  exercises: baseline periods (fix 5)
+  expect: >-
+    Spend was 543,834 in 2024-Q1 and 570,860 in 2024-Q2, then 677,365 in 2024-Q3.
+    The data starts in 2024, so only two earlier quarters exist.
+- id: probe-against-the-rest
+  question: >-
+    Between 2024 and 2025, revenue rose faster in the Direct channel than in Online
+    and Partner. What explains that?
+  exercises: cross-group change comparison (fix 6), which the planner has to choose
+    from the question
+  expect: >-
+    Revenue grew 42% in Direct, 25% in Online and 29% in Partner. Orders grew 60% in
+    Direct against 37% and 38%, while average order value fell in all three (about
+    11%, 9% and 7%), so order count is what differs.
+- id: probe-vague-ranking
+  question: Which sales channel is our best? Give the channel and the figure behind it.
+  exercises: stated assumption (fix 2)
+  expect: >-
+    Any metric is a fair reading, and the answer must say which one it used. On
+    all-time completed revenue it is Online with 10,195,563.

@@ -1,0 +1,114 @@
+{
+ "question_id": "hv05",
+ "type": "why",
+ "arch": "baseline",
+ "question": "Why did LATAM's completed revenue grow so much from 2024 to 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.category, SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2025 FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE r.region_name = 'LATAM' AND o.status = 'completed' GROUP BY p.category ORDER BY rev_2025 - rev_2024 DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "category | rev_2024 | rev_2025\nHardware | 847572.887 | 1065821.3325\nServices | 198246.4725 | 326030.175\nSoftware | 210263.5005 | 297429.3515\nAccessories | 26011.0115 | 47084.0035"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.category, SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2025 FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE r.region_name = 'LATAM' AND o.status = 'completed' GROUP BY p.category ORDER BY rev_2025 - rev_2024 DESC LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT p.category, SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2025 FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE r.region_name = 'LATAM' AND o.status = 'completed' GROUP BY p.category ORDER BY rev_2025 - rev_2024 DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "category",
+   "rev_2024",
+   "rev_2025"
+  ],
+  "rows": [
+   [
+    "Hardware",
+    847572.887,
+    1065821.3325
+   ],
+   [
+    "Services",
+    198246.4725,
+    326030.175
+   ],
+   [
+    "Software",
+    210263.5005,
+    297429.3515
+   ],
+   [
+    "Accessories",
+    26011.0115,
+    47084.0035
+   ]
+  ],
+  "row_count": 4
+ },
+ "answer": "Assuming growth is measured by category revenue increases from 2024 to 2025 for completed orders in LATAM, Hardware grew the most from 847,572.89 in 2024 to 1,065,821.33 in 2025, followed by Services which grew from 198,246.47 to 326,030.18, Software from 210,263.50 to 297,429.35, and Accessories from 26,011.01 to 47,084.00.",
+ "key_numbers": [
+  "847572.887",
+  "1065821.3325",
+  "198246.4725",
+  "326030.175",
+  "210263.5005",
+  "297429.3515",
+  "26011.0115",
+  "47084.0035"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "830d741e5c174cbf6a2b5b4b18b05d6a37f95827451c489aa5be3fffa3edb2f7",
+   "cache_hit": false,
+   "latency_ms": 1861.3,
+   "input_tokens": 2943,
+   "output_tokens": 331,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "a54de80dc1b18321473fb0ff9b3fdb213d4e689f3a3688bf433d239291f05227",
+   "cache_hit": false,
+   "latency_ms": 1542.1,
+   "input_tokens": 778,
+   "output_tokens": 293,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 3.422,
+ "latency_live_s": 3.422,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "driver not named: [\"any_of: [{'text': 'SMB'}, {'pattern': 'small[-\\\\\\\\s]+(and[-\\\\\\\\s]+medium[-\\\\\\\\s]+)?business'}]\"]"
+ }
+}

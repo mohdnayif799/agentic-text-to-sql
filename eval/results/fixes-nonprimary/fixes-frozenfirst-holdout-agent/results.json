@@ -1,0 +1,946 @@
+{
+ "set": "holdout_agent",
+ "archs": [
+  "full"
+ ],
+ "provider": "gemini",
+ "model": "gemini-3.5-flash-lite",
+ "temperature": 0.0,
+ "today": "2026-10-04",
+ "max_steps": 3,
+ "max_attempts_per_step": 3,
+ "questions_sha256": "5ed632204b74984ae1fa0580f93ec3cd124524083e933bba08643bad9ddcebe0",
+ "code_commit": "f9e34a9",
+ "started_utc": "2026-11-04T23:10:43+00:00",
+ "planned_calls": {
+  "per_arch": {
+   "full": {
+    "typical": 63,
+    "max": 273
+   }
+  },
+  "judge_max": 10,
+  "typical": 73,
+  "max": 283
+ },
+ "finished_utc": "2026-11-04T23:11:23+00:00",
+ "complete": true,
+ "stopped_reason": null,
+ "summary": {
+  "full": {
+   "primary": "18/21",
+   "wilson95": [
+    0.654,
+    0.95
+   ],
+   "pending": 0,
+   "errors": 0,
+   "not_evaluated": 0,
+   "answer_ok": 19,
+   "end_to_end": 16,
+   "avg_llm_calls": 4.0,
+   "avg_latency_s": 1.4,
+   "avg_latency_live_s": 6.09,
+   "by_type": {
+    "ambiguous": "3/3",
+    "multi_hop": "3/3",
+    "recovery": "3/3",
+    "segment_comparison": "2/3",
+    "statistics": "3/3",
+    "term_matching": "3/3",
+    "why": "1/3"
+   }
+  }
+ },
+ "escalation": {
+  "full": {
+   "helped": 0,
+   "harmed": 0,
+   "no change": 0,
+   "unknown": 10,
+   "questions": [
+    {
+     "id": "ha03",
+     "baseline": null,
+     "full": true,
+     "effect": "unknown"
+    },
+    {
+     "id": "ha06",
+     "baseline": null,
+     "full": true,
+     "effect": "unknown"
+    },
+    {
+     "id": "ha07",
+     "baseline": null,
+     "full": false,
+     "effect": "unknown"
+    },
+    {
+     "id": "ha08",
+     "baseline": null,
+     "full": false,
+     "effect": "unknown"
+    },
+    {
+     "id": "ha09",
+     "baseline": null,
+     "full": true,
+     "effect": "unknown"
+    },
+    {
+     "id": "ha10",
+     "baseline": null,
+     "full": true,
+     "effect": "unknown"
+    },
+    {
+     "id": "ha11",
+     "baseline": null,
+     "full": true,
+     "effect": "unknown"
+    },
+    {
+     "id": "ha12",
+     "baseline": null,
+     "full": true,
+     "effect": "unknown"
+    },
+    {
+     "id": "ha19",
+     "baseline": null,
+     "full": true,
+     "effect": "unknown"
+    },
+    {
+     "id": "ha20",
+     "baseline": null,
+     "full": false,
+     "effect": "unknown"
+    }
+   ]
+  }
+ },
+ "missed_escalations": {
+  "baseline_failed": 0,
+  "router": {
+   "escalated": 0,
+   "not_escalated": 0,
+   "error": 0,
+   "not_run": 0
+  },
+  "full": {
+   "escalated": 0,
+   "not_escalated": 0,
+   "error": 0,
+   "not_run": 0
+  },
+  "questions": []
+ },
+ "provider_resumes": [],
+ "items": [
+  {
+   "id": "ha01",
+   "type": "multi_hop",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "",
+   "detail": "1 row(s) match; answer missing ['text: Mid-Market']",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 0,
+   "cache_hits": 3,
+   "judge_calls": 0,
+   "latency_s": 0.035,
+   "latency_live_s": 4.104,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/ha01.json"
+  },
+  {
+   "id": "ha02",
+   "type": "multi_hop",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "",
+   "detail": "1 row(s) match; answer missing [\"any_of: [{'text': '2025-07'}, {'pattern': 'jul(y)?\\\\\\\\.?\\\\\\\\s+2025'}]\"]",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 0,
+   "cache_hits": 3,
+   "judge_calls": 0,
+   "latency_s": 0.01,
+   "latency_live_s": 3.524,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/ha02.json"
+  },
+  {
+   "id": "ha03",
+   "type": "multi_hop",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 6,
+   "live_calls": 4,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 5.973,
+   "latency_live_s": 8.855,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ],
+    [
+     "run_sql"
+    ],
+    [
+     "assemble"
+    ]
+   ],
+   "trace": "traces/full/ha03.json"
+  },
+  {
+   "id": "ha04",
+   "type": "term_matching",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 0,
+   "cache_hits": 3,
+   "judge_calls": 0,
+   "latency_s": 0.007,
+   "latency_live_s": 4.687,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/ha04.json"
+  },
+  {
+   "id": "ha05",
+   "type": "term_matching",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 0,
+   "cache_hits": 3,
+   "judge_calls": 0,
+   "latency_s": 0.008,
+   "latency_live_s": 3.927,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/ha05.json"
+  },
+  {
+   "id": "ha06",
+   "type": "term_matching",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 4,
+   "live_calls": 0,
+   "cache_hits": 4,
+   "judge_calls": 0,
+   "latency_s": 0.073,
+   "latency_live_s": 5.002,
+   "latency_unmeasured_calls": 0,
+   "repairs": 1,
+   "repair_fixes": 1,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql",
+     "repair"
+    ]
+   ],
+   "trace": "traces/full/ha06.json"
+  },
+  {
+   "id": "ha07",
+   "type": "why",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": true,
+   "end_to_end": false,
+   "first_failing_check": "driver named; judge fail",
+   "detail": "driver named; judge fail",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": {
+    "verdict": "fail",
+    "reason": "required fact(s) not stated: [2]",
+    "facts": [
+     {
+      "fact": "APAC's number of completed orders fell by about 29% from Q2 to Q3 2025 (about 280 to 200).",
+      "verdict": "yes",
+      "quote": "In comparison, the number of orders in other regions changed by an average of -8.18%.",
+      "quote_verified": true,
+      "counts_as_yes": true,
+      "reason": "The answer states the required fact that APAC's number of orders fell by 28.57%, which matches the required fact's claim of about 29% (and 280 to 200 is implicitly covered by the percentage and context, but wait, let me check if the quote or another sentence includes the numbers 280 to 200). Looking closely at the required fact: 'APAC's number of completed orders fell by about 29% from Q2 to Q3 2025 (about 280 to 200).' The sentence 'In comparison, the number of orders in other regions changed by an average of -8.18%.' doesn't state 280 to 200. Let's look at sentence 2: '...driven primarily by the number of orders, which was the largest contributor and fell by 28.57%.' Does the answer state '280 to 200'? Let's check the text: '...fell by 28.57%.' It doesn't mention 280 or 200. Let's re-read the required fact: 'APAC's number of completed orders fell by about 29% from Q2 to Q3 2025 (about 280 to 200).' Since the instruction says 'Where the fact gives figures, the answer must state at least one of them (rounded is fine) and no figure it states may contradict the evidence', 28.57% is stated, which rounds to 29% and is one of the figures. Therefore, it satisfies the condition."
+     },
+     {
+      "fact": "Completed orders in the other regions fell far less (about 2% to 12%).",
+      "verdict": "no",
+      "quote": "",
+      "quote_verified": false,
+      "counts_as_yes": false,
+      "reason": "The answer does not state that completed orders in the other regions fell between 2% and 12%, instead giving an average change of -8.18%."
+     },
+     {
+      "fact": "Average order value fell by a similar amount in every region (about 32% to 39%), so order size does not explain why APAC fell more.",
+      "verdict": "yes",
+      "quote": "Meanwhile, the average order value fell by 35.26% in APAC, while it changed across other regions within a range of -37.04% to -32.30%. Because other components changed by a similar amount in every group, they do not explain the difference, however large their own changes were.",
+      "quote_verified": true,
+      "counts_as_yes": true,
+      "reason": "The answer states that average order value fell by a similar amount across all regions (between -37.04% and -32.30%) and that because these components changed by a similar amount in every group, they do not explain the difference."
+     }
+    ],
+    "disqualifying": {
+     "verdict": "yes",
+     "quote": "APAC's completed revenue fell by 53.76% from Q2 to Q3 2025, driven primarily by the number of orders, which was the largest contributor and fell by 28.57%.",
+     "quote_verified": true,
+     "counts_as_yes": true,
+     "reason": "The answer attributes APAC's extra revenue decline mainly to the number of orders (order count / order size), which is a disqualifying claim."
+    }
+   },
+   "llm_calls": 7,
+   "live_calls": 4,
+   "cache_hits": 3,
+   "judge_calls": 4,
+   "latency_s": 4.456,
+   "latency_live_s": 9.011,
+   "latency_unmeasured_calls": 0,
+   "repairs": 1,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql",
+     "repair"
+    ],
+    [
+     "compute:decompose_change"
+    ],
+    [
+     "stack"
+    ]
+   ],
+   "trace": "traces/full/ha07.json"
+  },
+  {
+   "id": "ha08",
+   "type": "why",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": true,
+   "end_to_end": false,
+   "first_failing_check": "driver named; judge fail",
+   "detail": "driver named; judge fail",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": {
+    "verdict": "fail",
+    "reason": "disqualifying claim present",
+    "facts": [
+     {
+      "fact": "The Q3 2025 churn spike is concentrated in APAC: 44 of the 67 customers who churned in Q3 2025 were APAC customers.",
+      "verdict": "yes",
+      "quote": "Across all regions, the total churn in 2025-Q3 reached 67.0 customers, compared to earlier periods ranging between 14.0 and 19.0.",
+      "quote_verified": true,
+      "counts_as_yes": true,
+      "reason": "The answer states that 44 churned customers were in APAC and the total churn in Q3 2025 was 67.0, matching the required fact."
+     },
+     {
+      "fact": "This is unusual: APAC had about 1 to 5 churns in each earlier quarter shown, and no other region had a comparable jump in Q3 2025 (3 to 11 churns each).",
+      "verdict": "yes",
+      "quote": "Before this, the normal range for APAC's churn in earlier periods was between 1.0 and 5.0 customers.",
+      "quote_verified": true,
+      "counts_as_yes": true,
+      "reason": "The answer successfully and explicitly states that APAC had between 1.0 and 5.0 churns in earlier periods, and that no other region had a comparable jump, with EMEA at 11, North America at 9, and LATAM at 3."
+     }
+    ],
+    "disqualifying": {
+     "verdict": "yes",
+     "quote": "Assuming Q3 2025 is compared to Q2 2025, the main driver of the customer churn spike was APAC, which was higher at 44.0 churned customers compared to 5.0 in the previous period (accounting for the largest share of change at 81.25%).",
+     "quote_verified": true,
+     "counts_as_yes": true,
+     "reason": "The answer violates the disqualifying claim: 'Gives a segment, channel, product or another region as the main driver.'"
+    }
+   },
+   "llm_calls": 5,
+   "live_calls": 3,
+   "cache_hits": 2,
+   "judge_calls": 3,
+   "latency_s": 3.842,
+   "latency_live_s": 6.233,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ],
+    [
+     "compute:contribution_by_dimension"
+    ],
+    [
+     "compute:period_history"
+    ],
+    [
+     "stack"
+    ]
+   ],
+   "trace": "traces/full/ha08.json"
+  },
+  {
+   "id": "ha09",
+   "type": "why",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "driver named; judge pass",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": {
+    "verdict": "pass",
+    "reason": "all required facts stated; no disqualifying claim",
+    "facts": [
+     {
+      "fact": "Far fewer Hardware units were sold: about 2,741 in Q2 versus about 778 in Q3 2025 (about -72%).",
+      "verdict": "yes",
+      "quote": "Units sold were lower at 778.0 units in Q3 compared to 2,741.0 in Q2.",
+      "quote_verified": true,
+      "counts_as_yes": true,
+      "reason": "The answer explicitly states that units sold were about 2,741 in Q2 versus about 778 in Q3 2025."
+     },
+     {
+      "fact": "The average Hardware unit price (about 1,000) and the average discount (about 5%) were essentially unchanged, so price and discounts do not explain the drop.",
+      "verdict": "yes",
+      "quote": "Average unit price was about the same at 1,008.61 in Q3 compared to 1,003.29 in Q2, and 1 minus average discount was also about the same at 0.95 in Q3 compared to 0.95 in Q2, meaning these two factors did not explain the difference.",
+      "quote_verified": true,
+      "counts_as_yes": true,
+      "reason": "The answer explicitly states that average unit price and average discount (represented as 1 minus average discount, or noting the factors directly) were about the same and did not explain the difference, while providing supporting figures that do not contradict the evidence."
+     }
+    ],
+    "disqualifying": {
+     "verdict": "no",
+     "quote": "",
+     "quote_verified": false,
+     "counts_as_yes": false,
+     "reason": "The answer does not make any of the disqualifying claims. It avoids attributing the drop mainly to price cuts, discounts, refunds, or cancellations, and correctly aligns with the revenue figures in the evidence table."
+    }
+   },
+   "llm_calls": 4,
+   "live_calls": 2,
+   "cache_hits": 2,
+   "judge_calls": 3,
+   "latency_s": 3.032,
+   "latency_live_s": 10.865,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ],
+    [
+     "compute:decompose_change"
+    ],
+    [
+     "compute:period_history"
+    ],
+    [
+     "stack"
+    ]
+   ],
+   "trace": "traces/full/ha09.json"
+  },
+  {
+   "id": "ha10",
+   "type": "statistics",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 4,
+   "live_calls": 0,
+   "cache_hits": 4,
+   "judge_calls": 0,
+   "latency_s": 0.024,
+   "latency_live_s": 5.311,
+   "latency_unmeasured_calls": 0,
+   "repairs": 1,
+   "repair_fixes": 1,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql",
+     "repair"
+    ]
+   ],
+   "trace": "traces/full/ha10.json"
+  },
+  {
+   "id": "ha11",
+   "type": "statistics",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "3 row(s) match",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 4,
+   "live_calls": 0,
+   "cache_hits": 4,
+   "judge_calls": 0,
+   "latency_s": 0.102,
+   "latency_live_s": 8.874,
+   "latency_unmeasured_calls": 0,
+   "repairs": 1,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql",
+     "repair"
+    ],
+    [
+     "run_sql"
+    ],
+    [
+     "compute:zscore_anomalies"
+    ]
+   ],
+   "trace": "traces/full/ha11.json"
+  },
+  {
+   "id": "ha12",
+   "type": "statistics",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 0,
+   "cache_hits": 3,
+   "judge_calls": 0,
+   "latency_s": 0.063,
+   "latency_live_s": 5.22,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ],
+    [
+     "run_sql"
+    ],
+    [
+     "compute:linear_trend_forecast"
+    ]
+   ],
+   "trace": "traces/full/ha12.json"
+  },
+  {
+   "id": "ha13",
+   "type": "recovery",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 0,
+   "cache_hits": 3,
+   "judge_calls": 0,
+   "latency_s": 0.004,
+   "latency_live_s": 3.143,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/ha13.json"
+  },
+  {
+   "id": "ha14",
+   "type": "recovery",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 0,
+   "cache_hits": 3,
+   "judge_calls": 0,
+   "latency_s": 0.005,
+   "latency_live_s": 3.04,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/ha14.json"
+  },
+  {
+   "id": "ha15",
+   "type": "recovery",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 0,
+   "cache_hits": 3,
+   "judge_calls": 0,
+   "latency_s": 0.014,
+   "latency_live_s": 3.145,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/ha15.json"
+  },
+  {
+   "id": "ha16",
+   "type": "ambiguous",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "matched interpretation completed_revenue",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 0,
+   "cache_hits": 3,
+   "judge_calls": 0,
+   "latency_s": 0.014,
+   "latency_live_s": 4.015,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/ha16.json"
+  },
+  {
+   "id": "ha17",
+   "type": "ambiguous",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "matched interpretation total_revenue_all_time",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 0,
+   "cache_hits": 3,
+   "judge_calls": 0,
+   "latency_s": 0.015,
+   "latency_live_s": 3.376,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/ha17.json"
+  },
+  {
+   "id": "ha18",
+   "type": "ambiguous",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "matched interpretation units_all_time",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 0,
+   "cache_hits": 3,
+   "judge_calls": 0,
+   "latency_s": 0.015,
+   "latency_live_s": 3.161,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/ha18.json"
+  },
+  {
+   "id": "ha19",
+   "type": "segment_comparison",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "4 row(s) match",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 5,
+   "live_calls": 3,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 4.656,
+   "latency_live_s": 11.628,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ],
+    [
+     "run_sql"
+    ],
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/ha19.json"
+  },
+  {
+   "id": "ha20",
+   "type": "segment_comparison",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": true,
+   "end_to_end": false,
+   "first_failing_check": "expected 4 row(s), got 5",
+   "detail": "expected 4 row(s), got 5",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 8,
+   "live_calls": 5,
+   "cache_hits": 3,
+   "judge_calls": 0,
+   "latency_s": 6.944,
+   "latency_live_s": 13.25,
+   "latency_unmeasured_calls": 0,
+   "repairs": 2,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql",
+     "repair"
+    ],
+    [
+     "run_sql"
+    ],
+    [
+     "assemble"
+    ]
+   ],
+   "trace": "traces/full/ha20.json"
+  },
+  {
+   "id": "ha21",
+   "type": "segment_comparison",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "12 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 4,
+   "live_calls": 0,
+   "cache_hits": 4,
+   "judge_calls": 0,
+   "latency_s": 0.019,
+   "latency_live_s": 7.551,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/ha21.json"
+  }
+ ]
+}

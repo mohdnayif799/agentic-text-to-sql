@@ -1,0 +1,174 @@
+{
+ "question_id": "dv03",
+ "type": "statistics",
+ "arch": "full",
+ "question": "Project new customer signups for January, February and March 2025 from a least-squares linear trend over the 24 monthly signup counts of 2023 and 2024, with x = 1 for January 2023 through x = 24 for December 2024. Label months as YYYY-MM.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The question asks for a forecast, a projection or a fitted trend line: get the series it is fitted on (one row per period), fit it from that series, and report each forecast with its period."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "WITH monthly_signups AS (SELECT STRFTIME('%Y-%m', signup_date) AS ym, COUNT(*) AS signup_count FROM customers WHERE signup_date >= '2023-01-01' AND signup_date <= '2024-12-31' GROUP BY ym), indexed_signups AS (SELECT ym, signup_count, ROW_NUMBER() OVER (ORDER BY ym) AS x FROM monthly_signups), stats AS (SELECT AVG(x) AS mean_x, AVG(signup_count) AS mean_y, SUM((x - (SELECT AVG(x) FROM indexed_signups)) * (signup_count - (SELECT AVG(signup_count) FROM indexed_signups))) / SUM((x - (SELECT AVG(x) FROM indexed_signups)) * (x - (SELECT AVG(x) FROM indexed_signups))) AS slope, AVG(signup_count) - (SUM((x - (SELECT AVG(x) FROM indexed_signups)) * (signup_count - (SELECT AVG(signup_count) FROM indexed_signups))) / SUM((x - (SELECT AVG(x) FROM indexed_signups)) * (x - (SELECT AVG(x) FROM indexed_signups)))) * AVG(x) AS intercept FROM indexed_signups), future_months(month, x) AS (SELECT * FROM (VALUES ('2025-01', 25), ('2025-02', 26), ('2025-03', 27)) AS _values) SELECT fm.month, (s.intercept + s.slope * fm.x) AS projected_signups FROM future_months AS fm CROSS JOIN stats AS s LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "month | projected_signups\n2025-01 | 46.03623188405797\n2025-02 | 46.155797101449274\n2025-03 | 46.27536231884058"
+  },
+  {
+   "sql": "SELECT STRFTIME('%Y-%m', signup_date) AS ym, COUNT(*) AS cnt FROM customers WHERE signup_date >= '2023-01-01' AND signup_date <= '2024-12-31' GROUP BY ym ORDER BY ym LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 24,
+   "preview": "ym | cnt\n2023-01 | 53\n2023-02 | 30\n2023-03 | 41\n2023-04 | 41\n2023-05 | 48\n... 19 more row(s)"
+  },
+  {
+   "sql": "-- compute: linear_trend_forecast on step 2",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "ym | steps_ahead | x | forecast | slope | intercept | points | x_convention\n2025-01 | 1 | 25.0 | 46.03623188405797 | 0.11956521739130468 | 43.04710144927535 | 24 | x = month number, 1 = 2023-01\n2025-02 | 2 | 26.0 | 46.155797101449274 | 0.11956521739130468 | 43.04710144927535 | 24 | x = month number, 1 = 2023-01\n2025-03 | 3 | 27.0 | 46.27536231884058 | 0.11956521739130468 | 43.04710144927535 | 24 | x = month number, 1 = 2023-01"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH monthly_signups AS (SELECT STRFTIME('%Y-%m', signup_date) AS ym, COUNT(*) AS signup_count FROM customers WHERE signup_date >= '2023-01-01' AND signup_date <= '2024-12-31' GROUP BY ym), indexed_signups AS (SELECT ym, signup_count, ROW_NUMBER() OVER (ORDER BY ym) AS x FROM monthly_signups), stats AS (SELECT AVG(x) AS mean_x, AVG(signup_count) AS mean_y, SUM((x - (SELECT AVG(x) FROM indexed_signups)) * (signup_count - (SELECT AVG(signup_count) FROM indexed_signups))) / SUM((x - (SELECT AVG(x) FROM indexed_signups)) * (x - (SELECT AVG(x) FROM indexed_signups))) AS slope, AVG(signup_count) - (SUM((x - (SELECT AVG(x) FROM indexed_signups)) * (signup_count - (SELECT AVG(signup_count) FROM indexed_signups))) / SUM((x - (SELECT AVG(x) FROM indexed_signups)) * (x - (SELECT AVG(x) FROM indexed_signups)))) * AVG(x) AS intercept FROM indexed_signups), future_months(month, x) AS (SELECT * FROM (VALUES ('2025-01', 25), ('2025-02', 26), ('2025-03', 27)) AS _values) SELECT fm.month, (s.intercept + s.slope * fm.x) AS projected_signups FROM future_months AS fm CROSS JOIN stats AS s LIMIT 500",
+   "reason": "",
+   "signal": null,
+   "escalation_signal": "forecast"
+  },
+  {
+   "step": 2,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT STRFTIME('%Y-%m', signup_date) AS ym, COUNT(*) AS cnt FROM customers WHERE signup_date >= '2023-01-01' AND signup_date <= '2024-12-31' GROUP BY ym ORDER BY ym LIMIT 500",
+   "reason": "Forecast new customer signups for January, February, and March 2025 using a linear trend over monthly signups in 2023 and 2024.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "compute:linear_trend_forecast"
+   ],
+   "sql": "-- compute: linear_trend_forecast on step 2",
+   "reason": "Forecast new customer signups for January, February, and March 2025 using a linear trend over monthly signups in 2023 and 2024.",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 3,
+ "selected_result": {
+  "sql": "-- compute: linear_trend_forecast on step 2",
+  "ok": true,
+  "columns": [
+   "ym",
+   "steps_ahead",
+   "x",
+   "forecast",
+   "slope",
+   "intercept",
+   "points",
+   "x_convention"
+  ],
+  "rows": [
+   [
+    "2025-01",
+    1,
+    25.0,
+    46.03623188405797,
+    0.11956521739130468,
+    43.04710144927535,
+    24,
+    "x = month number, 1 = 2023-01"
+   ],
+   [
+    "2025-02",
+    2,
+    26.0,
+    46.155797101449274,
+    0.11956521739130468,
+    43.04710144927535,
+    24,
+    "x = month number, 1 = 2023-01"
+   ],
+   [
+    "2025-03",
+    3,
+    27.0,
+    46.27536231884058,
+    0.11956521739130468,
+    43.04710144927535,
+    24,
+    "x = month number, 1 = 2023-01"
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "Based on the least-squares linear trend over the 2023-2024 monthly signup counts, the projected new customer signups are 46.04 for 2025-01, 46.16 for 2025-02, and 46.28 for 2025-03.",
+ "key_numbers": [
+  "46.03623188405797",
+  "46.155797101449274",
+  "46.27536231884058"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question that asks for a forecast, a projection or a",
+   "prompt_hash": "9fbf9cf1496464880c6a9b3330795a96d972fa1d5dacaad90dc0d43a91ad0fe6",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 4154,
+   "output_tokens": 211,
+   "original_latency_ms": 1116.6,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "f9d1d5ea200fd5e554fe3034d517913cc500affe02f464eda158263318702e31",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 807,
+   "output_tokens": 169,
+   "original_latency_ms": 963.3,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "2407c50eefab0c72eea8e2f9f60aa9c687dd12d4bf407ac4ef5557f693058361",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2997,
+   "output_tokens": 617,
+   "original_latency_ms": 1945.2,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.064,
+ "latency_live_s": 4.089,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "3 row(s) match"
+ }
+}

@@ -5,7 +5,8 @@ Step 0 IS architecture A's first call: the same prompt, schema and settings
 so it is byte-identical to A). The run then escalates only on a signal:
 
 1. Deterministic signals on the executed query (checks.classify: SQL error,
-   schema check, join fan-out, empty result, all-NULL or row-cap sanity)
+   schema check, join fan-out, empty result, all-NULL or row-cap sanity, a
+   hollow row among rows with values)
    -> disciplined repair of that query. No LLM call is needed to decide.
 2. If step 0 produced a usable result, one small structured call decides
    {needs_followup, reason} from the question, the SQL and a result preview.
@@ -13,9 +14,13 @@ so it is byte-identical to A). The run then escalates only on a signal:
    verbatim, the reason and capped previews of earlier results.
 
 With no signal and no follow-up, C answers directly with A's answer call on
-A's result, so the direct path is exactly A. A question that asks for a
-forecast or a fitted trend (checks.forecast_signal, zero LLM calls) skips the
-decision and escalates to follow-ups directly.
+A's result, so the direct path is exactly A's calls. The one addition is made
+in code after that call: when the question ranks things without saying by what
+or over which period (archs/assumption.py), the answer opens with the reading
+the query used. A question that asks for a
+forecast or a fitted trend, or whose answer depends on a condition
+(checks.question_signal, zero LLM calls), skips the decision and escalates to
+follow-ups directly.
 
 Disciplined repair: schema and fan-out checks run before executing (no LLM
 call); a repair gets the exact signal text; the original query and result
@@ -48,12 +53,14 @@ from pydantic import BaseModel, Field
 from agentcrew.archs import progress
 from agentcrew.archs.answer import write_answer
 from agentcrew.archs.assemble import AssemblyPlan, assemble, default_plan
+from agentcrew.archs.assumption import assumption_sentence, states_assumption
 from agentcrew.archs.baseline import RETRY_BLOCK, SQL_SYSTEM, SQL_USER
 from agentcrew.archs.checks import (
     Schema,
     Signal,
     classify,
-    forecast_signal,
+    hollow_rows,
+    question_signal,
     schema_error,
     schema_of,
 )
@@ -62,7 +69,7 @@ from agentcrew.archs.outcome import ArchOutcome, RepairEvent, SqlAttempt
 from agentcrew.config import Settings
 from agentcrew.context import SharedContext
 from agentcrew.llm import LLMClient, StructuredOutputError
-from agentcrew.schemas import ExecutionResult, SqlDraft
+from agentcrew.schemas import ExecutionResult, FinalAnswer, SqlDraft
 from agentcrew.tools import ToolContext, execute_readonly_sql
 
 PREVIEW_ROWS = 8
@@ -233,7 +240,7 @@ class Router:
         self.keys = _key_index(tools)
         # Read from the question before any call; C and D share it, so they
         # stay identical up to escalation.
-        self.question_signal = forecast_signal(question)
+        self.question_signal = question_signal(question)
 
     def _followup_decision(self, first: StepRun,
                            llm: LLMClient | None = None) -> FollowupDecision:
@@ -371,6 +378,17 @@ class Router:
             return self.step0_llm
         return self.llm
 
+    def _with_assumption(self, final: FinalAnswer, selected: ExecutionResult,
+                         guidance: str) -> FinalAnswer:
+        """Open with the reading `selected` reflects, unless the model stated
+        one. Tables that come with guidance are tool output, not a ranking."""
+        if guidance or states_assumption(final.answer):
+            return final
+        sentence = assumption_sentence(self.question, selected)
+        if sentence is None:
+            return final
+        return final.model_copy(update={"answer": f"{sentence} {final.answer}"})
+
     def _answer(self, selected: ExecutionResult, selected_step: int | None,
                 steps: list[StepRun], escalated: bool, guidance: str = ""):
         """(answer, selected, selected_step, fell_back). If the answer call on
@@ -381,6 +399,7 @@ class Router:
                 self._answer_llm(selected, steps, escalated), self.question,
                 selected, max_tokens=self.settings.max_output_tokens,
                 temperature=self.settings.temperature, guidance=guidance)
+            final = self._with_assumption(final, selected, guidance)
             return final, selected, selected_step, False
         except StructuredOutputError:
             first = steps[0]
@@ -391,6 +410,7 @@ class Router:
             self._answer_llm(first.result, steps, escalated), self.question,
             first.result, max_tokens=self.settings.max_output_tokens,
             temperature=self.settings.temperature)
+        final = self._with_assumption(final, first.result, "")
         return final, first.result, 1, True
 
     def _history(self, steps: list[StepRun]) -> str:
@@ -490,6 +510,10 @@ class Router:
         selectable = [s for s in steps if s.kind in ("sql", "compute")]
         usable = {s.number: s.result for s in selectable
                   if s.result.ok and s.result.rows}
+        # A table with a known hollow row is only a last resort: a repair can
+        # keep the row, and the assembly call could still choose that table.
+        clean = {n: r for n, r in usable.items() if not hollow_rows(r)}
+        usable = clean or usable
         if not usable:
             ran = [s for s in selectable if s.result.ok]
             if not ran:

@@ -1,0 +1,88 @@
+{
+ "question_id": "hv08",
+ "type": "statistics",
+ "arch": "baseline",
+ "question": "Fit a least-squares line to Accessories units sold in completed orders per quarter over the 8 quarters of 2024 and 2025. What does it project for Q1 2026?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH quarters AS (SELECT '2024-Q1' AS q_label, 1 AS x, '2024-01-01' AS start_date, '2024-03-31' AS end_date UNION ALL SELECT '2024-Q2', 2, '2024-04-01', '2024-06-30' UNION ALL SELECT '2024-Q3', 3, '2024-07-01', '2024-09-30' UNION ALL SELECT '2024-Q4', 4, '2024-10-01', '2024-12-31' UNION ALL SELECT '2025-Q1', 5, '2025-01-01', '2025-03-31' UNION ALL SELECT '2025-Q2', 6, '2025-04-01', '2025-06-30' UNION ALL SELECT '2025-Q3', 7, '2025-07-01', '2025-09-30' UNION ALL SELECT '2025-Q4', 8, '2025-10-01', '2025-12-31'), q_data AS (SELECT q.x, SUM(oi.quantity) AS y FROM quarters AS q JOIN orders AS o ON o.order_date >= q.start_date AND o.order_date <= q.end_date AND o.status = 'completed' JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id AND p.category = 'Accessories' GROUP BY q.x), stats AS (SELECT AVG(x) AS mean_x, AVG(y) AS mean_y, SUM((x - (SELECT AVG(x) FROM q_data)) * (y - (SELECT AVG(y) FROM q_data))) / SUM((x - (SELECT AVG(x) FROM q_data)) * (x - (SELECT AVG(x) FROM q_data))) AS slope, AVG(y) - (SUM((x - (SELECT AVG(x) FROM q_data)) * (y - (SELECT AVG(y) FROM q_data))) / SUM((x - (SELECT AVG(x) FROM q_data)) * (x - (SELECT AVG(x) FROM q_data)))) * AVG(x) AS intercept FROM q_data) SELECT slope * 9 + intercept AS projected_units_q1_2026 FROM stats LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "projected_units_q1_2026\n2642.607142857143"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH quarters AS (SELECT '2024-Q1' AS q_label, 1 AS x, '2024-01-01' AS start_date, '2024-03-31' AS end_date UNION ALL SELECT '2024-Q2', 2, '2024-04-01', '2024-06-30' UNION ALL SELECT '2024-Q3', 3, '2024-07-01', '2024-09-30' UNION ALL SELECT '2024-Q4', 4, '2024-10-01', '2024-12-31' UNION ALL SELECT '2025-Q1', 5, '2025-01-01', '2025-03-31' UNION ALL SELECT '2025-Q2', 6, '2025-04-01', '2025-06-30' UNION ALL SELECT '2025-Q3', 7, '2025-07-01', '2025-09-30' UNION ALL SELECT '2025-Q4', 8, '2025-10-01', '2025-12-31'), q_data AS (SELECT q.x, SUM(oi.quantity) AS y FROM quarters AS q JOIN orders AS o ON o.order_date >= q.start_date AND o.order_date <= q.end_date AND o.status = 'completed' JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id AND p.category = 'Accessories' GROUP BY q.x), stats AS (SELECT AVG(x) AS mean_x, AVG(y) AS mean_y, SUM((x - (SELECT AVG(x) FROM q_data)) * (y - (SELECT AVG(y) FROM q_data))) / SUM((x - (SELECT AVG(x) FROM q_data)) * (x - (SELECT AVG(x) FROM q_data))) AS slope, AVG(y) - (SUM((x - (SELECT AVG(x) FROM q_data)) * (y - (SELECT AVG(y) FROM q_data))) / SUM((x - (SELECT AVG(x) FROM q_data)) * (x - (SELECT AVG(x) FROM q_data)))) * AVG(x) AS intercept FROM q_data) SELECT slope * 9 + intercept AS projected_units_q1_2026 FROM stats LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH quarters AS (SELECT '2024-Q1' AS q_label, 1 AS x, '2024-01-01' AS start_date, '2024-03-31' AS end_date UNION ALL SELECT '2024-Q2', 2, '2024-04-01', '2024-06-30' UNION ALL SELECT '2024-Q3', 3, '2024-07-01', '2024-09-30' UNION ALL SELECT '2024-Q4', 4, '2024-10-01', '2024-12-31' UNION ALL SELECT '2025-Q1', 5, '2025-01-01', '2025-03-31' UNION ALL SELECT '2025-Q2', 6, '2025-04-01', '2025-06-30' UNION ALL SELECT '2025-Q3', 7, '2025-07-01', '2025-09-30' UNION ALL SELECT '2025-Q4', 8, '2025-10-01', '2025-12-31'), q_data AS (SELECT q.x, SUM(oi.quantity) AS y FROM quarters AS q JOIN orders AS o ON o.order_date >= q.start_date AND o.order_date <= q.end_date AND o.status = 'completed' JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id AND p.category = 'Accessories' GROUP BY q.x), stats AS (SELECT AVG(x) AS mean_x, AVG(y) AS mean_y, SUM((x - (SELECT AVG(x) FROM q_data)) * (y - (SELECT AVG(y) FROM q_data))) / SUM((x - (SELECT AVG(x) FROM q_data)) * (x - (SELECT AVG(x) FROM q_data))) AS slope, AVG(y) - (SUM((x - (SELECT AVG(x) FROM q_data)) * (y - (SELECT AVG(y) FROM q_data))) / SUM((x - (SELECT AVG(x) FROM q_data)) * (x - (SELECT AVG(x) FROM q_data)))) * AVG(x) AS intercept FROM q_data) SELECT slope * 9 + intercept AS projected_units_q1_2026 FROM stats LIMIT 500",
+  "ok": true,
+  "columns": [
+   "projected_units_q1_2026"
+  ],
+  "rows": [
+   [
+    2642.607142857143
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Fitting a least-squares line to Accessories units sold in completed orders across the 8 quarters of 2024 and 2025 projects 2,642.61 units for Q1 2026.",
+ "key_numbers": [
+  "2642.607142857143"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "1952aeeab1d0d652b1d4913c11cda4906d4381a67e05f172735350f8c4f3ab91",
+   "cache_hit": false,
+   "latency_ms": 2766.0,
+   "input_tokens": 2882,
+   "output_tokens": 836,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "15be0d845f2333cae7b35f63aed793f2efcc96d256de4a99c87e12fd3a58bdef",
+   "cache_hit": false,
+   "latency_ms": 1192.9,
+   "input_tokens": 1108,
+   "output_tokens": 96,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 3.983,
+ "latency_live_s": 3.983,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

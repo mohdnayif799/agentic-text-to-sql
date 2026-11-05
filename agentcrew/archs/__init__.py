@@ -8,6 +8,9 @@
               verification checks on the escalated path
 
 A, C and D get the same shared context; only the control flow differs.
+
+C and D refuse a request to change the data before doing anything else
+(agentcrew/refusal.py). A and B do not, so they stay the baselines they were.
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ from agentcrew.archs.v1 import run_v1
 from agentcrew.config import Settings
 from agentcrew.context import ContextBuilder
 from agentcrew.llm import LLMClient
+from agentcrew.refusal import WRITE_REFUSAL, is_write_request
 from agentcrew.tools import ToolContext
 from agentcrew.tracer import Tracer
 
@@ -45,6 +49,10 @@ def run_architecture(
     and D; `shared_llm` serves D's C-identical calls (step-0 repairs and the
     follow-up decision). The eval runner points them at A's and C's caches.
     `force_escalation` (D only) is the development smoke-test switch."""
+    if arch in ("router", "full") and is_write_request(question):
+        return ArchOutcome(arch=arch, question=question, status="refused",
+                           answer=WRITE_REFUSAL, selected=None, path="direct",
+                           stop_reason="refused")
     if arch == "baseline":
         return run_baseline(
             question, llm=llm, tools=tools,

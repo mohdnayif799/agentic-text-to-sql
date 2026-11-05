@@ -1,0 +1,522 @@
+{
+ "question_id": "ha07",
+ "type": "why",
+ "arch": "full",
+ "question": "Why did APAC's completed revenue fall so much more than other regions' from Q2 to Q3 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The query groups by product and shows mixed regions in the top drops rather than aggregating or comparing total revenue drops by region as requested by the question."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.product_name, p.category, r.region_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_q2, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_q3, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_change FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.status = 'completed' AND o.order_date >= '2025-04-01' AND o.order_date <= '2025-09-30' GROUP BY p.product_id ORDER BY rev_change ASC LIMIT 10",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 10,
+   "preview": "product_name | category | region_name | rev_q2 | rev_q3 | rev_change\nLattice Ridge | Hardware | APAC | 482955.26999999996 | 127995.04199999999 | -354960.228\nCascade Beacon | Hardware | EMEA | 459070.15 | 136043.38 | -323026.77\nNimbus Quartz | Hardware | EMEA | 404436.9275 | 116734.4525 | -287702.475\nAnchor Summit | Hardware | EMEA | 292276.45 | 83381.508 | -208894.942\nHarbor Lumen | Hardware | APAC | 283296.482 | 82355.272 | -200941.21000000002\n... 5 more row(s)"
+  },
+  {
+   "sql": "-- compute: decompose_change\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-04-01' AND '2025-06-30' AND r.region_name = 'APAC'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-07-01' AND '2025-09-30' AND r.region_name = 'APAC'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-04-01' AND '2025-06-30' AND r.region_name = 'EMEA'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-07-01' AND '2025-09-30' AND r.region_name = 'EMEA'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-04-01' AND '2025-06-30' AND r.region_name = 'North America'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-07-01' AND '2025-09-30' AND r.region_name = 'North America'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-04-01' AND '2025-06-30' AND r.region_name = 'LATAM'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-07-01' AND '2025-09-30' AND r.region_name = 'LATAM'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 29,
+   "preview": "side_a | side_b | analysis | item | value_a | value_b | change | pct_change | share_of_change_pct | comparison | largest_contributor\nother region values (average) | APAC | change against other groups: orders x average order value | number of orders | -8.176583280914517 | -28.57142857142857 | -20.394845290514052 | NULL | 106.68929355852438 | lower | True\nother region values (average) | APAC | change against other groups: orders x average order value | average order value | -36.202627966575385 | -35.26097686214938 | 0.9416511044260076 | NULL | -6.689293558524347 | about the same | False\nother region values (average) | APAC | change against other groups: units x average price x (1 - average discount) | units sold | -8.911183993329773 | -30.209324452902 | -21.298140459572224 | NULL | 112.5462572729822 | lower | True\nother region values (average) | APAC | change against other groups: units x average price x (1 - average discount) | average unit price | -35.513738310670966 | -33.34741727680716 | 2.1663210338638095 | NULL | -14.595106322435052 | about the same | False\nother region values (average) | APAC | change against other groups: units x average price x (1 - average discount) | 1 - average discount | -0.11257125876944164 | -0.5914540189698545 | -0.47888276020041287 | NULL | 2.0488490494528824 | about the same | False\n... 24 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.product_name, p.category, r.region_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_q2, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_q3, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_change FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.status = 'completed' AND o.order_date >= '2025-04-01' AND o.order_date <= '2025-09-30' GROUP BY p.product_id ORDER BY rev_change ASC LIMIT 10",
+   "reason": "",
+   "signal": null
+  },
+  {
+   "step": 2,
+   "tools": [
+    "compute:decompose_change"
+   ],
+   "sql": "-- compute: decompose_change\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-04-01' AND '2025-06-30' AND r.region_name = 'APAC'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-07-01' AND '2025-09-30' AND r.region_name = 'APAC'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-04-01' AND '2025-06-30' AND r.region_name = 'EMEA'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-07-01' AND '2025-09-30' AND r.region_name = 'EMEA'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-04-01' AND '2025-06-30' AND r.region_name = 'North America'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-07-01' AND '2025-09-30' AND r.region_name = 'North America'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-04-01' AND '2025-06-30' AND r.region_name = 'LATAM'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-07-01' AND '2025-09-30' AND r.region_name = 'LATAM'",
+   "reason": "Compare the revenue change from Q2 to Q3 2025 across all regions to explain why APAC fell more than others.",
+   "signal": null
+  },
+  {
+   "step": "final",
+   "tools": [
+    "stack"
+   ],
+   "plan": {
+    "stacked_steps": [
+     2
+    ]
+   },
+   "driver_sentence_added": false
+  }
+ ],
+ "repairs": [],
+ "selected_step": 2,
+ "selected_result": {
+  "sql": "-- stacked: rows from step(s) 2\n-- compute: decompose_change\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-04-01' AND '2025-06-30' AND r.region_name = 'APAC'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-07-01' AND '2025-09-30' AND r.region_name = 'APAC'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-04-01' AND '2025-06-30' AND r.region_name = 'EMEA'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-07-01' AND '2025-09-30' AND r.region_name = 'EMEA'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-04-01' AND '2025-06-30' AND r.region_name = 'North America'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-07-01' AND '2025-09-30' AND r.region_name = 'North America'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-04-01' AND '2025-06-30' AND r.region_name = 'LATAM'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-07-01' AND '2025-09-30' AND r.region_name = 'LATAM'",
+  "ok": true,
+  "columns": [
+   "side_a",
+   "side_b",
+   "analysis",
+   "item",
+   "value_a",
+   "value_b",
+   "change",
+   "pct_change",
+   "share_of_change_pct",
+   "comparison",
+   "largest_contributor"
+  ],
+  "rows": [
+   [
+    "other region values (average)",
+    "APAC",
+    "change against other groups: orders x average order value",
+    "number of orders",
+    -8.176583280914517,
+    -28.57142857142857,
+    -20.394845290514052,
+    null,
+    106.68929355852438,
+    "lower",
+    true
+   ],
+   [
+    "other region values (average)",
+    "APAC",
+    "change against other groups: orders x average order value",
+    "average order value",
+    -36.202627966575385,
+    -35.26097686214938,
+    0.9416511044260076,
+    null,
+    -6.689293558524347,
+    "about the same",
+    false
+   ],
+   [
+    "other region values (average)",
+    "APAC",
+    "change against other groups: units x average price x (1 - average discount)",
+    "units sold",
+    -8.911183993329773,
+    -30.209324452902,
+    -21.298140459572224,
+    null,
+    112.5462572729822,
+    "lower",
+    true
+   ],
+   [
+    "other region values (average)",
+    "APAC",
+    "change against other groups: units x average price x (1 - average discount)",
+    "average unit price",
+    -35.513738310670966,
+    -33.34741727680716,
+    2.1663210338638095,
+    null,
+    -14.595106322435052,
+    "about the same",
+    false
+   ],
+   [
+    "other region values (average)",
+    "APAC",
+    "change against other groups: units x average price x (1 - average discount)",
+    "1 - average discount",
+    -0.11257125876944164,
+    -0.5914540189698545,
+    -0.47888276020041287,
+    null,
+    2.0488490494528824,
+    "about the same",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "APAC: metric",
+    "revenue",
+    852708.85,
+    394310.9855,
+    -458397.86449999997,
+    -53.757840615820975,
+    null,
+    "lower",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "APAC: orders x average order value",
+    "number of orders",
+    280.0,
+    200.0,
+    -80.0,
+    -28.57142857142857,
+    43.62527153459866,
+    "lower",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "APAC: orders x average order value",
+    "average order value",
+    3045.38875,
+    1971.5549275,
+    -1073.8338225,
+    -35.26097686214938,
+    56.37472846540135,
+    "lower",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "APAC: units x average price x (1 - average discount)",
+    "units sold",
+    2102.0,
+    1467.0,
+    -635.0,
+    -30.209324452902,
+    46.6329456489408,
+    "lower",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "APAC: units x average price x (1 - average discount)",
+    "average unit price",
+    426.11895813510944,
+    284.0192910702113,
+    -142.09966706489814,
+    -33.34741727680716,
+    52.59792851933508,
+    "lower",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "APAC: units x average price x (1 - average discount)",
+    "1 - average discount",
+    0.9520005564350332,
+    0.9463699108833828,
+    -0.005630645551650382,
+    -0.5914540189698545,
+    0.7691258317241244,
+    "about the same",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "EMEA: metric",
+    "revenue",
+    936226.49,
+    577142.5145,
+    -359083.97549999994,
+    -38.354391734846125,
+    null,
+    "lower",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "EMEA: orders x average order value",
+    "number of orders",
+    287.0,
+    281.0,
+    -6.0,
+    -2.0905923344947737,
+    4.367287188954112,
+    "about the same",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "EMEA: orders x average order value",
+    "average order value",
+    3262.113205574913,
+    2053.8879519572956,
+    -1208.2252536176175,
+    -37.03811540178234,
+    95.6327128110459,
+    "lower",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "EMEA: units x average price x (1 - average discount)",
+    "units sold",
+    2165.0,
+    2174.0,
+    9.0,
+    0.41570438799076215,
+    -0.8575237651498587,
+    "about the same",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "EMEA: units x average price x (1 - average discount)",
+    "average unit price",
+    453.8220831408776,
+    277.85432842686293,
+    -175.9677547140147,
+    -38.774612618264754,
+    101.41391281221435,
+    "lower",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "EMEA: units x average price x (1 - average discount)",
+    "1 - average discount",
+    0.9528782179047468,
+    0.955446471449775,
+    0.0025682535450282096,
+    0.2695258949958432,
+    -0.5563890470644839,
+    "about the same",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "North America: metric",
+    "revenue",
+    1553120.8955,
+    846059.792,
+    -707061.1035000001,
+    -45.52518130099422,
+    null,
+    "lower",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "North America: orders x average order value",
+    "number of orders",
+    466.0,
+    418.0,
+    -48.0,
+    -10.300429184549357,
+    17.89570967977727,
+    "lower",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "North America: orders x average order value",
+    "average order value",
+    3332.8774581545067,
+    2024.0664880382776,
+    -1308.810970116229,
+    -39.269699727902655,
+    82.10429032022274,
+    "lower",
+    false
+   ]
+  ],
+  "row_count": 29
+ },
+ "answer": "APAC's completed revenue fell more than other regions due to number of orders, which dropped by 28.57% (from 280.0 to 200.0). By comparison, the number of orders in EMEA fell by 2.09%, in North America by 10.30%, and in LATAM by 12.14%. Other components such as average order value (falling between 32.30% and 39.27%), units sold (falling between 0.42% and 13.99%), average unit price (falling between 31.28% and 38.77%), and 1 - average discount (changing between -0.59% and 0.27%) changed by a similar amount in every group and therefore do not explain the difference.",
+ "key_numbers": [
+  "28.57",
+  "280.0",
+  "200.0",
+  "2.09",
+  "10.30",
+  "12.14",
+  "32.30",
+  "39.27",
+  "0.42",
+  "13.99",
+  "31.28",
+  "38.77",
+  "-0.59",
+  "0.27"
+ ],
+ "caveats": [],
+ "judge": {
+  "verdict": "pass",
+  "reason": "all required facts stated; no disqualifying claim",
+  "facts": [
+   {
+    "fact": "APAC's number of completed orders fell by about 29% from Q2 to Q3 2025 (about 280 to 200).",
+    "verdict": "yes",
+    "quote": "APAC's completed revenue fell more than other regions due to number of orders, which dropped by 28.57% (from 280.0 to 200.0).",
+    "quote_verified": true,
+    "counts_as_yes": true,
+    "reason": "The answer explicitly states that APAC's number of orders dropped by 28.57% from 280 to 200, matching the required fact."
+   },
+   {
+    "fact": "Completed orders in the other regions fell far less (about 2% to 12%).",
+    "verdict": "yes",
+    "quote": "By comparison, the number of orders in EMEA fell by 2.09%, in North America by 10.30%, and in LATAM by 12.14%.",
+    "quote_verified": true,
+    "counts_as_yes": true,
+    "reason": "The answer states the required fact by providing the order drops for EMEA, North America, and LATAM as 2.09%, 10.30%, and 12.14%, which matches the evidence of 'about 2% to 12%'."
+   },
+   {
+    "fact": "Average order value fell by a similar amount in every region (about 32% to 39%), so order size does not explain why APAC fell more.",
+    "verdict": "yes",
+    "quote": "Other components such as average order value (falling between 32.30% and 39.27%), units sold (falling between 0.42% and 13.99%), average unit price (falling between 31.28% and 38.77%), and 1 - average discount (changing between -0.59% and 0.27%) changed by a similar amount in every group and therefore do not explain the difference.",
+    "quote_verified": true,
+    "counts_as_yes": true,
+    "reason": "The answer explicitly states that the average order value changed by a similar amount in every group (falling between 32.30% and 39.27%) and therefore does not explain the difference, which matches all parts of the required fact."
+   }
+  ],
+  "disqualifying": {
+   "verdict": "no",
+   "quote": "",
+   "quote_verified": false,
+   "counts_as_yes": false,
+   "reason": "The answer correctly attributes APAC's extra decline to the number of orders, which aligns with the evidence showing a significantly larger drop in order volume (-28.57%) compared to other regions, while explicitly noting that average order value and other components changed by a similar amount and did not explain the difference."
+  }
+ },
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question that asks why. A first query has been run. ",
+   "prompt_hash": "bb161fe86f0be09d1c719dfe2ac5d709ecbb9921eb97d0749c1eedb2b5b6d4b5",
+   "cache_hit": false,
+   "latency_ms": 1329.4,
+   "input_tokens": 5488,
+   "output_tokens": 200,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You start the analysis of a question that asks why. A first query has been run. ",
+   "prompt_hash": "a668fe507c20a5a2cf79f785875b983972a7482568fcc7f65648b35d85fbeef5",
+   "cache_hit": false,
+   "latency_ms": 1034.8,
+   "input_tokens": 5823,
+   "output_tokens": 198,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You plan the next step of an analysis of a read-only SQLite database. Choose exa",
+   "prompt_hash": "70c0a5c3b3e2b6d1d810532b1a54d407154d2f1517c5c707edfec88284e6d4a8",
+   "cache_hit": false,
+   "latency_ms": 990.2,
+   "input_tokens": 7647,
+   "output_tokens": 120,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "b3dfa2f27a636328f4462695e0fa47112c17253620fa8ce46b27bed22a79785a",
+   "cache_hit": false,
+   "latency_ms": 1402.2,
+   "input_tokens": 6259,
+   "output_tokens": 339,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "1b4119c643ceafa1fbc217a352667517210e3b0440b02a66826aa26e917bef84",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2946,
+   "output_tokens": 596,
+   "original_latency_ms": 2002.5,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "5a16efaf179894ba3616cb478f5e94f900f63c3e7c1c7bcf3e4774c366e09e04",
+   "cache_hit": false,
+   "latency_ms": 907.9,
+   "input_tokens": 1183,
+   "output_tokens": 53,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "d7668ab4a0db7537c747dabcf6b28c10515e7a912e5117810cc8bd1e850dd128",
+   "cache_hit": false,
+   "latency_ms": 859.1,
+   "input_tokens": 965,
+   "output_tokens": 108,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  },
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "65bac089118717a2db0c4dff6b81fcd6d06897d7cc9c2e535400c541ca5205bc",
+   "cache_hit": false,
+   "latency_ms": 932.3,
+   "input_tokens": 947,
+   "output_tokens": 128,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  },
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "80dd31aa5257117d7d65c01df8cd0ea5272fc532a5401a78009f9378af26f3c2",
+   "cache_hit": false,
+   "latency_ms": 1195.0,
+   "input_tokens": 961,
+   "output_tokens": 184,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  },
+  {
+   "role": "You are a strict checker grading an analytics assistant's answer. You receive a ",
+   "prompt_hash": "297c94e48d70138340d054e3aaaab564e6814a8e74df00852dc67d2a4fc5078d",
+   "cache_hit": false,
+   "latency_ms": 964.9,
+   "input_tokens": 932,
+   "output_tokens": 91,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  }
+ ],
+ "latency_s": 5.756,
+ "latency_live_s": 7.758,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "driver named; judge pass"
+ }
+}

@@ -1,0 +1,94 @@
+{
+ "question_id": "ha02",
+ "type": "multi_hop",
+ "arch": "baseline",
+ "question": "In the 2025 month with the lowest total marketing spend, what was our completed revenue?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH monthly_spend AS (SELECT month, SUM(amount) AS total_spend FROM marketing_spend WHERE month >= '2025-01' AND month <= '2025-12' GROUP BY month ORDER BY SUM(amount) ASC LIMIT 1) SELECT ms.month, ms.total_spend, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM monthly_spend AS ms LEFT JOIN orders AS o ON SUBSTRING(o.order_date, 1, 7) = ms.month AND o.status = 'completed' LEFT JOIN order_items AS oi ON oi.order_id = o.order_id GROUP BY ms.month, ms.total_spend",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "month | total_spend | completed_revenue\n2025-07 | 145145.37 | 748889.067"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH monthly_spend AS (SELECT month, SUM(amount) AS total_spend FROM marketing_spend WHERE month >= '2025-01' AND month <= '2025-12' GROUP BY month ORDER BY SUM(amount) ASC LIMIT 1) SELECT ms.month, ms.total_spend, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM monthly_spend AS ms LEFT JOIN orders AS o ON SUBSTRING(o.order_date, 1, 7) = ms.month AND o.status = 'completed' LEFT JOIN order_items AS oi ON oi.order_id = o.order_id GROUP BY ms.month, ms.total_spend"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH monthly_spend AS (SELECT month, SUM(amount) AS total_spend FROM marketing_spend WHERE month >= '2025-01' AND month <= '2025-12' GROUP BY month ORDER BY SUM(amount) ASC LIMIT 1) SELECT ms.month, ms.total_spend, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM monthly_spend AS ms LEFT JOIN orders AS o ON SUBSTRING(o.order_date, 1, 7) = ms.month AND o.status = 'completed' LEFT JOIN order_items AS oi ON oi.order_id = o.order_id GROUP BY ms.month, ms.total_spend",
+  "ok": true,
+  "columns": [
+   "month",
+   "total_spend",
+   "completed_revenue"
+  ],
+  "rows": [
+   [
+    "2025-07",
+    145145.37,
+    748889.067
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "In July 2025 (month 2025-07), which had the lowest total marketing spend of 145,145.37, the completed revenue was 748,889.067.",
+ "key_numbers": [
+  "2025-07",
+  "145145.37",
+  "748889.067"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "fbb98bc8440bdc9d7c3a4af38316e97b79512c05c6f5238e00372e33ecb06eec",
+   "cache_hit": false,
+   "latency_ms": 1230.1,
+   "input_tokens": 2834,
+   "output_tokens": 246,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "d23aa53095ebba6a57e8b414c1c0fc23d6d1501e8def0ccef7eca352beff90b0",
+   "cache_hit": false,
+   "latency_ms": 1001.5,
+   "input_tokens": 628,
+   "output_tokens": 118,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 2.246,
+ "latency_live_s": 2.246,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

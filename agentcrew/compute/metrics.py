@@ -19,7 +19,9 @@ dictionary text), never written by a model. Values supplied by the model
 Comparisons: two periods (period_a, period_b), or groups of one dimension
 (group_dimension with group_a and group_b, or with `groups`: the group being
 explained, then each group it is compared with) over an optional common
-period. Optional `filters` restrict both sides to dimension values.
+period. Two periods together with `groups` ask how a change differs between
+groups (decompose_change only): why one group changed more than the others.
+Optional `filters` restrict both sides to dimension values.
 
 Both tools return the same columns (COLUMNS): one row per item compared
 between side_a (the reference) and side_b (what is explained), with the
@@ -196,6 +198,8 @@ class Metric:
     sums: Mapping[str, tuple[tuple[str, int], ...]] = field(default_factory=dict)
     """Additive decompositions: label -> ((factor, sign), ...)."""
     periods_allowed: bool = True
+    over_time: str = ""
+    """When periods are not allowed: the metric that can compare periods."""
 
 
 METRICS: dict[str, Metric] = {m.name: m for m in (
@@ -233,7 +237,7 @@ METRICS: dict[str, Metric] = {m.name: m for m in (
     Metric("churn_rate", "churn_rate", False, "churned customers / all customers",
            products={"churned / all customers":
                      (("churned_customers", 1), ("customers", -1))},
-           periods_allowed=False),
+           periods_allowed=False, over_time="churned_customers"),
     Metric("tickets", "tickets", True, "support tickets opened"),
     Metric("ticket_resolution_days", "ticket_resolution_days", False,
            "average days from created to resolved, resolved tickets only",
@@ -276,7 +280,8 @@ class Comparison(BaseModel):
     Modes: two periods (period_a, then the period_b being explained); two
     groups of one dimension (group_a, then the group_b being explained); or
     `groups`, the group being explained first and then each group it is
-    compared with. Group modes take an optional common `period`.
+    compared with. Group modes take an optional common `period`. Two periods
+    together with `groups` compare the change between them across the groups.
     """
 
     period_a: Period | None = None
@@ -303,13 +308,25 @@ class Comparison(BaseModel):
     @model_validator(mode="after")
     def _one_mode(self) -> Comparison:
         periods = self.period_a is not None and self.period_b is not None
+        if (self.period_a is None) != (self.period_b is None):
+            raise ValueError("period_a and period_b go together")
+        if periods and (self.period_a.start <= self.period_b.end
+                        and self.period_b.start <= self.period_a.end):
+            raise ValueError(
+                "period_a and period_b overlap, so there is no change between them; "
+                "to compare groups over one period, give period with group_dimension "
+                "and groups")
+        if self.groups and not self.group_dimension:
+            raise ValueError("groups needs group_dimension")
         pair = bool(self.group_a and self.group_b)
         if pair and self.groups:
             raise ValueError("give group_a and group_b, or groups, not both")
         grouped = bool(self.group_dimension and (pair or self.groups))
-        if periods == grouped:
+        across = bool(periods and self.group_dimension and self.groups)
+        if periods == grouped and not across:
             raise ValueError("give either period_a and period_b, or "
-                             "group_dimension with group_a and group_b (or groups)")
+                             "group_dimension with group_a and group_b (or groups), "
+                             "or periods with group_dimension and groups")
         if self.groups is not None and not (
                 2 <= len(self.groups) <= MAX_GROUPS
                 and len(set(self.groups)) == len(self.groups)):
@@ -319,6 +336,16 @@ class Comparison(BaseModel):
     @property
     def by_period(self) -> bool:
         return self.period_a is not None
+
+    @property
+    def across_groups(self) -> bool:
+        """The change between two periods, compared across groups."""
+        return self.period_a is not None and bool(self.groups)
+
+    @property
+    def explained_period(self) -> Period | None:
+        """The period the comparison asks about, if it names one."""
+        return self.period_b or self.period
 
     def sides(self) -> list[tuple[str, Period | None, dict[str, str]]]:
         """Every distinct side once: (label, period, filters)."""
@@ -429,10 +456,19 @@ def _metric(name: str) -> Metric:
     return METRICS[name]
 
 
+def _check_periods(metric: Metric) -> None:
+    if metric.periods_allowed:
+        return
+    instead = (f", or use {metric.over_time} with contribution_by_dimension to "
+               "compare periods" if metric.over_time else "")
+    raise ComputeError(f"{metric.name} cannot be split by period; "
+                       f"compare groups{instead}")
+
+
 def _check(metric: Metric, comparison: Comparison) -> Source:
     source = _source_of(metric)
-    if not metric.periods_allowed and (comparison.by_period or comparison.period):
-        raise ComputeError(f"{metric.name} cannot be split by period; compare groups")
+    if comparison.by_period or comparison.period:
+        _check_periods(metric)
     for dim in [*comparison.filters, comparison.group_dimension]:
         if dim:
             _dimension(source, dim)
@@ -520,23 +556,136 @@ def _decomposition_rows(metric: Metric, labels: tuple[str, str],
     return records
 
 
-def decompose_change(
-    run: Runner, metric_name: str, comparison: Comparison
-) -> tuple[pd.DataFrame, list[str]]:
+def _check_decompose(metric_name: str, comparison: Comparison
+                     ) -> tuple[Metric, Source]:
     metric = _metric(metric_name)
     if not (metric.products or metric.sums):
         raise ComputeError(f"{metric.name} has no component decomposition; "
                            "use contribution_by_dimension")
+    return metric, _check(metric, comparison)
+
+
+def _check_contribution(metric_name: str, dimension: str, comparison: Comparison
+                        ) -> tuple[Metric, Source]:
+    metric = _metric(metric_name)
+    if not metric.additive:
+        raise ComputeError(f"{metric.name} is a ratio; contributions are only "
+                           "defined for additive metrics (sums and counts)")
+    if comparison.across_groups:
+        raise ComputeError("contribution_by_dimension compares two sides; use "
+                           "decompose_change to compare a change across groups")
     source = _check(metric, comparison)
+    _dimension(source, dimension)
+    return metric, source
+
+
+def validate_call(function: str, metric_name: str, comparison: Comparison,
+                  dimension: str | None = None) -> None:
+    """Raise ComputeError if a metric tool would refuse this call. Plans run it
+    when they are parsed, so the structured-output retry can fix a refused call
+    before it costs a step; the tools run the same checks themselves."""
+    if function == "decompose_change":
+        _check_decompose(metric_name, comparison)
+    else:
+        _check_contribution(metric_name, dimension or "", comparison)
+
+
+#: Rows comparing one component's change between the group being explained and
+#: the others start their `analysis` with this.
+GROUP_GAP_PREFIX = "change against other groups: "
+
+
+#: One group's figures in the two periods.
+Change = tuple[Mapping[str, float], Mapping[str, float]]
+
+
+def _change_part(kind: str, metric: Metric, change: Change, factor: str,
+                 sign: int = 1) -> float | None:
+    """A factor's part of the metric's change, on a scale where a decomposition's
+    parts add up to the metric's own: log ratios for a product, changes relative
+    to the metric's starting value for a sum."""
+    a, b = change
+    if kind == "products":
+        ratio = _log_ratio(a[factor], b[factor])
+        return None if ratio is None else sign * ratio
+    start = abs(a[metric.factor])
+    return sign * (b[factor] - a[factor]) / start if start else None
+
+
+def _mean(values: Sequence[float | None]) -> float | None:
+    known = [v for v in values if v is not None]
+    return sum(known) / len(known) if known else None
+
+
+def _excess(of: Callable[[Change], float | None], changes: Mapping[str, Change]
+            ) -> float | None:
+    """`of` the first group minus its mean over the others."""
+    subject, *others = changes
+    mine, theirs = of(changes[subject]), _mean([of(changes[g]) for g in others])
+    return None if mine is None or theirs is None else mine - theirs
+
+
+def _gap_record(metric: Metric, kind: str, analysis: str, part: tuple[str, int],
+                dimension: str, changes: Mapping[str, Change]) -> dict[str, object]:
+    """One component: its percent change in the first group against the average
+    of the others, and its share of the first group's extra change in the metric."""
+    factor, sign = part
+    subject, *others = changes
+
+    def pct(change: Change) -> float | None:
+        return _pct(change[0][factor], change[1][factor])
+
+    gap = _excess(pct, changes)
+    whole = _excess(lambda c: _change_part(kind, metric, c, metric.factor), changes)
+    own = _excess(lambda c: _change_part(kind, metric, c, factor, sign), changes)
+    suffix = {("products", -1): " (divides)", ("sums", -1): " (subtracted)"}
+    return {"side_a": f"other {dimension} values (average)", "side_b": subject,
+            "analysis": f"{GROUP_GAP_PREFIX}{analysis}",
+            "item": LABELS[factor] + suffix.get((kind, sign), ""),
+            "value_a": _mean([pct(changes[g]) for g in others]),
+            "value_b": pct(changes[subject]),
+            "change": gap, "pct_change": None,
+            "share_of_change_pct": (own / whole * 100
+                                    if own is not None and whole else None),
+            "comparison": ("about the same" if gap is None or abs(gap) <= SIMILAR_PCT
+                           else "higher" if gap > 0 else "lower"),
+            "largest_contributor": False}
+
+
+def _across_groups_rows(metric: Metric, dimension: str, changes: Mapping[str, Change],
+                        labels: tuple[str, str]) -> list[dict[str, object]]:
+    """What differs most between the first group's change and the others',
+    component by component, then each group's own figures. Added after a holdout
+    failure (ha07): a decomposition of one group says why it fell, and the same
+    component can be the largest part of every group's fall, so it cannot be why
+    one group fell more."""
+    records: list[dict[str, object]] = []
+    for kind, decompositions in (("products", metric.products), ("sums", metric.sums)):
+        for analysis, parts in decompositions.items():
+            records += _with_largest([
+                _gap_record(metric, kind, analysis, part, dimension, changes)
+                for part in parts])
+    for group, (a, b) in changes.items():
+        records += [{**row, "analysis": f"{group}: {row['analysis']}",
+                     "largest_contributor": False}
+                    for row in _decomposition_rows(metric, labels, a, b)]
+    return records
+
+
+def decompose_change(
+    run: Runner, metric_name: str, comparison: Comparison
+) -> tuple[pd.DataFrame, list[str]]:
+    metric, source = _check_decompose(metric_name, comparison)
     # Declaration order (the metric, then each decomposition's components).
     factors = list(dict.fromkeys(
         [metric.factor] + [name for parts in [*metric.products.values(),
                                               *metric.sums.values()]
                            for name, _ in parts]))
     aggregates = _aggregates_for(factors)
+    queries: list[str] = []
 
-    sides, queries = [], []
-    for label, period, filters in comparison.sides():
+    def read(label: str, period: Period | None, filters: Mapping[str, str]
+             ) -> dict[str, float]:
         sql = build_sql(source, aggregates, period, filters)
         queries.append(sql)
         (row,) = _run(run, sql) or [{}]
@@ -544,8 +693,21 @@ def decompose_change(
             raise ComputeError(f"no data for {label!r}")
         side = {f: _value(f, row) for f in factors}
         _reconcile(metric, side)
-        sides.append((label, side))
+        return side
 
+    if comparison.across_groups:
+        first, second = comparison.period_a, comparison.period_b
+        changes = {}
+        for group in comparison.groups:
+            filters = {**comparison.filters, comparison.group_dimension: group}
+            changes[group] = (read(f"{group} in {first.label()}", first, filters),
+                              read(f"{group} in {second.label()}", second, filters))
+        records = _across_groups_rows(metric, comparison.group_dimension, changes,
+                                      (first.label(), second.label()))
+        return pd.DataFrame(records, columns=list(COLUMNS)), queries
+
+    sides = [(label, read(label, period, filters))
+             for label, period, filters in comparison.sides()]
     records = []
     for i, j in comparison.pairs():
         (label_a, a), (label_b, b) = sides[i], sides[j]
@@ -576,13 +738,8 @@ def _contribution_rows(analysis: str, side_a: tuple[str, dict], side_b: tuple[st
 def contribution_by_dimension(
     run: Runner, metric_name: str, dimension: str, comparison: Comparison
 ) -> tuple[pd.DataFrame, list[str]]:
-    metric = _metric(metric_name)
-    if not metric.additive:
-        raise ComputeError(f"{metric.name} is a ratio; contributions are only "
-                           "defined for additive metrics (sums and counts)")
-    source = _check(metric, comparison)
+    metric, source = _check_contribution(metric_name, dimension, comparison)
     dimension = _key(dimension)
-    _dimension(source, dimension)
     aggregates = _aggregates_for([metric.factor])
     tables, queries = [], []
     for label, period, filters in comparison.sides():
@@ -606,11 +763,16 @@ def has_components(metric_name: str) -> bool:
 
 
 def catalog() -> str:
-    """Metrics and dimensions, for the decide_next_action prompt."""
+    """Metrics, dimensions and what each tool allows, for the planning prompts."""
     lines = []
     for metric in METRICS.values():
         source = _source_of(metric)
-        tools = ["decompose_change"] if (metric.products or metric.sums) else []
+        tools = []
+        if metric.products or metric.sums:
+            tools.append(
+                "decompose_change" if metric.periods_allowed else
+                "decompose_change (between groups only, not between periods; to "
+                f"compare periods use {metric.over_time})")
         if metric.additive:
             tools.append("contribution_by_dimension")
         lines.append(

@@ -1,0 +1,138 @@
+{
+ "question_id": "ha07",
+ "type": "why",
+ "arch": "baseline",
+ "question": "Why did APAC's completed revenue fall so much more than other regions' from Q2 to Q3 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.category, p.product_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_change FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE r.region_name = 'APAC' AND o.status = 'completed' GROUP BY p.product_id ORDER BY revenue_change ASC LIMIT 5",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 5,
+   "preview": "category | product_name | q2_revenue | q3_revenue | revenue_change\nHardware | Lattice Ridge | 116337.50099999999 | 28311.171 | -88026.32999999999\nHardware | Anchor Summit | 87682.935 | 13566.039 | -74116.896\nHardware | Cascade Beacon | 83349.44750000001 | 16166.590000000002 | -67182.85750000001\nHardware | Nimbus Quartz | 65212.561 | 25595.5995 | -39616.961500000005\nHardware | Harbor Lumen | 51731.172 | 17149.496 | -34581.676"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.category, p.product_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_change FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE r.region_name = 'APAC' AND o.status = 'completed' GROUP BY p.product_id ORDER BY revenue_change ASC LIMIT 5"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT p.category, p.product_name, SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q2_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS q3_revenue, SUM(CASE WHEN o.order_date >= '2025-07-01' AND o.order_date <= '2025-09-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2025-04-01' AND o.order_date <= '2025-06-30' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_change FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE r.region_name = 'APAC' AND o.status = 'completed' GROUP BY p.product_id ORDER BY revenue_change ASC LIMIT 5",
+  "ok": true,
+  "columns": [
+   "category",
+   "product_name",
+   "q2_revenue",
+   "q3_revenue",
+   "revenue_change"
+  ],
+  "rows": [
+   [
+    "Hardware",
+    "Lattice Ridge",
+    116337.50099999999,
+    28311.171,
+    -88026.32999999999
+   ],
+   [
+    "Hardware",
+    "Anchor Summit",
+    87682.935,
+    13566.039,
+    -74116.896
+   ],
+   [
+    "Hardware",
+    "Cascade Beacon",
+    83349.44750000001,
+    16166.590000000002,
+    -67182.85750000001
+   ],
+   [
+    "Hardware",
+    "Nimbus Quartz",
+    65212.561,
+    25595.5995,
+    -39616.961500000005
+   ],
+   [
+    "Hardware",
+    "Harbor Lumen",
+    51731.172,
+    17149.496,
+    -34581.676
+   ]
+  ],
+  "row_count": 5
+ },
+ "answer": "Assuming APAC's revenue decline is driven by its top falling Hardware products, the drop from Q2 to Q3 2025 was largely led by Lattice Ridge, which fell from 116,337.50 in Q2 to 28,311.17 in Q3 (a change of -88,026.33), and Anchor Summit, which dropped from 87,682.94 to 13,566.04 (a change of -74,116.90). Other significant Hardware contributors included Cascade Beacon with a revenue change of -67,182.86, Nimbus Quartz with -39,616.96, and Harbor Lumen with -34,581.68.",
+ "key_numbers": [
+  "116337.50",
+  "28311.17",
+  "-88026.33",
+  "87682.94",
+  "13566.04",
+  "-74116.90",
+  "83349.45",
+  "16166.59",
+  "-67182.86",
+  "65212.56",
+  "25595.60",
+  "-39616.96",
+  "51731.17",
+  "17149.50",
+  "-34581.68"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "1b4119c643ceafa1fbc217a352667517210e3b0440b02a66826aa26e917bef84",
+   "cache_hit": false,
+   "latency_ms": 2191.0,
+   "input_tokens": 2946,
+   "output_tokens": 543,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "8848ff1af680a35c4057570839b1c80717eef489eb6011116fb5c97c4e81f6b1",
+   "cache_hit": false,
+   "latency_ms": 1727.4,
+   "input_tokens": 1081,
+   "output_tokens": 382,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 3.935,
+ "latency_live_s": 3.935,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "driver not named: [\"any_of: [{'pattern': 'fewer\\\\\\\\s+(completed\\\\\\\\s+)?orders'}, {'pattern': 'order\\\\\\\\s+(volume|count|counts|numbers)'}, {'pattern': '(number|count|volume)\\\\\\\\s+of\\\\\\\\s+(completed\\\\\\\\s+)?orders'}, {'pattern': 'orders\\\\\\\\s+(fell|dropped|declined|decreased|shrank)'}]\"]"
+ }
+}

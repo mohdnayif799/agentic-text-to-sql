@@ -1,0 +1,165 @@
+{
+ "question_id": "hv17",
+ "type": "segment_comparison",
+ "arch": "full",
+ "question": "In each region, which customer segment grew its completed revenue the fastest from 2024 to 2025? Give the region, the segment and its growth as a percentage.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH rev_2024 AS (SELECT r.region_name, c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY r.region_name, c.segment), rev_2025 AS (SELECT r.region_name, c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY r.region_name, c.segment), growth AS (SELECT t2024.region_name, t2024.segment, (t2025.rev - t2024.rev) * 100.0 / t2024.rev AS growth_pct, ROW_NUMBER() OVER (PARTITION BY t2024.region_name ORDER BY (t2025.rev - t2024.rev) * 100.0 / t2024.rev DESC) AS rn FROM rev_2024 AS t2024 JOIN rev_2025 AS t2024 ON t2024.region_name = t2025.region_name AND t2024.segment = t2025.segment WHERE t2024.rev > 0) SELECT region_name, segment, growth_pct FROM growth WHERE rn = 1 LIMIT 500",
+   "ok": false,
+   "failure": "other",
+   "error": "(sqlite3.OperationalError) ambiguous column name: t2024.region_name",
+   "row_count": 0,
+   "preview": "ERROR (other): (sqlite3.OperationalError) ambiguous column name: t2024.region_name"
+  },
+  {
+   "sql": "WITH rev_2024 AS (SELECT r.region_name, c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY r.region_name, c.segment), rev_2025 AS (SELECT r.region_name, c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY r.region_name, c.segment), growth AS (SELECT t2024.region_name, t2024.segment, (t2025.rev - t2024.rev) * 100.0 / t2024.rev AS growth_pct, ROW_NUMBER() OVER (PARTITION BY t2024.region_name ORDER BY (t2025.rev - t2024.rev) * 100.0 / t2024.rev DESC) AS rn FROM rev_2024 AS t2024 JOIN rev_2025 AS t2025 ON t2024.region_name = t2025.region_name AND t2024.segment = t2025.segment WHERE t2024.rev > 0) SELECT region_name, segment, growth_pct FROM growth WHERE rn = 1 LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "region_name | segment | growth_pct\nAPAC | Mid-Market | 34.53512134432507\nEMEA | Enterprise | 45.568611512845216\nLATAM | SMB | 97.35421198979786\nNorth America | Mid-Market | 47.72612343645888"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql",
+    "repair"
+   ],
+   "sql": "WITH rev_2024 AS (SELECT r.region_name, c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY r.region_name, c.segment), rev_2025 AS (SELECT r.region_name, c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY r.region_name, c.segment), growth AS (SELECT t2024.region_name, t2024.segment, (t2025.rev - t2024.rev) * 100.0 / t2024.rev AS growth_pct, ROW_NUMBER() OVER (PARTITION BY t2024.region_name ORDER BY (t2025.rev - t2024.rev) * 100.0 / t2024.rev DESC) AS rn FROM rev_2024 AS t2024 JOIN rev_2025 AS t2025 ON t2024.region_name = t2025.region_name AND t2024.segment = t2025.segment WHERE t2024.rev > 0) SELECT region_name, segment, growth_pct FROM growth WHERE rn = 1 LIMIT 500",
+   "reason": "",
+   "signal": "error"
+  }
+ ],
+ "repairs": [
+  {
+   "step": 1,
+   "signal": "error",
+   "detail": "(sqlite3.OperationalError) ambiguous column name: t2024.region_name",
+   "via": "A's retry",
+   "accepted": true,
+   "attempts": 1,
+   "before": {
+    "sql": "WITH rev_2024 AS (SELECT r.region_name, c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY r.region_name, c.segment), rev_2025 AS (SELECT r.region_name, c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY r.region_name, c.segment), growth AS (SELECT t2024.region_name, t2024.segment, (t2025.rev - t2024.rev) * 100.0 / t2024.rev AS growth_pct, ROW_NUMBER() OVER (PARTITION BY t2024.region_name ORDER BY (t2025.rev - t2024.rev) * 100.0 / t2024.rev DESC) AS rn FROM rev_2024 AS t2024 JOIN rev_2025 AS t2024 ON t2024.region_name = t2025.region_name AND t2024.segment = t2025.segment WHERE t2024.rev > 0) SELECT region_name, segment, growth_pct FROM growth WHERE rn = 1 LIMIT 500",
+    "ok": false,
+    "rows": 0,
+    "error": "(sqlite3.OperationalError) ambiguous column name: t2024.region_name"
+   },
+   "after": {
+    "sql": "WITH rev_2024 AS (SELECT r.region_name, c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY r.region_name, c.segment), rev_2025 AS (SELECT r.region_name, c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY r.region_name, c.segment), growth AS (SELECT t2024.region_name, t2024.segment, (t2025.rev - t2024.rev) * 100.0 / t2024.rev AS growth_pct, ROW_NUMBER() OVER (PARTITION BY t2024.region_name ORDER BY (t2025.rev - t2024.rev) * 100.0 / t2024.rev DESC) AS rn FROM rev_2024 AS t2024 JOIN rev_2025 AS t2025 ON t2024.region_name = t2025.region_name AND t2024.segment = t2025.segment WHERE t2024.rev > 0) SELECT region_name, segment, growth_pct FROM growth WHERE rn = 1 LIMIT 500",
+    "ok": true,
+    "rows": 4,
+    "error": null
+   },
+   "effect": "fix"
+  }
+ ],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH rev_2024 AS (SELECT r.region_name, c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY r.region_name, c.segment), rev_2025 AS (SELECT r.region_name, c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN customers AS c ON c.customer_id = o.customer_id JOIN regions AS r ON r.region_id = c.region_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY r.region_name, c.segment), growth AS (SELECT t2024.region_name, t2024.segment, (t2025.rev - t2024.rev) * 100.0 / t2024.rev AS growth_pct, ROW_NUMBER() OVER (PARTITION BY t2024.region_name ORDER BY (t2025.rev - t2024.rev) * 100.0 / t2024.rev DESC) AS rn FROM rev_2024 AS t2024 JOIN rev_2025 AS t2025 ON t2024.region_name = t2025.region_name AND t2024.segment = t2025.segment WHERE t2024.rev > 0) SELECT region_name, segment, growth_pct FROM growth WHERE rn = 1 LIMIT 500",
+  "ok": true,
+  "columns": [
+   "region_name",
+   "segment",
+   "growth_pct"
+  ],
+  "rows": [
+   [
+    "APAC",
+    "Mid-Market",
+    34.53512134432507
+   ],
+   [
+    "EMEA",
+    "Enterprise",
+    45.568611512845216
+   ],
+   [
+    "LATAM",
+    "SMB",
+    97.35421198979786
+   ],
+   [
+    "North America",
+    "Mid-Market",
+    47.72612343645888
+   ]
+  ],
+  "row_count": 4
+ },
+ "answer": "In the APAC region, the Mid-Market segment grew the fastest with a growth of 34.54%. In EMEA, the Enterprise segment grew by 45.57%. In LATAM, the SMB segment grew by 97.35%. In North America, the Mid-Market segment grew by 47.73%.",
+ "key_numbers": [
+  "34.53512134432507",
+  "45.568611512845216",
+  "97.35421198979786",
+  "47.72612343645888"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "757a656a7e477f84983de3d9591345f6ac9ee9035ad2f7088a21bda06bc179f7",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2926,
+   "output_tokens": 620,
+   "original_latency_ms": 2347.5,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "ae776813681ce81f0494f80400ae407e0c4ef3b68cf89d2d71631d7930b3cc55",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3480,
+   "output_tokens": 604,
+   "original_latency_ms": 2165.2,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "4e4001152fafebf835f8846d88b85a66a808dd399a910b271c2afc22a81478a0",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 1069,
+   "output_tokens": 184,
+   "original_latency_ms": 1274.6,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "81ae981c2be053c306da89e69d36a5dab0206336889439bb1797e89c6d912bb7",
+   "cache_hit": false,
+   "latency_ms": 1074.8,
+   "input_tokens": 957,
+   "output_tokens": 60,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 1.145,
+ "latency_live_s": 6.932,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "4 row(s) match"
+ }
+}

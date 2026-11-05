@@ -1,0 +1,433 @@
+{
+ "note": "dev probe: ungraded, never part of any holdout",
+ "id": "probe-against-the-rest",
+ "question": "Between 2024 and 2025, revenue rose faster in the Direct channel than in Online and Partner. What explains that?",
+ "expect": "Revenue grew 42% in Direct, 25% in Online and 29% in Partner. Orders grew 60% in Direct against 37% and 38%, while average order value fell in all three (about 11%, 9% and 7%), so order count is what differs.",
+ "status": "done",
+ "path": "escalated",
+ "answer": "Main driver (largest contributor): number of orders, Direct 59.71 vs other channel values (average) 37.46. The Direct channel's revenue rose faster due to a larger increase in units sold, which grew by 64.2% (from 6,776 to 11,126 units). In comparison, units sold grew by 32.29% in the Online channel (from 11,047 to 14,614) and 39.82% in the Partner channel (from 6,085 to 8,508). Other components such as average unit price and the discount factor changed by similar amounts across the channels and therefore do not explain the difference in revenue growth.",
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT o.channel, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS total_revenue, SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date < '2026-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2025 FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' GROUP BY o.channel ORDER BY (rev_2025 - rev_2024) DESC LIMIT 500",
+   "reason": "",
+   "signal": null
+  },
+  {
+   "step": 2,
+   "tools": [
+    "compute:decompose_change"
+   ],
+   "sql": "-- compute: decompose_change\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND o.channel = 'Direct'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31' AND o.channel = 'Direct'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND o.channel = 'Online'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31' AND o.channel = 'Online'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND o.channel = 'Partner'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31' AND o.channel = 'Partner'",
+   "reason": "Decomposing the change in revenue between 2024 and 2025 across channels explains why growth was faster in Direct.",
+   "signal": null
+  },
+  {
+   "step": "final",
+   "tools": [
+    "stack"
+   ],
+   "plan": {
+    "stacked_steps": [
+     2
+    ]
+   },
+   "driver_sentence_added": true
+  }
+ ],
+ "attempts": [
+  {
+   "sql": "SELECT o.channel, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS total_revenue, SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date < '2026-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2025 FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' GROUP BY o.channel ORDER BY (rev_2025 - rev_2024) DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "channel | total_revenue | rev_2024 | rev_2025\nDirect | 7106104.9285 | 2930865.184 | 4175239.7445\nOnline | 10195563.464 | 4523117.0195 | 5672446.4445\nPartner | 5831252.8015 | 2551912.1785 | 3279340.623"
+  },
+  {
+   "sql": "-- compute: decompose_change\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND o.channel = 'Direct'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31' AND o.channel = 'Direct'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND o.channel = 'Online'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31' AND o.channel = 'Online'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND o.channel = 'Partner'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31' AND o.channel = 'Partner'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 23,
+   "preview": "side_a | side_b | analysis | item | value_a | value_b | change | pct_change | share_of_change_pct | comparison | largest_contributor\nother channel values (average) | Direct | change against other groups: orders x average order value | number of orders | 37.45712484718503 | 59.71459934138309 | 22.257474494198064 | NULL | 130.20171827280015 | higher | True\nother channel values (average) | Direct | change against other groups: orders x average order value | average order value | -7.639258878169411 | -10.804907607934847 | -3.1656487297654365 | NULL | -30.20171827280001 | about the same | False\nother channel values (average) | Direct | change against other groups: units x average price x (1 - average discount) | units sold | 36.05426846181018 | 64.19716646989374 | 28.142898008083563 | NULL | 163.44718183186276 | higher | True\nother channel values (average) | Direct | change against other groups: units x average price x (1 - average discount) | average unit price | -6.6965491229388245 | -13.012829941621732 | -6.316280818682907 | NULL | -60.72664055770509 | lower | False\nother channel values (average) | Direct | change against other groups: units x average price x (1 - average discount) | 1 - average discount | 0.05227830041250862 | -0.26106753422085566 | -0.3133458346333643 | NULL | -2.7205412741578083 | about the same | False\n... 18 more row(s)"
+  }
+ ],
+ "selected": {
+  "sql": "-- stacked: rows from step(s) 2\n-- compute: decompose_change\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND o.channel = 'Direct'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31' AND o.channel = 'Direct'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND o.channel = 'Online'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31' AND o.channel = 'Online'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND o.channel = 'Partner'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31' AND o.channel = 'Partner'",
+  "columns": [
+   "side_a",
+   "side_b",
+   "analysis",
+   "item",
+   "value_a",
+   "value_b",
+   "change",
+   "pct_change",
+   "share_of_change_pct",
+   "comparison",
+   "largest_contributor"
+  ],
+  "rows": [
+   [
+    "other channel values (average)",
+    "Direct",
+    "change against other groups: orders x average order value",
+    "number of orders",
+    37.45712484718503,
+    59.71459934138309,
+    22.257474494198064,
+    null,
+    130.20171827280015,
+    "higher",
+    true
+   ],
+   [
+    "other channel values (average)",
+    "Direct",
+    "change against other groups: orders x average order value",
+    "average order value",
+    -7.639258878169411,
+    -10.804907607934847,
+    -3.1656487297654365,
+    null,
+    -30.20171827280001,
+    "about the same",
+    false
+   ],
+   [
+    "other channel values (average)",
+    "Direct",
+    "change against other groups: units x average price x (1 - average discount)",
+    "units sold",
+    36.05426846181018,
+    64.19716646989374,
+    28.142898008083563,
+    null,
+    163.44718183186276,
+    "higher",
+    true
+   ],
+   [
+    "other channel values (average)",
+    "Direct",
+    "change against other groups: units x average price x (1 - average discount)",
+    "average unit price",
+    -6.6965491229388245,
+    -13.012829941621732,
+    -6.316280818682907,
+    null,
+    -60.72664055770509,
+    "lower",
+    false
+   ],
+   [
+    "other channel values (average)",
+    "Direct",
+    "change against other groups: units x average price x (1 - average discount)",
+    "1 - average discount",
+    0.05227830041250862,
+    -0.26106753422085566,
+    -0.3133458346333643,
+    null,
+    -2.7205412741578083,
+    "about the same",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "Direct: metric",
+    "revenue",
+    2930865.184,
+    4175239.7445,
+    1244374.5605000001,
+    42.457584446163324,
+    null,
+    "higher",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "Direct: orders x average order value",
+    "number of orders",
+    911.0,
+    1455.0,
+    544.0,
+    59.71459934138309,
+    132.3121021406887,
+    "higher",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "Direct: orders x average order value",
+    "average order value",
+    3217.195591657519,
+    2869.580580412371,
+    -347.6150112451478,
+    -10.804907607934847,
+    -32.31210214068864,
+    "lower",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "Direct: units x average price x (1 - average discount)",
+    "units sold",
+    6776.0,
+    11126.0,
+    4350.0,
+    64.19716646989374,
+    140.1339434889636,
+    "higher",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "Direct: units x average price x (1 - average discount)",
+    "average unit price",
+    455.0309917355372,
+    395.8185825993169,
+    -59.21240913622029,
+    -13.012829941621732,
+    -39.39523755465805,
+    "lower",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "Direct: units x average price x (1 - average discount)",
+    "1 - average discount",
+    0.9505642297675535,
+    0.9480826151717139,
+    -0.0024816145958396207,
+    -0.26106753422085566,
+    -0.7387059343055248,
+    "about the same",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "Online: metric",
+    "revenue",
+    4523117.0195,
+    5672446.4445,
+    1149329.4249999998,
+    25.410119173238865,
+    null,
+    "higher",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "Online: orders x average order value",
+    "number of orders",
+    1457.0,
+    2001.0,
+    544.0,
+    37.336993822923816,
+    140.12399156396503,
+    "higher",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "Online: orders x average order value",
+    "average order value",
+    3104.404268702814,
+    2834.80581934033,
+    -269.5984493624842,
+    -8.684385989300832,
+    -40.12399156396499,
+    "lower",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "Online: units x average price x (1 - average discount)",
+    "units sold",
+    11047.0,
+    14614.0,
+    3567.0,
+    32.289309314746085,
+    123.58543661552046,
+    "higher",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "Online: units x average price x (1 - average discount)",
+    "average unit price",
+    431.4509631574183,
+    408.25117421650475,
+    -23.19978894091355,
+    -5.37715544105737,
+    -24.41103463937992,
+    "lower",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "Online: units x average price x (1 - average discount)",
+    "1 - average discount",
+    0.9489908539601307,
+    0.9507664729292751,
+    0.0017756189691443547,
+    0.1871060149562782,
+    0.8255980238596259,
+    "about the same",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "Partner: metric",
+    "revenue",
+    2551912.1785,
+    3279340.623,
+    727428.4445000002,
+    28.505230337808047,
+    null,
+    "higher",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "Partner: orders x average order value",
+    "number of orders",
+    809.0,
+    1113.0,
+    304.0,
+    37.57725587144623,
+    127.19943033929164,
+    "higher",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "Partner: orders x average order value",
+    "average order value",
+    3154.403187268232,
+    2946.397684636119,
+    -208.00550263211335,
+    -6.59413176703799,
+    -27.199430339291663,
+    "lower",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "Partner: units x average price x (1 - average discount)",
+    "units sold",
+    6085.0,
+    8508.0,
+    2423.0,
+    39.81922760887428,
+    133.6447150400493,
+    "higher",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "Partner: units x average price x (1 - average discount)",
+    "average unit price",
+    440.9412341824158,
+    405.59563704748473,
+    -35.3455971349311,
+    -8.015942804820279,
+    -33.315433956600934,
+    "lower",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "Partner: units x average price x (1 - average discount)",
+    "1 - average discount",
+    0.9510961607671101,
+    0.950311036458572,
+    -0.0007851243085381654,
+    -0.08254941413126098,
+    -0.32928108344838725,
+    "about the same",
+    false
+   ]
+  ]
+ },
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question that asks why. A first query has been run. ",
+   "prompt_hash": "033ffd5ffe40536b32d859b7650b62fc3dbb828fddac40b4bf5f1fab5b65166d",
+   "cache_hit": false,
+   "latency_ms": 1293.7,
+   "input_tokens": 4902,
+   "output_tokens": 133,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You plan the next step of an analysis of a read-only SQLite database. Choose exa",
+   "prompt_hash": "c2cb31a1c9977ae9a0d1bb62c5328b2d5cc3ca1d90d7dcf988c6131f8060dcb6",
+   "cache_hit": false,
+   "latency_ms": 1009.1,
+   "input_tokens": 6736,
+   "output_tokens": 16,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "f6aee6653e33ed855a3829c0972e666000cf7b771a4757aeac3379866b36dbb2",
+   "cache_hit": false,
+   "latency_ms": 1624.6,
+   "input_tokens": 5048,
+   "output_tokens": 239,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "91b6d1a4d9dc150969fd8f1c69d45cc496a5ac56c53e7ad0ee91a8b3ed8272a7",
+   "cache_hit": false,
+   "latency_ms": 1578.9,
+   "input_tokens": 2870,
+   "output_tokens": 373,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "1add6d8ceac83b35582b2c42cdec4c1dd7e9be0461b59f580d36f213bde7e088",
+   "cache_hit": false,
+   "latency_ms": 770.9,
+   "input_tokens": 702,
+   "output_tokens": 45,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ]
+}

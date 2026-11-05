@@ -1,0 +1,109 @@
+{
+ "question_id": "ha01",
+ "type": "multi_hop",
+ "arch": "full",
+ "question": "Which customer segment had the most customers churn in 2025, and who was that segment's top customer by completed revenue in 2025? Give the customer's ID, name and 2025 completed revenue.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH churned_segments AS (SELECT c.segment, COUNT(*) AS churn_count FROM customers AS c WHERE c.churn_date >= '2025-01-01' AND c.churn_date <= '2025-12-31' GROUP BY c.segment ORDER BY churn_count DESC LIMIT 1), top_customer AS (SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.segment = (SELECT segment FROM churned_segments) AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY rev DESC LIMIT 1) SELECT cs.segment, tc.customer_id, tc.customer_name, tc.rev AS customer_revenue FROM churned_segments AS cs CROSS JOIN top_customer AS tc",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "segment | customer_id | customer_name | customer_revenue\nMid-Market | 84 | Jonas Duarte | 34461.23"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH churned_segments AS (SELECT c.segment, COUNT(*) AS churn_count FROM customers AS c WHERE c.churn_date >= '2025-01-01' AND c.churn_date <= '2025-12-31' GROUP BY c.segment ORDER BY churn_count DESC LIMIT 1), top_customer AS (SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.segment = (SELECT segment FROM churned_segments) AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY rev DESC LIMIT 1) SELECT cs.segment, tc.customer_id, tc.customer_name, tc.rev AS customer_revenue FROM churned_segments AS cs CROSS JOIN top_customer AS tc",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH churned_segments AS (SELECT c.segment, COUNT(*) AS churn_count FROM customers AS c WHERE c.churn_date >= '2025-01-01' AND c.churn_date <= '2025-12-31' GROUP BY c.segment ORDER BY churn_count DESC LIMIT 1), top_customer AS (SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.segment = (SELECT segment FROM churned_segments) AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY rev DESC LIMIT 1) SELECT cs.segment, tc.customer_id, tc.customer_name, tc.rev AS customer_revenue FROM churned_segments AS cs CROSS JOIN top_customer AS tc",
+  "ok": true,
+  "columns": [
+   "segment",
+   "customer_id",
+   "customer_name",
+   "customer_revenue"
+  ],
+  "rows": [
+   [
+    "Mid-Market",
+    84,
+    "Jonas Duarte",
+    34461.23
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The customer segment with the most customer churn in 2025 was Mid-Market. The top customer in that segment by completed revenue in 2025 was Jonas Duarte (Customer ID: 84), with a completed revenue of 34461.23.",
+ "key_numbers": [
+  "2025",
+  "84",
+  "34461.23"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "321c7b9f88c65a57abf97e89367c813353e6e798365df199bc6e829216b228f9",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2996,
+   "output_tokens": 403,
+   "original_latency_ms": 1811.8,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "c11340a74462e1a51f6f71cd9437cdc3f335f612f6a272118977a5dde07c6771",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 761,
+   "output_tokens": 111,
+   "original_latency_ms": 871.7,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "28983eb263fbb0a55764457e1932f002fa520a6e613ad59e16e565cdd688572a",
+   "cache_hit": false,
+   "latency_ms": 736.9,
+   "input_tokens": 649,
+   "output_tokens": 50,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.787,
+ "latency_live_s": 3.47,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

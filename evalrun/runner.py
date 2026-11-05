@@ -69,7 +69,7 @@ SHARES_STEP0 = ("router", "full")
 #: as an ERROR with its type and stage, never as an ordinary failure.
 ERROR = "ERROR"
 
-HOLDOUT_SETS = ("holdout_agent", "holdout_easy")
+HOLDOUT_SETS = ("holdout_agent", "holdout_easy", "holdout_agent_v2")
 FREEZE_V2 = ROOT / "eval" / "FREEZE_v2.sha256"
 
 

@@ -1,0 +1,168 @@
+{
+ "question_id": "ha08",
+ "type": "why",
+ "arch": "baseline",
+ "question": "Why did customer churn spike in Q3 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT STRFTIME('%Y-%m', churn_date) AS churn_month, COUNT(*) AS churned_customers FROM customers WHERE NOT churn_date IS NULL GROUP BY churn_month ORDER BY churn_month LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 27,
+   "preview": "churn_month | churned_customers\n2023-07 | 1\n2023-09 | 2\n2023-11 | 2\n2023-12 | 3\n2024-02 | 5\n... 22 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT STRFTIME('%Y-%m', churn_date) AS churn_month, COUNT(*) AS churned_customers FROM customers WHERE NOT churn_date IS NULL GROUP BY churn_month ORDER BY churn_month LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT STRFTIME('%Y-%m', churn_date) AS churn_month, COUNT(*) AS churned_customers FROM customers WHERE NOT churn_date IS NULL GROUP BY churn_month ORDER BY churn_month LIMIT 500",
+  "ok": true,
+  "columns": [
+   "churn_month",
+   "churned_customers"
+  ],
+  "rows": [
+   [
+    "2023-07",
+    1
+   ],
+   [
+    "2023-09",
+    2
+   ],
+   [
+    "2023-11",
+    2
+   ],
+   [
+    "2023-12",
+    3
+   ],
+   [
+    "2024-02",
+    5
+   ],
+   [
+    "2024-03",
+    2
+   ],
+   [
+    "2024-04",
+    3
+   ],
+   [
+    "2024-05",
+    3
+   ],
+   [
+    "2024-06",
+    3
+   ],
+   [
+    "2024-07",
+    6
+   ],
+   [
+    "2024-08",
+    5
+   ],
+   [
+    "2024-09",
+    4
+   ],
+   [
+    "2024-10",
+    5
+   ],
+   [
+    "2024-11",
+    4
+   ],
+   [
+    "2024-12",
+    5
+   ],
+   [
+    "2025-01",
+    5
+   ],
+   [
+    "2025-02",
+    6
+   ],
+   [
+    "2025-03",
+    8
+   ],
+   [
+    "2025-04",
+    4
+   ],
+   [
+    "2025-05",
+    6
+   ]
+  ],
+  "row_count": 27
+ },
+ "answer": "Assuming the user is asking about the monthly customer churn counts for Q3 2025 based on the available data, customer churn was 17 in July 2025 (2025-07), 16 in August 2025 (2025-08), and peaked at 34 in September 2025 (2025-09). The provided database records only the number of churned customers per month and does not contain information explaining why the spike occurred.",
+ "key_numbers": [
+  "17",
+  "16",
+  "34"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "594c458744008a66dbb83f417debb6e304d982828b5eb2521fd1a44630bf16f9",
+   "cache_hit": false,
+   "latency_ms": 1142.6,
+   "input_tokens": 2757,
+   "output_tokens": 161,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "aa11aa5126de60c3c22114d4a2e0b3669facec702239eed32eaf247b83d6592e",
+   "cache_hit": false,
+   "latency_ms": 1503.3,
+   "input_tokens": 779,
+   "output_tokens": 155,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 2.657,
+ "latency_live_s": 2.657,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "driver not named: ['text: APAC']"
+ }
+}

@@ -1,0 +1,171 @@
+{
+ "question_id": "hv09",
+ "type": "statistics",
+ "arch": "full",
+ "question": "Over the 24 months of 2024 and 2025, which product category has the steepest upward trend in monthly units sold in completed orders? Give the category and the slope of a least-squares line, in units per month.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The question asks for a forecast, a projection or a fitted trend line: get the series it is fitted on (one row per period), fit it from that series, and report each forecast with its period."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "WITH monthly_category_sales AS (,\n  SELECT,\n    p.category,\n    strftime('%Y-%m', o.order_date) AS month_str,\n    CAST(SUBSTR(strftime('%Y-%m', o.order_date), 1, 4) AS INTEGER) * 12 + CAST(SUBSTR(strftime('%Y-%m', o.order_date), 6, 2) AS INTEGER) AS m_idx,\n    SUM(oi.quantity) AS units\n  FROM orders o\n  JOIN order_items oi ON oi.order_id = o.order_id\n  JOIN products p ON p.product_id = oi.product_id\n  WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31'\n  GROUP BY p.category, month_str\n),\nregressions AS (\n  SELECT\n    category,\n    (\n      COUNT(*) * SUM(m_idx * units) - SUM(m_idx) * SUM(units)\n    ) / (\n      COUNT(*) * SUM(m_idx * m_idx) - SUM(m_idx) * SUM(m_idx)\n    ) AS slope\n  FROM monthly_category_sales\n  GROUP BY category\n)\nSELECT category, slope\nFROM regressions\nORDER BY slope DESC\nLIMIT 1",
+   "ok": false,
+   "failure": "blocked",
+   "error": "Could not parse SQL: Expecting ). Line 1, Col: 33.\n  WITH monthly_category_sales AS (\u001b[4m,\u001b[0m\n  SELECT,\n    p.category,\n    strftime('%Y-%m', o.order_date) AS month_str,\n    CAST(SUBSTR(strftim",
+   "row_count": 0,
+   "preview": "ERROR (blocked): Could not parse SQL: Expecting ). Line 1, Col: 33.\n  WITH monthly_category_sales AS (\u001b[4m,\u001b[0m\n  SELECT,\n    p.category,\n    strftime('%Y-%m', o.order_date) AS month_str,\n    CAST(SUBSTR(strftim"
+  },
+  {
+   "sql": "WITH monthly_category_sales AS (SELECT p.category, STRFTIME('%Y-%m', o.order_date) AS month_str, CAST(SUBSTRING(STRFTIME('%Y-%m', o.order_date), 1, 4) AS INTEGER) * 12 + CAST(SUBSTRING(STRFTIME('%Y-%m', o.order_date), 6, 2) AS INTEGER) AS m_idx, SUM(oi.quantity) AS units FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.category, month_str), regressions AS (SELECT category, (CAST(COUNT(*) AS REAL) * SUM(m_idx * units) - SUM(m_idx) * SUM(units)) / (CAST(COUNT(*) AS REAL) * SUM(m_idx * m_idx) - SUM(m_idx) * SUM(m_idx)) AS slope FROM monthly_category_sales GROUP BY category) SELECT category, slope FROM regressions ORDER BY slope DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "category | slope\nSoftware | 22.09304347826087"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql",
+    "repair"
+   ],
+   "sql": "WITH monthly_category_sales AS (SELECT p.category, STRFTIME('%Y-%m', o.order_date) AS month_str, CAST(SUBSTRING(STRFTIME('%Y-%m', o.order_date), 1, 4) AS INTEGER) * 12 + CAST(SUBSTRING(STRFTIME('%Y-%m', o.order_date), 6, 2) AS INTEGER) AS m_idx, SUM(oi.quantity) AS units FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.category, month_str), regressions AS (SELECT category, (CAST(COUNT(*) AS REAL) * SUM(m_idx * units) - SUM(m_idx) * SUM(units)) / (CAST(COUNT(*) AS REAL) * SUM(m_idx * m_idx) - SUM(m_idx) * SUM(m_idx)) AS slope FROM monthly_category_sales GROUP BY category) SELECT category, slope FROM regressions ORDER BY slope DESC LIMIT 1",
+   "reason": "",
+   "signal": "error",
+   "escalation_signal": "forecast"
+  }
+ ],
+ "repairs": [
+  {
+   "step": 1,
+   "signal": "error",
+   "detail": "Could not parse SQL: Expecting ). Line 1, Col: 33.\n  WITH monthly_category_sales AS (\u001b[4m,\u001b[0m\n  SELECT,\n    p.category,\n    strftime('%Y-%m', o.order_date) AS month_str,\n    CAST(SUBSTR(strftim",
+   "via": "A's retry",
+   "accepted": true,
+   "attempts": 1,
+   "before": {
+    "sql": "WITH monthly_category_sales AS (,\n  SELECT,\n    p.category,\n    strftime('%Y-%m', o.order_date) AS month_str,\n    CAST(SUBSTR(strftime('%Y-%m', o.order_date), 1, 4) AS INTEGER) * 12 + CAST(SUBSTR(strftime('%Y-%m', o.order_date), 6, 2) AS INTEGER) AS m_idx,\n    SUM(oi.quantity) AS units\n  FROM orders o\n  JOIN order_items oi ON oi.order_id = o.order_id\n  JOIN products p ON p.product_id = oi.product_id\n  WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31'\n  GROUP BY p.category, month_str\n),\nregressions AS (\n  SELECT\n    category,\n    (\n      COUNT(*) * SUM(m_idx * units) - SUM(m_idx) * SUM(units)\n    ) / (\n      COUNT(*) * SUM(m_idx * m_idx) - SUM(m_idx) * SUM(m_idx)\n    ) AS slope\n  FROM monthly_category_sales\n  GROUP BY category\n)\nSELECT category, slope\nFROM regressions\nORDER BY slope DESC\nLIMIT 1",
+    "ok": false,
+    "rows": 0,
+    "error": "Could not parse SQL: Expecting ). Line 1, Col: 33.\n  WITH monthly_category_sales AS (\u001b[4m,\u001b[0m\n  SELECT,\n    p.category,\n    strftime('%Y-%m', o.order_date) AS month_str,\n    CAST(SUBSTR(strftim"
+   },
+   "after": {
+    "sql": "WITH monthly_category_sales AS (SELECT p.category, STRFTIME('%Y-%m', o.order_date) AS month_str, CAST(SUBSTRING(STRFTIME('%Y-%m', o.order_date), 1, 4) AS INTEGER) * 12 + CAST(SUBSTRING(STRFTIME('%Y-%m', o.order_date), 6, 2) AS INTEGER) AS m_idx, SUM(oi.quantity) AS units FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.category, month_str), regressions AS (SELECT category, (CAST(COUNT(*) AS REAL) * SUM(m_idx * units) - SUM(m_idx) * SUM(units)) / (CAST(COUNT(*) AS REAL) * SUM(m_idx * m_idx) - SUM(m_idx) * SUM(m_idx)) AS slope FROM monthly_category_sales GROUP BY category) SELECT category, slope FROM regressions ORDER BY slope DESC LIMIT 1",
+    "ok": true,
+    "rows": 1,
+    "error": null
+   },
+   "effect": "fix"
+  }
+ ],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH monthly_category_sales AS (SELECT p.category, STRFTIME('%Y-%m', o.order_date) AS month_str, CAST(SUBSTRING(STRFTIME('%Y-%m', o.order_date), 1, 4) AS INTEGER) * 12 + CAST(SUBSTRING(STRFTIME('%Y-%m', o.order_date), 6, 2) AS INTEGER) AS m_idx, SUM(oi.quantity) AS units FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.category, month_str), regressions AS (SELECT category, (CAST(COUNT(*) AS REAL) * SUM(m_idx * units) - SUM(m_idx) * SUM(units)) / (CAST(COUNT(*) AS REAL) * SUM(m_idx * m_idx) - SUM(m_idx) * SUM(m_idx)) AS slope FROM monthly_category_sales GROUP BY category) SELECT category, slope FROM regressions ORDER BY slope DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "category",
+   "slope"
+  ],
+  "rows": [
+   [
+    "Software",
+    22.09304347826087
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Over the 24 months of 2024 and 2025, the Software product category has the steepest upward trend in monthly units sold in completed orders, with a slope of 22.09 units per month.",
+ "key_numbers": [
+  "22.09304347826087",
+  "24"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question that asks for a forecast, a projection or a",
+   "prompt_hash": "d0c797594ce9277e12ac5b5712269a579f7d46d83ede4d48a4e969345e07bd9a",
+   "cache_hit": false,
+   "latency_ms": 1499.0,
+   "input_tokens": 3976,
+   "output_tokens": 235,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You start the analysis of a question that asks for a forecast, a projection or a",
+   "prompt_hash": "a46d015230a7a4dfe8253adbdd36fc57f0dd95d853bee87503707f3150509da1",
+   "cache_hit": false,
+   "latency_ms": 1235.1,
+   "input_tokens": 4315,
+   "output_tokens": 233,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You plan the next step of an analysis of a read-only SQLite database. Choose exa",
+   "prompt_hash": "dbdfe4ae11f462893cecdfbdd1383961ac85c952197953107feb99e31f450678",
+   "cache_hit": false,
+   "latency_ms": 1209.9,
+   "input_tokens": 4642,
+   "output_tokens": 69,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "1ebd073fcd1b79942355604777d9771dd9c5fd908dd5aae24e18db4710aaf67a",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2972,
+   "output_tokens": 516,
+   "original_latency_ms": 2272.7,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "51313facb40514ca3dd47f1888b6974e06bef2820a3b51b4d88fea1202d74434",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3388,
+   "output_tokens": 450,
+   "original_latency_ms": 1737.0,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "b91a04e7be77e0558c2fc461e515be8b69adbba542df24b7f94f2ebc984693c1",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 776,
+   "output_tokens": 102,
+   "original_latency_ms": 1144.8,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.008,
+ "latency_live_s": 9.163,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

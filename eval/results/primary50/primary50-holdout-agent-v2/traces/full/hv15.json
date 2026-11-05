@@ -1,0 +1,181 @@
+{
+ "question_id": "hv15",
+ "type": "segment_comparison",
+ "arch": "full",
+ "question": "Compare the 2025 completed revenue per buying customer of EMEA and APAC. If EMEA's is more than 10% higher than APAC's, list EMEA's top 3 customers by 2025 completed revenue; otherwise, list APAC's top 3. Give each customer's ID, name and revenue.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The answer depends on a condition: evaluate the condition first with its own query, then answer only the branch that applies."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "WITH region_stats AS (SELECT r.region_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS total_revenue, COUNT(DISTINCT o.customer_id) AS buying_customers, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / COUNT(DISTINCT o.customer_id) AS rev_per_customer FROM regions AS r JOIN customers AS c ON c.region_id = r.region_id JOIN orders AS o ON o.customer_id = c.customer_id AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' JOIN order_items AS oi ON oi.order_id = o.order_id WHERE r.region_name IN ('EMEA', 'APAC') GROUP BY r.region_name), comparison AS (SELECT (SELECT rev_per_customer FROM region_stats WHERE region_name = 'EMEA') AS emea_rpc, (SELECT rev_per_customer FROM region_stats WHERE region_name = 'APAC') AS apac_rpc) SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM customers AS c JOIN regions AS r ON r.region_id = c.region_id JOIN orders AS o ON o.customer_id = c.customer_id AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' JOIN order_items AS oi ON oi.order_id = o.order_id WHERE r.region_name = CASE WHEN (SELECT emea_rpc FROM comparison) > 1.1 * (SELECT apac_rpc FROM comparison) THEN 'EMEA' ELSE 'APAC' END GROUP BY c.customer_id, c.customer_name ORDER BY revenue DESC LIMIT 3",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "customer_id | customer_name | revenue\n1254 | Sara Muller | 38417.3135\n989 | Chen Silva | 36637.7335\n1283 | Ines Moreau | 36552.446"
+  },
+  {
+   "sql": "WITH region_stats AS (SELECT r.region_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / COUNT(DISTINCT o.customer_id) AS rev_per_customer FROM regions AS r JOIN customers AS c ON c.region_id = r.region_id JOIN orders AS o ON o.customer_id = c.customer_id AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' JOIN order_items AS oi ON oi.order_id = o.order_id WHERE r.region_name IN ('EMEA', 'APAC') GROUP BY r.region_name) SELECT (SELECT rev_per_customer FROM region_stats WHERE region_name = 'EMEA') AS emea_rpc, (SELECT rev_per_customer FROM region_stats WHERE region_name = 'APAC') AS apac_rpc, CASE WHEN (SELECT rev_per_customer FROM region_stats WHERE region_name = 'EMEA') > 1.1 * (SELECT rev_per_customer FROM region_stats WHERE region_name = 'APAC') THEN 1 ELSE 0 END AS condition_net FROM region_stats LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "emea_rpc | apac_rpc | condition_net\n11200.386855305465 | 9745.214185661765 | 1"
+  },
+  {
+   "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM customers AS c JOIN regions AS r ON r.region_id = c.region_id JOIN orders AS o ON o.customer_id = c.customer_id AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' JOIN order_items AS oi ON oi.order_id = o.order_id WHERE r.region_name = 'EMEA' GROUP BY c.customer_id, c.customer_name ORDER BY revenue DESC LIMIT 3",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "customer_id | customer_name | revenue\n1254 | Sara Muller | 38417.3135\n989 | Chen Silva | 36637.7335\n1283 | Ines Moreau | 36552.446"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH region_stats AS (SELECT r.region_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS total_revenue, COUNT(DISTINCT o.customer_id) AS buying_customers, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / COUNT(DISTINCT o.customer_id) AS rev_per_customer FROM regions AS r JOIN customers AS c ON c.region_id = r.region_id JOIN orders AS o ON o.customer_id = c.customer_id AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' JOIN order_items AS oi ON oi.order_id = o.order_id WHERE r.region_name IN ('EMEA', 'APAC') GROUP BY r.region_name), comparison AS (SELECT (SELECT rev_per_customer FROM region_stats WHERE region_name = 'EMEA') AS emea_rpc, (SELECT rev_per_customer FROM region_stats WHERE region_name = 'APAC') AS apac_rpc) SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM customers AS c JOIN regions AS r ON r.region_id = c.region_id JOIN orders AS o ON o.customer_id = c.customer_id AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' JOIN order_items AS oi ON oi.order_id = o.order_id WHERE r.region_name = CASE WHEN (SELECT emea_rpc FROM comparison) > 1.1 * (SELECT apac_rpc FROM comparison) THEN 'EMEA' ELSE 'APAC' END GROUP BY c.customer_id, c.customer_name ORDER BY revenue DESC LIMIT 3",
+   "reason": "",
+   "signal": null,
+   "escalation_signal": "conditional"
+  },
+  {
+   "step": 2,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH region_stats AS (SELECT r.region_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / COUNT(DISTINCT o.customer_id) AS rev_per_customer FROM regions AS r JOIN customers AS c ON c.region_id = r.region_id JOIN orders AS o ON o.customer_id = c.customer_id AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' JOIN order_items AS oi ON oi.order_id = o.order_id WHERE r.region_name IN ('EMEA', 'APAC') GROUP BY r.region_name) SELECT (SELECT rev_per_customer FROM region_stats WHERE region_name = 'EMEA') AS emea_rpc, (SELECT rev_per_customer FROM region_stats WHERE region_name = 'APAC') AS apac_rpc, CASE WHEN (SELECT rev_per_customer FROM region_stats WHERE region_name = 'EMEA') > 1.1 * (SELECT rev_per_customer FROM region_stats WHERE region_name = 'APAC') THEN 1 ELSE 0 END AS condition_net FROM region_stats LIMIT 1",
+   "reason": "Evaluate whether EMEA's 2025 completed revenue per buying customer is more than 10% higher than APAC's.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM customers AS c JOIN regions AS r ON r.region_id = c.region_id JOIN orders AS o ON o.customer_id = c.customer_id AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' JOIN order_items AS oi ON oi.order_id = o.order_id WHERE r.region_name = 'EMEA' GROUP BY c.customer_id, c.customer_name ORDER BY revenue DESC LIMIT 3",
+   "reason": "EMEA's 2025 completed revenue per buying customer ($11,200.39) is more than 10% higher than APAC's ($9,745.21), so we list EMEA's top 3 customers by 2025 completed revenue.",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 3,
+ "selected_result": {
+  "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM customers AS c JOIN regions AS r ON r.region_id = c.region_id JOIN orders AS o ON o.customer_id = c.customer_id AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' JOIN order_items AS oi ON oi.order_id = o.order_id WHERE r.region_name = 'EMEA' GROUP BY c.customer_id, c.customer_name ORDER BY revenue DESC LIMIT 3",
+  "ok": true,
+  "columns": [
+   "customer_id",
+   "customer_name",
+   "revenue"
+  ],
+  "rows": [
+   [
+    1254,
+    "Sara Muller",
+    38417.3135
+   ],
+   [
+    989,
+    "Chen Silva",
+    36637.7335
+   ],
+   [
+    1283,
+    "Ines Moreau",
+    36552.446
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "Assuming the 2025 completed revenue per buying customer of EMEA ($11,200.39) is more than 10% higher than APAC's ($9,745.21), the condition is met and EMEA's top 3 customers by 2025 completed revenue are listed: Sara Muller (customer ID 1254) with $38,417.31, Chen Silva (customer ID 989) with $36,637.73, and Ines Moreau (customer ID 1283) with $36,552.45.",
+ "key_numbers": [
+  "11200.39",
+  "9745.21",
+  "1254",
+  "38417.3135",
+  "989",
+  "36637.7335",
+  "1283",
+  "36552.446"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question whose answer depends on a condition (for ex",
+   "prompt_hash": "971b6a35b9646d1ec7c8e48c84e4087af6740539e367f1fa90bda685aab85935",
+   "cache_hit": false,
+   "latency_ms": 1813.9,
+   "input_tokens": 3583,
+   "output_tokens": 339,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "The condition of a question has been evaluated: its result is the last step belo",
+   "prompt_hash": "5d9d39d0c8d9bca857599d17e40e0dc4338358a7e7e1f6983f33de78006109db",
+   "cache_hit": false,
+   "latency_ms": 1867.4,
+   "input_tokens": 3995,
+   "output_tokens": 288,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "195db782e46727dae66a1d3063a040109ec169fcac624a98cd312d04b48559d9",
+   "cache_hit": false,
+   "latency_ms": 1515.6,
+   "input_tokens": 887,
+   "output_tokens": 252,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "e33691d45bf7eb79f11e10d8708268439e7a55496b4a0648ff3c997ffcb510f9",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2991,
+   "output_tokens": 673,
+   "original_latency_ms": 2480.3,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "adc659e6f6c49ef3211fec2b8f5fbd93960c80b2e79e741862980176069e8802",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3659,
+   "output_tokens": 616,
+   "original_latency_ms": 2256.1,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 5.28,
+ "latency_live_s": 10.017,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "3 row(s) match"
+ }
+}

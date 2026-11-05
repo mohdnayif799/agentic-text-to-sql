@@ -1,0 +1,84 @@
+{
+ "question_id": "dv01",
+ "type": "term_matching",
+ "arch": "baseline",
+ "question": "What was the 2024 completed revenue of our customer Idirs Rosis? Give the customer's ID and name with the revenue.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Idirs Rosis' AND o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+   "ok": true,
+   "failure": "empty",
+   "error": null,
+   "row_count": 0,
+   "preview": "0 rows returned."
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Idirs Rosis' AND o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY c.customer_id, c.customer_name LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Idirs Rosis' AND o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+  "ok": true,
+  "columns": [
+   "customer_id",
+   "customer_name",
+   "revenue"
+  ],
+  "rows": [],
+  "row_count": 0
+ },
+ "answer": "No matching data was found for the customer Idirs Rosis in 2024.",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "e29870b73b12bb0a8f1e5056ca39fab6d0f0e65b0e370a8dfd1e516dd1e3ace9",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2975,
+   "output_tokens": 257,
+   "original_latency_ms": 1475.4,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "cbe615326c349bc369bd98e5bc0bd47500435f757b32416e7cde18a915f151cc",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 588,
+   "output_tokens": 41,
+   "original_latency_ms": 700.9,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.023,
+ "latency_live_s": 2.199,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "expected 1 row(s), got 0; answer missing ['text: Idris Rossi', 'text: 1133', 'number: 33475.845']"
+ }
+}

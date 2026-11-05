@@ -233,6 +233,7 @@ TOOL_LABELS = {
     "sample_rows": "Sample rows",
     "decompose_change": "Metric decomposition",
     "contribution_by_dimension": "Contribution analysis",
+    "period_history": "Earlier periods",
     "linear_trend_forecast": "Trend forecast",
     "zscore_anomalies": "Anomaly check",
     "pct_change": "Percent change",
@@ -296,15 +297,17 @@ SIGNAL_WORDS = {
     "fanout": "the first query's join would have counted rows more than once",
     "empty": "the first query returned no rows",
     "sanity": "the first query's result looked wrong (all empty, or too many rows)",
+    "null_row": "the first query's result had a row with no value",
     "reconcile": "the first query's totals did not add up",
     "percent": "a percentage in the first result was out of range",
     "date_format": "the first query compared dates written in different formats",
     "date_range": "the first query used other dates than the question",
     "forecast": "the question asks for a forecast or a fitted trend",
+    "conditional": "the answer depends on a condition in the question",
 }
 #: Signals raised when a query runs, so before the follow-up decision.
 #: The verification kinds only run once a question has already escalated.
-_RAISED_ON_RUN = frozenset({"error", "schema", "fanout", "empty", "sanity"})
+_RAISED_ON_RUN = frozenset({"error", "schema", "fanout", "empty", "sanity", "null_row"})
 _SOME_CHECK = "a check on the first result asked for more work"
 
 #: What a tool did, as the end of "..., so it <phrase>."
@@ -315,6 +318,7 @@ ACTION_WORDS = {
     "sample_rows": "looked at sample rows",
     "decompose_change": "split the change into its components",
     "contribution_by_dimension": "measured how much each group contributed",
+    "period_history": "compared it with earlier periods",
     "linear_trend_forecast": "fitted a straight-line trend",
     "zscore_anomalies": "looked for unusual values",
     "pct_change": "computed percentage changes",

@@ -161,17 +161,9 @@ class TestComputeFunctions:
              '"order": "month", "periods": ["2023-05"]}'), "not one of"),
     (compute("linear_trend_forecast", '{"step": 1, "value": "signups", '
              '"order": "month", "periods_ahead": 99}'), "between 1 and 24"),
-    (compute("decompose_change", '{"metric": "profit", "comparison": '
-             '{"group_dimension": "channel", "groups": ["Online", "Direct"]}}'),
-     "unknown metric"),
-    (compute("decompose_change", '{"metric": "revenue", "comparison": '
-             '{"group_dimension": "colour", "groups": ["Online", "Direct"]}}'),
-     "not available"),
     (compute("decompose_change", '{"metric": "revenue", "comparison": '
              '{"group_dimension": "channel", "groups": ["online", "Direct"]}}'),
      "no data"),  # data values are case-sensitive: a clean miss, not a guess
-    (compute("contribution_by_dimension", '{"metric": "revenue", "comparison": {}}'),
-     "period_a"),
     ('{"action": "get_distinct_values", "table": "invoices", "column": "id"}',
      "no table"),
     ('{"action": "get_distinct_values", "table": "orders", "column": "colour"}',
@@ -190,6 +182,12 @@ def test_bad_arguments_fail_cleanly(setup, reply, message):
     '{"action": "delete_rows", "table": "orders"}',  # not an action
     '{"action": "compute", "function": "median"}',   # not a function
     '{"action": "compute", "function": "pct_change", "params": "step=1"}',
+    # Metric calls the tool would refuse (tests/test_plan_validation.py).
+    compute("decompose_change", '{"metric": "profit", "comparison": '
+            '{"group_dimension": "channel", "groups": ["Online", "Direct"]}}'),
+    compute("decompose_change", '{"metric": "revenue", "comparison": '
+            '{"group_dimension": "colour", "groups": ["Online", "Direct"]}}'),
+    compute("contribution_by_dimension", '{"metric": "revenue", "comparison": {}}'),
 ])
 def test_invalid_replies_are_rejected_before_dispatch(reply):
     """These raise at validation; the structured-output path then asks the

@@ -1,0 +1,78 @@
+{
+ "note": "dev probe: ungraded, never part of any holdout",
+ "id": "probe-vague-ranking",
+ "question": "Which sales channel is our best? Give the channel and the figure behind it.",
+ "expect": "Any metric is a fair reading, and the answer must say which one it used. On all-time completed revenue it is Online with 10,195,563.",
+ "status": "done",
+ "path": "direct",
+ "answer": "Assuming \"best\" is measured by total revenue for completed orders, our top sales channel is Online with a revenue of 10,195,563.46.",
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT o.channel AS channel, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' GROUP BY o.channel ORDER BY revenue DESC LIMIT 1",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "attempts": [
+  {
+   "sql": "SELECT o.channel AS channel, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' GROUP BY o.channel ORDER BY revenue DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "channel | revenue\nOnline | 10195563.464"
+  }
+ ],
+ "selected": {
+  "sql": "SELECT o.channel AS channel, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' GROUP BY o.channel ORDER BY revenue DESC LIMIT 1",
+  "columns": [
+   "channel",
+   "revenue"
+  ],
+  "rows": [
+   [
+    "Online",
+    10195563.464
+   ]
+  ]
+ },
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "a50d8ca813b89efff793686aec3a9eb333628472bff3f8f7e030b849763af234",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2561,
+   "output_tokens": 168,
+   "original_latency_ms": 1158.1,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "acd8a5b34f4532c2ba4a3efa4ddc0bc61fa547db3026c6e976c967c44f3776e9",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 510,
+   "output_tokens": 79,
+   "original_latency_ms": 781.8,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "eb5308841ff7e6d103c2c9d811f7f5fe8ab0fbe5443756a5cf8bca3a4012cdce",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 398,
+   "output_tokens": 32,
+   "original_latency_ms": 717.8,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ]
+}

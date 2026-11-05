@@ -1,0 +1,104 @@
+{
+ "question_id": "dv04",
+ "type": "statistics",
+ "arch": "full",
+ "question": "Which months stand out in how quickly we closed support tickets? Take tickets opened in 2024 and 2025 that have a resolved date, compute the mean days to close for each opening month, and flag months whose mean is more than 2 standard deviations from the average of those 24 monthly means. Give each flagged month (YYYY-MM) and its mean days to close.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH monthly_means AS (SELECT STRFTIME('%Y-%m', created_date) AS opening_month, AVG(JULIANDAY(resolved_date) - JULIANDAY(created_date)) AS mean_days FROM support_tickets WHERE created_date >= '2024-01-01' AND created_date <= '2025-12-31' AND NOT resolved_date IS NULL GROUP BY STRFTIME('%Y-%m', created_date)), stats AS (SELECT AVG(mean_days) AS grand_mean, SQRT(SUM((mean_days - (SELECT AVG(mean_days) FROM monthly_means)) * (mean_days - (SELECT AVG(mean_days) FROM monthly_means))) / COUNT(*)) AS stdev_days /* SQLite doesn't have STDEV built-in standard function; we compute population or sample standard deviation */ FROM monthly_means) SELECT m.opening_month, m.mean_days FROM monthly_means AS m CROSS JOIN stats AS s WHERE ABS(m.mean_days - s.grand_mean) > 2 * s.stdev_days ORDER BY m.opening_month LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "opening_month | mean_days\n2024-08 | 9.150943396226415"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH monthly_means AS (SELECT STRFTIME('%Y-%m', created_date) AS opening_month, AVG(JULIANDAY(resolved_date) - JULIANDAY(created_date)) AS mean_days FROM support_tickets WHERE created_date >= '2024-01-01' AND created_date <= '2025-12-31' AND NOT resolved_date IS NULL GROUP BY STRFTIME('%Y-%m', created_date)), stats AS (SELECT AVG(mean_days) AS grand_mean, SQRT(SUM((mean_days - (SELECT AVG(mean_days) FROM monthly_means)) * (mean_days - (SELECT AVG(mean_days) FROM monthly_means))) / COUNT(*)) AS stdev_days /* SQLite doesn't have STDEV built-in standard function; we compute population or sample standard deviation */ FROM monthly_means) SELECT m.opening_month, m.mean_days FROM monthly_means AS m CROSS JOIN stats AS s WHERE ABS(m.mean_days - s.grand_mean) > 2 * s.stdev_days ORDER BY m.opening_month LIMIT 500",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH monthly_means AS (SELECT STRFTIME('%Y-%m', created_date) AS opening_month, AVG(JULIANDAY(resolved_date) - JULIANDAY(created_date)) AS mean_days FROM support_tickets WHERE created_date >= '2024-01-01' AND created_date <= '2025-12-31' AND NOT resolved_date IS NULL GROUP BY STRFTIME('%Y-%m', created_date)), stats AS (SELECT AVG(mean_days) AS grand_mean, SQRT(SUM((mean_days - (SELECT AVG(mean_days) FROM monthly_means)) * (mean_days - (SELECT AVG(mean_days) FROM monthly_means))) / COUNT(*)) AS stdev_days /* SQLite doesn't have STDEV built-in standard function; we compute population or sample standard deviation */ FROM monthly_means) SELECT m.opening_month, m.mean_days FROM monthly_means AS m CROSS JOIN stats AS s WHERE ABS(m.mean_days - s.grand_mean) > 2 * s.stdev_days ORDER BY m.opening_month LIMIT 500",
+  "ok": true,
+  "columns": [
+   "opening_month",
+   "mean_days"
+  ],
+  "rows": [
+   [
+    "2024-08",
+    9.150943396226415
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Assuming months where the mean days to close is more than 2 standard deviations from the average of the monthly means, August 2024 (2024-08) stands out with a mean of 9.15 days.",
+ "key_numbers": [
+  "2024-08",
+  "9.150943396226415"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "2dd96bf6eadbc8c841732c73fb1f7326a1349e7951d5c6623259d4e593bed5ce",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2874,
+   "output_tokens": 472,
+   "original_latency_ms": 1737.4,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "5864df79f56da3f1142b5bbc60a5ce56a6c83f8e14336c4fb1798ced067c4266",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 782,
+   "output_tokens": 108,
+   "original_latency_ms": 947.0,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "b773b221f0cad1a6ceeb7ee9247246cc1a23fedc5b326d5909daccda63b74b84",
+   "cache_hit": false,
+   "latency_ms": 874.0,
+   "input_tokens": 670,
+   "output_tokens": 58,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.906,
+ "latency_live_s": 3.59,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

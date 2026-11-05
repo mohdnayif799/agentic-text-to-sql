@@ -1,0 +1,732 @@
+{
+ "db_fingerprint": {
+  "customers": "b8ac4f7505071b6275e6de1fa0574b3047fb08804827d6a36ae8457e941647cc",
+  "marketing_spend": "a360482b8faedadabc5029f6b66d1f4fd37d436629097fdb8ed3871bd6e0add2",
+  "order_items": "d9c77f6f8b8e70e3533ac938e725c5f413554d02066bcc879807f53b84e42c3d",
+  "orders": "613026a6a3a624b6322a1effa564e78f9c1dd6fc78baadff3fd16779a7908b6c",
+  "products": "997086da819a7dac61df2ba16ee8e7ba78d03007f9290560711924ffb8c937cc",
+  "regions": "9d9ae6353a3bb09ae16f0809013479ed4be678998b074dde275794ba0f7dfe6a",
+  "support_tickets": "33a3fb46464f4f3cd2e28e56c566bc7cc9a9cb327d12ee00cce10d37593690c4"
+ },
+ "gold": {
+  "hv01": {
+   "columns": [
+    "region_name",
+    "channel",
+    "refunded_orders"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     "LATAM",
+     "Online",
+     79
+    ]
+   ],
+   "top_n": 1,
+   "type": "multi_hop"
+  },
+  "hv02": {
+   "columns": [
+    "customer_id",
+    "customer_name",
+    "tickets_2025"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     1175,
+     "Marco Kim",
+     0
+    ]
+   ],
+   "top_n": 1,
+   "type": "multi_hop"
+  },
+  "hv03": {
+   "columns": [
+    "product_id",
+    "product_name",
+    "units_change_pct"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     32,
+     "Meridian Cascade",
+     67.56756756756756
+    ]
+   ],
+   "type": "term_matching"
+  },
+  "hv04": {
+   "columns": [
+    "customer_id",
+    "customer_name",
+    "revenue_2025",
+    "tickets_2025"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     836,
+     "Nadia Popescu",
+     13490.8825,
+     5
+    ]
+   ],
+   "type": "term_matching"
+  },
+  "hv05": {
+   "evidence": {
+    "latam_by_category": {
+     "columns": [
+      "category",
+      "revenue_2024",
+      "revenue_2025"
+     ],
+     "rows": [
+      [
+       "Accessories",
+       26011.0115,
+       47084.0035
+      ],
+      [
+       "Hardware",
+       847572.887,
+       1065821.3325
+      ],
+      [
+       "Services",
+       198246.4725,
+       326030.175
+      ],
+      [
+       "Software",
+       210263.5005,
+       297429.3515
+      ]
+     ]
+    },
+    "latam_by_channel": {
+     "columns": [
+      "channel",
+      "revenue_2024",
+      "revenue_2025"
+     ],
+     "rows": [
+      [
+       "Direct",
+       383491.432,
+       583543.202
+      ],
+      [
+       "Online",
+       592393.159,
+       732945.007
+      ],
+      [
+       "Partner",
+       306209.2805,
+       419876.6535
+      ]
+     ]
+    },
+    "latam_by_segment": {
+     "columns": [
+      "segment",
+      "revenue_2024",
+      "revenue_2025",
+      "orders_2024",
+      "orders_2025",
+      "buyers_2024",
+      "buyers_2025"
+     ],
+     "rows": [
+      [
+       "Enterprise",
+       304502.5095,
+       368362.349,
+       113,
+       140,
+       32,
+       44
+      ],
+      [
+       "Mid-Market",
+       580222.7535,
+       583778.8275,
+       186,
+       226,
+       53,
+       61
+      ],
+      [
+       "SMB",
+       397368.60850000003,
+       784223.686,
+       135,
+       257,
+       43,
+       65
+      ]
+     ]
+    }
+   },
+   "type": "why"
+  },
+  "hv06": {
+   "evidence": {
+    "apac_spend_by_channel": {
+     "columns": [
+      "channel",
+      "spend_2024",
+      "spend_2025"
+     ],
+     "rows": [
+      [
+       "Direct",
+       217971.33,
+       148340.93
+      ],
+      [
+       "Online",
+       199580.97,
+       196312.83000000002
+      ],
+      [
+       "Partner",
+       199937.33000000002,
+       162944.59
+      ]
+     ]
+    },
+    "spend_change_pct_by_region": {
+     "columns": [
+      "region_name",
+      "change_pct"
+     ],
+     "rows": [
+      [
+       "APAC",
+       -17.79645756965992
+      ],
+      [
+       "EMEA",
+       -2.3425820319034756
+      ],
+      [
+       "LATAM",
+       4.405939436806349
+      ],
+      [
+       "North America",
+       -6.681488235005929
+      ]
+     ]
+    }
+   },
+   "type": "why"
+  },
+  "hv07": {
+   "evidence": {
+    "by_segment_2024": {
+     "columns": [
+      "region_name",
+      "segment",
+      "revenue",
+      "buying_customers"
+     ],
+     "rows": [
+      [
+       "LATAM",
+       "Enterprise",
+       304502.5095,
+       32
+      ],
+      [
+       "LATAM",
+       "Mid-Market",
+       580222.7535,
+       53
+      ],
+      [
+       "LATAM",
+       "SMB",
+       397368.60850000003,
+       43
+      ],
+      [
+       "North America",
+       "Enterprise",
+       874603.183,
+       78
+      ],
+      [
+       "North America",
+       "Mid-Market",
+       1471980.869,
+       138
+      ],
+      [
+       "North America",
+       "SMB",
+       1617705.654,
+       145
+      ]
+     ]
+    },
+    "north_america_vs_latam_2024": {
+     "columns": [
+      "region_name",
+      "revenue",
+      "buying_customers",
+      "orders",
+      "orders_per_buyer",
+      "avg_order_value"
+     ],
+     "rows": [
+      [
+       "LATAM",
+       1282093.8715,
+       128,
+       434,
+       3.390625,
+       2954.133344470046
+      ],
+      [
+       "North America",
+       3964289.706,
+       361,
+       1229,
+       3.404432132963989,
+       3225.622218063466
+      ]
+     ]
+    }
+   },
+   "type": "why"
+  },
+  "hv08": {
+   "columns": [
+    "projected_units"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     2642.607142857143
+    ]
+   ],
+   "type": "statistics"
+  },
+  "hv09": {
+   "columns": [
+    "category",
+    "slope"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     "Software",
+     22.09304347826087
+    ]
+   ],
+   "top_n": 1,
+   "type": "statistics"
+  },
+  "hv10": {
+   "columns": [
+    "region_name",
+    "median_days"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     "APAC",
+     12.0
+    ],
+    [
+     "EMEA",
+     11.0
+    ],
+    [
+     "LATAM",
+     12.0
+    ],
+    [
+     "North America",
+     11.0
+    ]
+   ],
+   "type": "statistics"
+  },
+  "hv11": {
+   "columns": [
+    "channel",
+    "spend_per_order"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     "Direct",
+     939.0929177718833
+    ],
+    [
+     "Online",
+     553.7508716323296
+    ],
+    [
+     "Partner",
+     1178.338051575931
+    ]
+   ],
+   "type": "recovery"
+  },
+  "hv12": {
+   "columns": [
+    "region_name",
+    "customers"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     "APAC",
+     32
+    ],
+    [
+     "EMEA",
+     36
+    ],
+    [
+     "LATAM",
+     18
+    ],
+    [
+     "North America",
+     50
+    ]
+   ],
+   "type": "recovery"
+  },
+  "hv13": {
+   "interpretations": {
+    "orders_growth_2024_2025": {
+     "columns": [
+      "category",
+      "growth_pct"
+     ],
+     "rows": [
+      [
+       "Software",
+       49.96923076923076
+      ]
+     ],
+     "top_n": 1
+    },
+    "revenue_growth_2024_2025": {
+     "columns": [
+      "category",
+      "growth_pct"
+     ],
+     "rows": [
+      [
+       "Accessories",
+       59.8204469579062
+      ]
+     ],
+     "top_n": 1
+    },
+    "revenue_growth_q4_on_q4": {
+     "columns": [
+      "category",
+      "growth_pct"
+     ],
+     "rows": [
+      [
+       "Accessories",
+       40.22644211617305
+      ]
+     ],
+     "top_n": 1
+    },
+    "units_growth_2024_2025": {
+     "columns": [
+      "category",
+      "growth_pct"
+     ],
+     "rows": [
+      [
+       "Services",
+       55.55555555555554
+      ]
+     ],
+     "top_n": 1
+    }
+   },
+   "type": "ambiguous"
+  },
+  "hv14": {
+   "interpretations": {
+    "highest_cancellation_rate": {
+     "columns": [
+      "region_name",
+      "cancellation_rate_pct"
+     ],
+     "rows": [
+      [
+       "APAC",
+       17.365853658536587
+      ]
+     ],
+     "top_n": 1
+    },
+    "highest_refund_rate": {
+     "columns": [
+      "region_name",
+      "refund_rate_pct"
+     ],
+     "rows": [
+      [
+       "North America",
+       18.514588859416445
+      ]
+     ],
+     "top_n": 1
+    },
+    "lowest_average_order_value": {
+     "columns": [
+      "region_name",
+      "avg_order_value"
+     ],
+     "rows": [
+      [
+       "LATAM",
+       2954.133344470046
+      ]
+     ],
+     "top_n": 1
+    },
+    "lowest_buying_customers": {
+     "columns": [
+      "region_name",
+      "buying_customers"
+     ],
+     "rows": [
+      [
+       "LATAM",
+       128
+      ]
+     ],
+     "top_n": 1
+    },
+    "lowest_completed_orders": {
+     "columns": [
+      "region_name",
+      "completed_orders"
+     ],
+     "rows": [
+      [
+       "LATAM",
+       434
+      ]
+     ],
+     "top_n": 1
+    },
+    "lowest_revenue": {
+     "columns": [
+      "region_name",
+      "revenue"
+     ],
+     "rows": [
+      [
+       "LATAM",
+       1282093.8715
+      ]
+     ],
+     "top_n": 1
+    },
+    "lowest_revenue_per_buying_customer": {
+     "columns": [
+      "region_name",
+      "revenue_per_buyer"
+     ],
+     "rows": [
+      [
+       "LATAM",
+       10016.35837109375
+      ]
+     ],
+     "top_n": 1
+    },
+    "most_customers_churned": {
+     "columns": [
+      "region_name",
+      "churned"
+     ],
+     "rows": [
+      [
+       "North America",
+       14
+      ]
+     ],
+     "top_n": 1
+    }
+   },
+   "type": "ambiguous"
+  },
+  "hv15": {
+   "columns": [
+    "customer_id",
+    "customer_name",
+    "revenue"
+   ],
+   "evidence": {
+    "revenue_per_buyer_2025": {
+     "columns": [
+      "region_name",
+      "revenue_per_buyer"
+     ],
+     "rows": [
+      [
+       "APAC",
+       9745.214185661765
+      ],
+      [
+       "EMEA",
+       11200.386855305465
+      ],
+      [
+       "LATAM",
+       10213.910955882353
+      ],
+      [
+       "North America",
+       10705.99466191446
+      ]
+     ]
+    }
+   },
+   "ordered": false,
+   "rows": [
+    [
+     1254,
+     "Sara Muller",
+     38417.3135
+    ],
+    [
+     989,
+     "Chen Silva",
+     36637.7335
+    ],
+    [
+     1283,
+     "Ines Moreau",
+     36552.446
+    ]
+   ],
+   "top_n": 3,
+   "type": "segment_comparison"
+  },
+  "hv16": {
+   "columns": [
+    "region_name",
+    "completed_orders"
+   ],
+   "evidence": {
+    "share_of_completed_orders": {
+     "columns": [
+      "channel",
+      "year",
+      "share_pct"
+     ],
+     "rows": [
+      [
+       "Direct",
+       "2024",
+       28.67485048788165
+      ],
+      [
+       "Direct",
+       "2025",
+       31.84504267892318
+      ],
+      [
+       "Online",
+       "2024",
+       45.860875039345295
+      ],
+      [
+       "Online",
+       "2025",
+       43.79514116874589
+      ],
+      [
+       "Partner",
+       "2024",
+       25.464274472773056
+      ],
+      [
+       "Partner",
+       "2025",
+       24.359816152330925
+      ]
+     ]
+    }
+   },
+   "ordered": false,
+   "rows": [
+    [
+     "APAC",
+     306
+    ],
+    [
+     "EMEA",
+     374
+    ],
+    [
+     "LATAM",
+     208
+    ],
+    [
+     "North America",
+     567
+    ]
+   ],
+   "type": "segment_comparison"
+  },
+  "hv17": {
+   "columns": [
+    "region_name",
+    "segment",
+    "growth_pct"
+   ],
+   "ordered": false,
+   "rows": [
+    [
+     "APAC",
+     "Mid-Market",
+     34.53512134432509
+    ],
+    [
+     "EMEA",
+     "Enterprise",
+     45.56861151284522
+    ],
+    [
+     "LATAM",
+     "SMB",
+     97.35421198979785
+    ],
+    [
+     "North America",
+     "Mid-Market",
+     47.72612343645889
+    ]
+   ],
+   "type": "segment_comparison"
+  }
+ },
+ "questions_file": "eval/holdout_agent_v2.yaml",
+ "questions_sha256": "f3130f0b877470e8f4ac319df046e57f4a0ad15b92ed4ce190f37935da3e30a2",
+ "set": "holdout_agent_v2"
+}

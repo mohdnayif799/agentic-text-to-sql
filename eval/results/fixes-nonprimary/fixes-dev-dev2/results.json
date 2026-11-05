@@ -1,0 +1,522 @@
+{
+ "set": "dev2",
+ "archs": [
+  "baseline",
+  "full"
+ ],
+ "provider": "gemini",
+ "model": "gemini-3.5-flash-lite",
+ "temperature": 0.0,
+ "today": "2026-10-04",
+ "max_steps": 3,
+ "max_attempts_per_step": 3,
+ "questions_sha256": "81aed17bfb05236ca53af0232e1a28d7b52ca14c50bd052dde56909fe74b4b57",
+ "code_commit": "470a70f",
+ "started_utc": "2026-11-04T22:56:49+00:00",
+ "planned_calls": {
+  "per_arch": {
+   "baseline": {
+    "typical": 12,
+    "max": 18
+   },
+   "full": {
+    "typical": 18,
+    "max": 78
+   }
+  },
+  "judge_max": 0,
+  "typical": 30,
+  "max": 96
+ },
+ "finished_utc": "2026-11-04T22:57:18+00:00",
+ "complete": true,
+ "stopped_reason": null,
+ "summary": {
+  "baseline": {
+   "primary": "5/6",
+   "wilson95": [
+    0.436,
+    0.97
+   ],
+   "pending": 0,
+   "errors": 0,
+   "not_evaluated": 0,
+   "answer_ok": 5,
+   "end_to_end": 5,
+   "avg_llm_calls": 2.0,
+   "avg_latency_s": 2.55,
+   "avg_latency_live_s": 2.55,
+   "by_type": {
+    "recovery": "1/1",
+    "segment_comparison": "1/1",
+    "statistics": "2/2",
+    "term_matching": "1/2"
+   }
+  },
+  "full": {
+   "primary": "6/6",
+   "wilson95": [
+    0.61,
+    1.0
+   ],
+   "pending": 0,
+   "errors": 0,
+   "not_evaluated": 0,
+   "answer_ok": 6,
+   "end_to_end": 6,
+   "avg_llm_calls": 3.67,
+   "avg_latency_s": 2.22,
+   "avg_latency_live_s": 4.5,
+   "by_type": {
+    "recovery": "1/1",
+    "segment_comparison": "1/1",
+    "statistics": "2/2",
+    "term_matching": "2/2"
+   }
+  }
+ },
+ "escalation": {
+  "full": {
+   "helped": 1,
+   "harmed": 0,
+   "no change": 2,
+   "unknown": 0,
+   "questions": [
+    {
+     "id": "dv01",
+     "baseline": false,
+     "full": true,
+     "effect": "helped"
+    },
+    {
+     "id": "dv03",
+     "baseline": true,
+     "full": true,
+     "effect": "no change"
+    },
+    {
+     "id": "dv05",
+     "baseline": true,
+     "full": true,
+     "effect": "no change"
+    }
+   ]
+  }
+ },
+ "missed_escalations": {
+  "baseline_failed": 1,
+  "router": {
+   "escalated": 0,
+   "not_escalated": 0,
+   "error": 0,
+   "not_run": 1
+  },
+  "full": {
+   "escalated": 1,
+   "not_escalated": 0,
+   "error": 0,
+   "not_run": 0
+  },
+  "questions": [
+   {
+    "id": "dv01",
+    "router": "not run",
+    "full": "escalated (pass)"
+   }
+  ]
+ },
+ "provider_resumes": [],
+ "items": [
+  {
+   "id": "dv01",
+   "type": "term_matching",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "expected 1 row(s), got 0; answer missing ['text: Idris Rossi', 'text: 1133', 'number: 33475.845']",
+   "detail": "expected 1 row(s), got 0; answer missing ['text: Idris Rossi', 'text: 1133', 'number: 33475.845']",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 2.876,
+   "latency_live_s": 2.876,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/dv01.json"
+  },
+  {
+   "id": "dv01",
+   "type": "term_matching",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 6,
+   "live_calls": 4,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 5.036,
+   "latency_live_s": 8.459,
+   "latency_unmeasured_calls": 0,
+   "repairs": 2,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql",
+     "repair"
+    ],
+    [
+     "search_values"
+    ],
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/dv01.json"
+  },
+  {
+   "id": "dv02",
+   "type": "term_matching",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 1.865,
+   "latency_live_s": 1.865,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/dv02.json"
+  },
+  {
+   "id": "dv02",
+   "type": "term_matching",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.794,
+   "latency_live_s": 2.644,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/dv02.json"
+  },
+  {
+   "id": "dv03",
+   "type": "statistics",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "3 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 3.007,
+   "latency_live_s": 3.007,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/dv03.json"
+  },
+  {
+   "id": "dv03",
+   "type": "statistics",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "3 row(s) match",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 2,
+   "cache_hits": 1,
+   "judge_calls": 0,
+   "latency_s": 2.129,
+   "latency_live_s": 4.074,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ],
+    [
+     "run_sql"
+    ],
+    [
+     "compute:linear_trend_forecast"
+    ]
+   ],
+   "trace": "traces/full/dv03.json"
+  },
+  {
+   "id": "dv04",
+   "type": "statistics",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 2.7,
+   "latency_live_s": 2.7,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/dv04.json"
+  },
+  {
+   "id": "dv04",
+   "type": "statistics",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.906,
+   "latency_live_s": 3.59,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/dv04.json"
+  },
+  {
+   "id": "dv05",
+   "type": "segment_comparison",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "3 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 3.091,
+   "latency_live_s": 3.091,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/dv05.json"
+  },
+  {
+   "id": "dv05",
+   "type": "segment_comparison",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "3 row(s) match",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 4,
+   "live_calls": 3,
+   "cache_hits": 1,
+   "judge_calls": 0,
+   "latency_s": 3.753,
+   "latency_live_s": 5.761,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ],
+    [
+     "run_sql"
+    ],
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/dv05.json"
+  },
+  {
+   "id": "dv06",
+   "type": "recovery",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 1.746,
+   "latency_live_s": 1.746,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/dv06.json"
+  },
+  {
+   "id": "dv06",
+   "type": "recovery",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.717,
+   "latency_live_s": 2.449,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/dv06.json"
+  }
+ ]
+}

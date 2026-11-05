@@ -1,0 +1,480 @@
+{
+ "set": "showcase",
+ "archs": [
+  "baseline",
+  "full"
+ ],
+ "provider": "gemini",
+ "model": "gemini-3.5-flash-lite",
+ "temperature": 0.0,
+ "today": "2026-10-04",
+ "max_steps": 3,
+ "max_attempts_per_step": 3,
+ "questions_sha256": "dbe79111170d7fcd2f19242c8160a96956579b41be29e2e83b09753370ddd0f5",
+ "code_commit": "470a70f",
+ "started_utc": "2026-11-04T22:56:20+00:00",
+ "planned_calls": {
+  "per_arch": {
+   "baseline": {
+    "typical": 10,
+    "max": 15
+   },
+   "full": {
+    "typical": 15,
+    "max": 65
+   }
+  },
+  "judge_max": 6,
+  "typical": 31,
+  "max": 86
+ },
+ "finished_utc": "2026-11-04T22:56:47+00:00",
+ "complete": true,
+ "stopped_reason": null,
+ "summary": {
+  "baseline": {
+   "primary": "3/5",
+   "wilson95": [
+    0.231,
+    0.882
+   ],
+   "pending": 0,
+   "errors": 0,
+   "not_evaluated": 0,
+   "answer_ok": 4,
+   "end_to_end": 3,
+   "avg_llm_calls": 2.0,
+   "avg_latency_s": 2.57,
+   "avg_latency_live_s": 2.57,
+   "by_type": {
+    "multi_hop": "1/1",
+    "recovery": "0/1",
+    "statistics": "1/1",
+    "term_matching": "1/1",
+    "why": "0/1"
+   }
+  },
+  "full": {
+   "primary": "4/5",
+   "wilson95": [
+    0.376,
+    0.964
+   ],
+   "pending": 0,
+   "errors": 0,
+   "not_evaluated": 0,
+   "answer_ok": 4,
+   "end_to_end": 4,
+   "avg_llm_calls": 3.6,
+   "avg_latency_s": 2.2,
+   "avg_latency_live_s": 4.19,
+   "by_type": {
+    "multi_hop": "1/1",
+    "recovery": "1/1",
+    "statistics": "1/1",
+    "term_matching": "1/1",
+    "why": "0/1"
+   }
+  }
+ },
+ "escalation": {
+  "full": {
+   "helped": 1,
+   "harmed": 0,
+   "no change": 1,
+   "unknown": 0,
+   "questions": [
+    {
+     "id": "sc03",
+     "baseline": false,
+     "full": false,
+     "effect": "no change"
+    },
+    {
+     "id": "sc05",
+     "baseline": false,
+     "full": true,
+     "effect": "helped"
+    }
+   ]
+  }
+ },
+ "missed_escalations": {
+  "baseline_failed": 2,
+  "router": {
+   "escalated": 0,
+   "not_escalated": 0,
+   "error": 0,
+   "not_run": 2
+  },
+  "full": {
+   "escalated": 2,
+   "not_escalated": 0,
+   "error": 0,
+   "not_run": 0
+  },
+  "questions": [
+   {
+    "id": "sc03",
+    "router": "not run",
+    "full": "escalated (fail)"
+   },
+   {
+    "id": "sc05",
+    "router": "not run",
+    "full": "escalated (pass)"
+   }
+  ]
+ },
+ "provider_resumes": [],
+ "items": [
+  {
+   "id": "sc01",
+   "type": "multi_hop",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 3.351,
+   "latency_live_s": 3.351,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/sc01.json"
+  },
+  {
+   "id": "sc01",
+   "type": "multi_hop",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.784,
+   "latency_live_s": 3.26,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/sc01.json"
+  },
+  {
+   "id": "sc02",
+   "type": "term_matching",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 2.775,
+   "latency_live_s": 2.775,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/sc02.json"
+  },
+  {
+   "id": "sc02",
+   "type": "term_matching",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.794,
+   "latency_live_s": 3.561,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/sc02.json"
+  },
+  {
+   "id": "sc03",
+   "type": "why",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": true,
+   "end_to_end": false,
+   "first_failing_check": "driver named; judge fail",
+   "detail": "driver named; judge fail",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": {
+    "verdict": "fail",
+    "reason": "required fact(s) not stated: [2]",
+    "facts": [
+     {
+      "fact": "Online has far more completed orders than the other channels: about 3,458 versus about 2,366 (Direct) and 1,922 (Partner).",
+      "verdict": "yes",
+      "quote": "The Online channel brings in more completed revenue (10,195,563.46) primarily because it has a significantly higher volume of completed orders (3,458) compared to Direct (2,366 orders yielding 7,106,104.93) and Partner (1,922 orders yielding 5,831,252.80), while all three channels maintain very similar average line values ranging from 1,185.54 to 1,197.87.",
+      "quote_verified": true,
+      "counts_as_yes": true,
+      "reason": "The answer explicitly states that Online has 3,458 completed orders compared to Direct (2,366) and Partner (1,922), matching the required fact."
+     },
+     {
+      "fact": "The average completed order value is about the same in every channel (roughly 2,950 to 3,030), so order size does not explain the gap.",
+      "verdict": "no",
+      "quote": "",
+      "quote_verified": false,
+      "counts_as_yes": false,
+      "reason": "The answer mentions average line values rather than the average completed order value required by the fact, and gives a different range (1,185.54 to 1,197.87 instead of ~2,950 to 3,030)."
+     }
+    ],
+    "disqualifying": {
+     "verdict": "no",
+     "quote": "",
+     "quote_verified": false,
+     "counts_as_yes": false,
+     "reason": "The answer attributes the higher revenue primarily to a higher volume of completed orders rather than larger orders, higher prices, or smaller discounts. All stated figures align with the evidence."
+    }
+   },
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 3,
+   "latency_s": 2.286,
+   "latency_live_s": 2.286,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/sc03.json"
+  },
+  {
+   "id": "sc03",
+   "type": "why",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "driver not named: [\"any_of: [{'pattern': 'more\\\\\\\\s+(completed\\\\\\\\s+)?orders'}, {'pattern': 'order\\\\\\\\s+(volume|count|counts|numbers)'}, {'pattern': '(number|count|volume|share)\\\\\\\\s+of\\\\\\\\s+(completed\\\\\\\\s+)?orders'}]\"]",
+   "detail": "driver not named: [\"any_of: [{'pattern': 'more\\\\\\\\s+(completed\\\\\\\\s+)?orders'}, {'pattern': 'order\\\\\\\\s+(volume|count|counts|numbers)'}, {'pattern': '(number|count|volume|share)\\\\\\\\s+of\\\\\\\\s+(completed\\\\\\\\s+)?orders'}]\"]",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 5,
+   "live_calls": 4,
+   "cache_hits": 1,
+   "judge_calls": 0,
+   "latency_s": 5.341,
+   "latency_live_s": 6.473,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ],
+    [
+     "compute:decompose_change"
+    ],
+    [
+     "run_sql"
+    ],
+    [
+     "stack"
+    ]
+   ],
+   "trace": "traces/full/sc03.json"
+  },
+  {
+   "id": "sc04",
+   "type": "statistics",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 2.256,
+   "latency_live_s": 2.256,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/sc04.json"
+  },
+  {
+   "id": "sc04",
+   "type": "statistics",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.808,
+   "latency_live_s": 3.039,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/sc04.json"
+  },
+  {
+   "id": "sc05",
+   "type": "recovery",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "no result column matches gold column(s) [0, 1]; first gold row [1736364.8625, 583742.2]; answer missing ['number: 1736364.8625', 'number: 583742.2']",
+   "detail": "no result column matches gold column(s) [0, 1]; first gold row [1736364.8625, 583742.2]; answer missing ['number: 1736364.8625', 'number: 583742.2']",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 2.181,
+   "latency_live_s": 2.181,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/sc05.json"
+  },
+  {
+   "id": "sc05",
+   "type": "recovery",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 4,
+   "live_calls": 3,
+   "cache_hits": 1,
+   "judge_calls": 0,
+   "latency_s": 3.263,
+   "latency_live_s": 4.609,
+   "latency_unmeasured_calls": 0,
+   "repairs": 1,
+   "repair_fixes": 1,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql",
+     "repair"
+    ]
+   ],
+   "trace": "traces/full/sc05.json"
+  }
+ ]
+}
