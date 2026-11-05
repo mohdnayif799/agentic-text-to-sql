@@ -1,0 +1,57 @@
+{
+ "question_id": "hv01",
+ "type": "multi_hop",
+ "arch": "full",
+ "question": "Which region had the highest refund rate in 2025, and within that region which sales channel had the most refunded orders? Give the region, the channel and the number of refunded orders.",
+ "model": "gemini-3.5-flash",
+ "today": "2026-10-04",
+ "status": "failed",
+ "path": "direct",
+ "stop_reason": "error",
+ "error": "cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: EOF while parsing a string at line 1 column 608 [type=json_invalid, input_value='{\"expected_shape\":\"One r...der_date >= \\'2025-01-0', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "plan": [],
+ "sql_attempts": [],
+ "steps": [],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": null,
+ "answer": "Could not complete the analysis: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: EOF while parsing a string at line 1 column 608 [type=json_invalid, input_value='{\"expected_shape\":\"One r...der_date >= \\'2025-01-0', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "ce7b41c5317a80bad8fcee477f3db7ac69408c3262082b4c2310d31fc8a284d9",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2787,
+   "output_tokens": 81,
+   "original_latency_ms": 11468.0,
+   "thoughts_tokens": 1962,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "d0719a57a59291f67f60dcc1511fb4cbf37f84b2e1b6056f2eedcc48391df893",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2972,
+   "output_tokens": 172,
+   "original_latency_ms": 10529.2,
+   "thoughts_tokens": 1872,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.039,
+ "latency_live_s": 22.037,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "no selected result; answer missing ['text: LATAM', 'text: Online', 'number: 79']"
+ }
+}

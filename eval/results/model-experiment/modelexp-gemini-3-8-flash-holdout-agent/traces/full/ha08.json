@@ -1,0 +1,57 @@
+{
+ "question_id": "ha08",
+ "type": "why",
+ "arch": "full",
+ "question": "Why did customer churn spike in Q3 2025?",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "failed",
+ "path": "direct",
+ "stop_reason": "error",
+ "error": "cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: EOF while parsing a string at line 2 column 227 [type=json_invalid, input_value='{\\n  \"sql\": \"SELECT c.se...total_tickets, SUM(CASE', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "plan": [],
+ "sql_attempts": [],
+ "steps": [],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": null,
+ "answer": "Could not complete the analysis: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: EOF while parsing a string at line 2 column 227 [type=json_invalid, input_value='{\\n  \"sql\": \"SELECT c.se...total_tickets, SUM(CASE', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "594c458744008a66dbb83f417debb6e304d982828b5eb2521fd1a44630bf16f9",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2757,
+   "output_tokens": 78,
+   "original_latency_ms": 17699.0,
+   "thoughts_tokens": 1966,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "55d376c9eb24b4e1725c2b773c05a634400eaa7e8f10719d91c1329640a3940e",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2944,
+   "output_tokens": 79,
+   "original_latency_ms": 16855.9,
+   "thoughts_tokens": 1965,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.011,
+ "latency_live_s": 34.566,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "driver not named: ['text: APAC']"
+ }
+}

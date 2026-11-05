@@ -1,0 +1,1369 @@
+{
+ "set": "holdout_agent_v2",
+ "archs": [
+  "baseline",
+  "full"
+ ],
+ "provider": "gemini",
+ "model": "gemini-3.5-flash-lite",
+ "temperature": 0.0,
+ "today": "2026-10-04",
+ "max_steps": 3,
+ "max_attempts_per_step": 3,
+ "questions_sha256": "f3130f0b877470e8f4ac319df046e57f4a0ad15b92ed4ce190f37935da3e30a2",
+ "code_commit": "5d85bfa",
+ "started_utc": "2026-11-05T18:35:19+00:00",
+ "planned_calls": {
+  "per_arch": {
+   "baseline": {
+    "typical": 34,
+    "max": 51
+   },
+   "full": {
+    "typical": 51,
+    "max": 221
+   }
+  },
+  "judge_max": 18,
+  "typical": 103,
+  "max": 290
+ },
+ "finished_utc": "2026-11-05T18:36:59+00:00",
+ "complete": true,
+ "stopped_reason": null,
+ "summary": {
+  "baseline": {
+   "primary": "10/17",
+   "wilson95": [
+    0.36,
+    0.784
+   ],
+   "pending": 0,
+   "errors": 0,
+   "not_evaluated": 0,
+   "answer_ok": 12,
+   "end_to_end": 9,
+   "avg_llm_calls": 2.0,
+   "avg_latency_s": 2.73,
+   "avg_latency_live_s": 2.73,
+   "by_type": {
+    "ambiguous": "1/2",
+    "multi_hop": "2/2",
+    "recovery": "1/2",
+    "segment_comparison": "3/3",
+    "statistics": "2/3",
+    "term_matching": "1/2",
+    "why": "0/3"
+   }
+  },
+  "full": {
+   "primary": "14/17",
+   "wilson95": [
+    0.59,
+    0.938
+   ],
+   "pending": 0,
+   "errors": 0,
+   "not_evaluated": 0,
+   "answer_ok": 14,
+   "end_to_end": 13,
+   "avg_llm_calls": 3.82,
+   "avg_latency_s": 2.64,
+   "avg_latency_live_s": 4.9,
+   "by_type": {
+    "ambiguous": "2/2",
+    "multi_hop": "2/2",
+    "recovery": "2/2",
+    "segment_comparison": "3/3",
+    "statistics": "3/3",
+    "term_matching": "2/2",
+    "why": "0/3"
+   }
+  }
+ },
+ "escalation": {
+  "full": {
+   "helped": 3,
+   "harmed": 0,
+   "no change": 5,
+   "unknown": 0,
+   "questions": [
+    {
+     "id": "hv04",
+     "baseline": false,
+     "full": true,
+     "effect": "helped"
+    },
+    {
+     "id": "hv06",
+     "baseline": false,
+     "full": false,
+     "effect": "no change"
+    },
+    {
+     "id": "hv07",
+     "baseline": false,
+     "full": false,
+     "effect": "no change"
+    },
+    {
+     "id": "hv08",
+     "baseline": false,
+     "full": true,
+     "effect": "helped"
+    },
+    {
+     "id": "hv09",
+     "baseline": true,
+     "full": true,
+     "effect": "no change"
+    },
+    {
+     "id": "hv11",
+     "baseline": false,
+     "full": true,
+     "effect": "helped"
+    },
+    {
+     "id": "hv15",
+     "baseline": true,
+     "full": true,
+     "effect": "no change"
+    },
+    {
+     "id": "hv16",
+     "baseline": true,
+     "full": true,
+     "effect": "no change"
+    }
+   ]
+  }
+ },
+ "missed_escalations": {
+  "baseline_failed": 7,
+  "router": {
+   "escalated": 0,
+   "not_escalated": 0,
+   "error": 0,
+   "not_run": 7
+  },
+  "full": {
+   "escalated": 5,
+   "not_escalated": 2,
+   "error": 0,
+   "not_run": 0
+  },
+  "questions": [
+   {
+    "id": "hv04",
+    "router": "not run",
+    "full": "escalated (pass)"
+   },
+   {
+    "id": "hv05",
+    "router": "not run",
+    "full": "direct (fail)"
+   },
+   {
+    "id": "hv06",
+    "router": "not run",
+    "full": "escalated (fail)"
+   },
+   {
+    "id": "hv07",
+    "router": "not run",
+    "full": "escalated (fail)"
+   },
+   {
+    "id": "hv08",
+    "router": "not run",
+    "full": "escalated (pass)"
+   },
+   {
+    "id": "hv11",
+    "router": "not run",
+    "full": "escalated (pass)"
+   },
+   {
+    "id": "hv14",
+    "router": "not run",
+    "full": "direct (pass)"
+   }
+  ]
+ },
+ "provider_resumes": [],
+ "retries": [],
+ "items": [
+  {
+   "id": "hv01",
+   "type": "multi_hop",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 3.102,
+   "latency_live_s": 3.102,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv01.json"
+  },
+  {
+   "id": "hv01",
+   "type": "multi_hop",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.796,
+   "latency_live_s": 3.249,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/hv01.json"
+  },
+  {
+   "id": "hv02",
+   "type": "multi_hop",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 2.561,
+   "latency_live_s": 2.561,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv02.json"
+  },
+  {
+   "id": "hv02",
+   "type": "multi_hop",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.86,
+   "latency_live_s": 3.409,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/hv02.json"
+  },
+  {
+   "id": "hv03",
+   "type": "term_matching",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 2.634,
+   "latency_live_s": 2.634,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv03.json"
+  },
+  {
+   "id": "hv03",
+   "type": "term_matching",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.828,
+   "latency_live_s": 3.403,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/hv03.json"
+  },
+  {
+   "id": "hv04",
+   "type": "term_matching",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "expected 1 row(s), got 0; answer missing ['text: Nadia Popescu', 'number: 13490.8825', 'number: 5']",
+   "detail": "expected 1 row(s), got 0; answer missing ['text: Nadia Popescu', 'number: 13490.8825', 'number: 5']",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 2.312,
+   "latency_live_s": 2.312,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv04.json"
+  },
+  {
+   "id": "hv04",
+   "type": "term_matching",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 4,
+   "live_calls": 3,
+   "cache_hits": 1,
+   "judge_calls": 0,
+   "latency_s": 3.347,
+   "latency_live_s": 4.871,
+   "latency_unmeasured_calls": 0,
+   "repairs": 1,
+   "repair_fixes": 1,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql",
+     "repair"
+    ]
+   ],
+   "trace": "traces/full/hv04.json"
+  },
+  {
+   "id": "hv05",
+   "type": "why",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "driver not named: [\"any_of: [{'text': 'SMB'}, {'pattern': 'small[-\\\\\\\\s]+(and[-\\\\\\\\s]+medium[-\\\\\\\\s]+)?business'}]\"]",
+   "detail": "driver not named: [\"any_of: [{'text': 'SMB'}, {'pattern': 'small[-\\\\\\\\s]+(and[-\\\\\\\\s]+medium[-\\\\\\\\s]+)?business'}]\"]",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 3.057,
+   "latency_live_s": 3.057,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv05.json"
+  },
+  {
+   "id": "hv05",
+   "type": "why",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "driver not named: [\"any_of: [{'text': 'SMB'}, {'pattern': 'small[-\\\\\\\\s]+(and[-\\\\\\\\s]+medium[-\\\\\\\\s]+)?business'}]\"]",
+   "detail": "driver not named: [\"any_of: [{'text': 'SMB'}, {'pattern': 'small[-\\\\\\\\s]+(and[-\\\\\\\\s]+medium[-\\\\\\\\s]+)?business'}]\"]",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 1.105,
+   "latency_live_s": 4.149,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/hv05.json"
+  },
+  {
+   "id": "hv06",
+   "type": "why",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": true,
+   "end_to_end": false,
+   "first_failing_check": "driver named; judge fail",
+   "detail": "driver named; judge fail",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": {
+    "verdict": "fail",
+    "reason": "required fact(s) not stated: [1, 2]",
+    "facts": [
+     {
+      "fact": "The Direct channel was the largest part of the cut: APAC's Direct spend fell from about 218,000 in 2024 to about 148,000 in 2025 (about -32%), which is about 63% of APAC's decrease.",
+      "verdict": "no",
+      "quote": "",
+      "quote_verified": false,
+      "counts_as_yes": false,
+      "reason": "The answer mentions the Direct spend values for 2024 and 2025, but it fails to state that the Direct channel was the largest part of the cut or that it accounted for about 63% of APAC's decrease."
+     },
+     {
+      "fact": "Online spend in APAC was nearly unchanged (about 200,000 to 196,000), so it does not explain the decrease.",
+      "verdict": "no",
+      "quote": "",
+      "quote_verified": false,
+      "counts_as_yes": false,
+      "reason": "The answer provides the online spend figures for 2024 and 2025, but it does not state that the Online spend was nearly unchanged and therefore does not explain the decrease."
+     }
+    ],
+    "disqualifying": {
+     "verdict": "no",
+     "quote": "",
+     "quote_verified": false,
+     "counts_as_yes": false,
+     "reason": "The answer lists the correct figures from the evidence table and does not attribute the decrease primarily to the Online or Partner channels, nor does it state any contradicting figures."
+    }
+   },
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 3,
+   "latency_s": 2.29,
+   "latency_live_s": 2.29,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv06.json"
+  },
+  {
+   "id": "hv06",
+   "type": "why",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": true,
+   "end_to_end": false,
+   "first_failing_check": "driver named; judge fail",
+   "detail": "driver named; judge fail",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": {
+    "verdict": "fail",
+    "reason": "required fact(s) not stated: [1]",
+    "facts": [
+     {
+      "fact": "The Direct channel was the largest part of the cut: APAC's Direct spend fell from about 218,000 in 2024 to about 148,000 in 2025 (about -32%), which is about 63% of APAC's decrease.",
+      "verdict": "no",
+      "quote": "",
+      "quote_verified": false,
+      "counts_as_yes": false,
+      "reason": "The answer identifies the Direct channel and provides the spend figures, but it fails to state that this drop accounts for about 63% of APAC's total decrease, which is a required part of the fact."
+     },
+     {
+      "fact": "Online spend in APAC was nearly unchanged (about 200,000 to 196,000), so it does not explain the decrease.",
+      "verdict": "yes",
+      "quote": "Meanwhile, Online spend was about the same at 196,312.83 in 2025 compared to 199,580.97 in 2024, so it does not explain the difference.",
+      "quote_verified": true,
+      "counts_as_yes": true,
+      "reason": "The answer explicitly states that Online spend was nearly unchanged and does not explain the decrease, providing the corresponding figures."
+     }
+    ],
+    "disqualifying": {
+     "verdict": "no",
+     "quote": "",
+     "quote_verified": false,
+     "counts_as_yes": false,
+     "reason": "The answer correctly identifies the Direct channel as the main driver, acknowledges the Partner channel decrease within the allowed mentions, and does not make any disqualifying claims or contradict the evidence."
+    }
+   },
+   "llm_calls": 6,
+   "live_calls": 5,
+   "cache_hits": 1,
+   "judge_calls": 3,
+   "latency_s": 5.596,
+   "latency_live_s": 6.629,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ],
+    [
+     "compute:contribution_by_dimension"
+    ],
+    [
+     "stack"
+    ]
+   ],
+   "trace": "traces/full/hv06.json"
+  },
+  {
+   "id": "hv07",
+   "type": "why",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": true,
+   "end_to_end": false,
+   "first_failing_check": "driver named; judge fail",
+   "detail": "driver named; judge fail",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": {
+    "verdict": "fail",
+    "reason": "required fact(s) not stated: [2]",
+    "facts": [
+     {
+      "fact": "North America had far more buying customers: about 361 against about 128 in 2024, about 2.8 times as many.",
+      "verdict": "yes",
+      "quote": "In 2024, North America brought in significantly more completed revenue ($3,964,289.71) than LATAM ($1,282,093.87) primarily due to a much larger volume of business activity, achieving 1,229 orders from 361 customers compared to LATAM's 434 orders from 128 customers.",
+      "quote_verified": true,
+      "counts_as_yes": true,
+      "reason": "The answer explicitly states that North America had 361 buying customers compared to LATAM's 128 customers in 2024, which covers the required fact."
+     },
+     {
+      "fact": "Customers bought about as often in both regions (about 3.4 orders per buying customer), and average order value was only about 9% higher in North America (about 3,226 against 2,954), so neither explains most of the gap.",
+      "verdict": "no",
+      "quote": "",
+      "quote_verified": false,
+      "counts_as_yes": false,
+      "reason": "The answer does not state that customers bought about as often in both regions or mention the order frequency per buyer (~3.4), nor does it discuss how average order value played a minor role in the gap."
+     }
+    ],
+    "disqualifying": {
+     "verdict": "no",
+     "quote": "",
+     "quote_verified": false,
+     "counts_as_yes": false,
+     "reason": "The answer attributes the revenue difference to a larger volume of business activity (more orders and customers), which is supported by the allowed mentions and evidence, without making any disqualifying claims about order value, prices, discounts, product mix, or contradicting evidence figures."
+    }
+   },
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 3,
+   "latency_s": 2.368,
+   "latency_live_s": 2.368,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv07.json"
+  },
+  {
+   "id": "hv07",
+   "type": "why",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "driver not named: ['pattern: \\\\b(buying\\\\s+customers|buyers|customers|customer\\\\s+base|accounts)\\\\b']",
+   "detail": "driver not named: ['pattern: \\\\b(buying\\\\s+customers|buyers|customers|customer\\\\s+base|accounts)\\\\b']",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 7,
+   "live_calls": 6,
+   "cache_hits": 1,
+   "judge_calls": 0,
+   "latency_s": 6.512,
+   "latency_live_s": 7.829,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ],
+    [
+     "compute:decompose_change"
+    ],
+    [
+     "stack"
+    ]
+   ],
+   "trace": "traces/full/hv07.json"
+  },
+  {
+   "id": "hv08",
+   "type": "statistics",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "no result column matches gold column(s) [0]; first gold row [2642.607142857143]; answer missing ['number: 2642.607142857143']",
+   "detail": "no result column matches gold column(s) [0]; first gold row [2642.607142857143]; answer missing ['number: 2642.607142857143']",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 3.488,
+   "latency_live_s": 3.488,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv08.json"
+  },
+  {
+   "id": "hv08",
+   "type": "statistics",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 4,
+   "live_calls": 3,
+   "cache_hits": 1,
+   "judge_calls": 0,
+   "latency_s": 5.357,
+   "latency_live_s": 7.834,
+   "latency_unmeasured_calls": 0,
+   "repairs": 1,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql",
+     "repair"
+    ],
+    [
+     "run_sql"
+    ],
+    [
+     "compute:linear_trend_forecast"
+    ]
+   ],
+   "trace": "traces/full/hv08.json"
+  },
+  {
+   "id": "hv09",
+   "type": "statistics",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 3.007,
+   "latency_live_s": 3.007,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv09.json"
+  },
+  {
+   "id": "hv09",
+   "type": "statistics",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 5,
+   "live_calls": 3,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 3.581,
+   "latency_live_s": 6.546,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/hv09.json"
+  },
+  {
+   "id": "hv10",
+   "type": "statistics",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "4 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 2.753,
+   "latency_live_s": 2.753,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv10.json"
+  },
+  {
+   "id": "hv10",
+   "type": "statistics",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "4 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.71,
+   "latency_live_s": 3.446,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/hv10.json"
+  },
+  {
+   "id": "hv11",
+   "type": "recovery",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": true,
+   "end_to_end": false,
+   "first_failing_check": "no result column matches gold column(s) [1]; first gold row ['Direct', 939.0929177718833]",
+   "detail": "no result column matches gold column(s) [1]; first gold row ['Direct', 939.0929177718833]",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 2.298,
+   "latency_live_s": 2.298,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv11.json"
+  },
+  {
+   "id": "hv11",
+   "type": "recovery",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "3 row(s) match",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 4,
+   "live_calls": 3,
+   "cache_hits": 1,
+   "judge_calls": 0,
+   "latency_s": 3.174,
+   "latency_live_s": 4.552,
+   "latency_unmeasured_calls": 0,
+   "repairs": 1,
+   "repair_fixes": 1,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql",
+     "repair"
+    ]
+   ],
+   "trace": "traces/full/hv11.json"
+  },
+  {
+   "id": "hv12",
+   "type": "recovery",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "4 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 2.286,
+   "latency_live_s": 2.286,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv12.json"
+  },
+  {
+   "id": "hv12",
+   "type": "recovery",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "4 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.853,
+   "latency_live_s": 3.127,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/hv12.json"
+  },
+  {
+   "id": "hv13",
+   "type": "ambiguous",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "matched interpretation revenue_growth_2024_2025",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 2.601,
+   "latency_live_s": 2.601,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv13.json"
+  },
+  {
+   "id": "hv13",
+   "type": "ambiguous",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "matched interpretation revenue_growth_2024_2025",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 1.017,
+   "latency_live_s": 3.592,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/hv13.json"
+  },
+  {
+   "id": "hv14",
+   "type": "ambiguous",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "no interpretation matched (assumption stated: False; answer fits: none)",
+   "detail": "no interpretation matched (assumption stated: False; answer fits: none)",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 2.346,
+   "latency_live_s": 2.346,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv14.json"
+  },
+  {
+   "id": "hv14",
+   "type": "ambiguous",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "matched interpretation lowest_revenue",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 1.139,
+   "latency_live_s": 3.47,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/hv14.json"
+  },
+  {
+   "id": "hv15",
+   "type": "segment_comparison",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "3 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 3.355,
+   "latency_live_s": 3.355,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv15.json"
+  },
+  {
+   "id": "hv15",
+   "type": "segment_comparison",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "3 row(s) match",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 4,
+   "live_calls": 3,
+   "cache_hits": 1,
+   "judge_calls": 0,
+   "latency_s": 4.212,
+   "latency_live_s": 6.437,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ],
+    [
+     "run_sql"
+    ],
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/hv15.json"
+  },
+  {
+   "id": "hv16",
+   "type": "segment_comparison",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "",
+   "detail": "4 row(s) match; answer missing ['text: Direct']",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 3.277,
+   "latency_live_s": 3.277,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv16.json"
+  },
+  {
+   "id": "hv16",
+   "type": "segment_comparison",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "",
+   "detail": "4 row(s) match; answer missing ['text: Direct']",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 4,
+   "live_calls": 3,
+   "cache_hits": 1,
+   "judge_calls": 0,
+   "latency_s": 4.801,
+   "latency_live_s": 7.084,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ],
+    [
+     "run_sql"
+    ],
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/hv16.json"
+  },
+  {
+   "id": "hv17",
+   "type": "segment_comparison",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "4 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 2.744,
+   "latency_live_s": 2.744,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv17.json"
+  },
+  {
+   "id": "hv17",
+   "type": "segment_comparison",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "4 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.945,
+   "latency_live_s": 3.665,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/hv17.json"
+  }
+ ]
+}

@@ -1,0 +1,334 @@
+{
+ "question_id": "hv07",
+ "type": "why",
+ "arch": "full",
+ "question": "Why did North America bring in so much more completed revenue than LATAM in 2024?",
+ "model": "gemini-3.5-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The question asks for the underlying cause of the revenue disparity, which requires a deeper drill-down into factors like product mix, pricing, or customer acquisition channels beyond high-level aggregate metrics."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT r.region_name, COUNT(DISTINCT o.order_id) AS order_count, COUNT(DISTINCT o.customer_id) AS customer_count, SUM(oi.quantity) AS total_units_sold, ROUND(SUM(oi.quantity * oi.unit_price * (1 - oi.discount)), 2) AS revenue, ROUND(SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / COUNT(DISTINCT o.order_id), 2) AS average_order_value FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND r.region_name IN ('North America', 'LATAM') GROUP BY r.region_name LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 2,
+   "preview": "region_name | order_count | customer_count | total_units_sold | revenue | average_order_value\nLATAM | 434 | 128 | 3196 | 1282093.87 | 2954.13\nNorth America | 1229 | 361 | 9438 | 3964289.71 | 3225.62"
+  },
+  {
+   "sql": "-- compute: decompose_change\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND r.region_name = 'North America'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND r.region_name = 'LATAM'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 6,
+   "preview": "side_a | side_b | analysis | item | value_a | value_b | change | pct_change | share_of_change_pct | comparison | largest_contributor\nLATAM | North America | metric | revenue | 1282093.8715 | 3964289.706 | 2682195.8345 | 209.20432537142815 | NULL | higher | False\nLATAM | North America | orders x average order value | number of orders | 434.0 | 1229.0 | 795.0 | 183.17972350230414 | 92.21137115507507 | higher | True\nLATAM | North America | orders x average order value | average order value | 2954.133344470046 | 3225.622218063466 | 271.48887359342007 | 9.190136054678453 | 7.788628844924918 | higher | False\nLATAM | North America | units x average price x (1 - average discount) | units sold | 3196.0 | 9438.0 | 6242.0 | 195.30663329161453 | 95.92605017675895 | higher | True\nLATAM | North America | units x average price x (1 - average discount) | average unit price | 422.3089455569461 | 441.88513244331426 | 19.576186886368134 | 4.635513192966069 | 4.014132970668246 | about the same | False\n... 1 more row(s)"
+  },
+  {
+   "sql": "-- compute: contribution_by_dimension\nSELECT c.segment AS segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND r.region_name = 'North America' GROUP BY 1 ORDER BY 1\nSELECT c.segment AS segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND r.region_name = 'LATAM' GROUP BY 1 ORDER BY 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "side_a | side_b | analysis | item | value_a | value_b | change | pct_change | share_of_change_pct | comparison | largest_contributor\nLATAM | North America | revenue by segment | SMB | 397368.60850000003 | 1617705.654 | 1220337.0455 | 307.1045420790958 | 45.4976862540497 | higher | True\nLATAM | North America | revenue by segment | Mid-Market | 580222.7535 | 1471980.869 | 891758.1155 | 153.69237247604767 | 33.247315651962325 | higher | False\nLATAM | North America | revenue by segment | Enterprise | 304502.5095 | 874603.183 | 570100.6735 | 187.22363715035328 | 21.254998093987982 | higher | False"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT r.region_name, COUNT(DISTINCT o.order_id) AS order_count, COUNT(DISTINCT o.customer_id) AS customer_count, SUM(oi.quantity) AS total_units_sold, ROUND(SUM(oi.quantity * oi.unit_price * (1 - oi.discount)), 2) AS revenue, ROUND(SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) / COUNT(DISTINCT o.order_id), 2) AS average_order_value FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND r.region_name IN ('North America', 'LATAM') GROUP BY r.region_name LIMIT 500",
+   "reason": "",
+   "signal": null
+  },
+  {
+   "step": 2,
+   "tools": [
+    "compute:decompose_change"
+   ],
+   "sql": "-- compute: decompose_change\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND r.region_name = 'North America'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND r.region_name = 'LATAM'",
+   "reason": "Decompose completed revenue into volume and order value components to explain why North America generated higher revenue than LATAM in 2024.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "compute:contribution_by_dimension"
+   ],
+   "sql": "-- compute: contribution_by_dimension\nSELECT c.segment AS segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND r.region_name = 'North America' GROUP BY 1 ORDER BY 1\nSELECT c.segment AS segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND r.region_name = 'LATAM' GROUP BY 1 ORDER BY 1",
+   "reason": "Analyze how customer segments contribute to the revenue difference between North America and LATAM in 2024.",
+   "signal": null
+  },
+  {
+   "step": "final",
+   "tools": [
+    "stack"
+   ],
+   "plan": {
+    "stacked_steps": [
+     2,
+     3
+    ]
+   },
+   "driver_sentence_added": false
+  }
+ ],
+ "repairs": [],
+ "selected_step": 2,
+ "selected_result": {
+  "sql": "-- stacked: rows from step(s) 2, 3\n-- compute: decompose_change\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND r.region_name = 'North America'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND r.region_name = 'LATAM'\n-- compute: contribution_by_dimension\nSELECT c.segment AS segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND r.region_name = 'North America' GROUP BY 1 ORDER BY 1\nSELECT c.segment AS segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31' AND r.region_name = 'LATAM' GROUP BY 1 ORDER BY 1",
+  "ok": true,
+  "columns": [
+   "side_a",
+   "side_b",
+   "analysis",
+   "item",
+   "value_a",
+   "value_b",
+   "change",
+   "pct_change",
+   "share_of_change_pct",
+   "comparison",
+   "largest_contributor"
+  ],
+  "rows": [
+   [
+    "LATAM",
+    "North America",
+    "metric",
+    "revenue",
+    1282093.8715,
+    3964289.706,
+    2682195.8345,
+    209.20432537142815,
+    null,
+    "higher",
+    false
+   ],
+   [
+    "LATAM",
+    "North America",
+    "orders x average order value",
+    "number of orders",
+    434.0,
+    1229.0,
+    795.0,
+    183.17972350230414,
+    92.21137115507507,
+    "higher",
+    true
+   ],
+   [
+    "LATAM",
+    "North America",
+    "orders x average order value",
+    "average order value",
+    2954.133344470046,
+    3225.622218063466,
+    271.48887359342007,
+    9.190136054678453,
+    7.788628844924918,
+    "higher",
+    false
+   ],
+   [
+    "LATAM",
+    "North America",
+    "units x average price x (1 - average discount)",
+    "units sold",
+    3196.0,
+    9438.0,
+    6242.0,
+    195.30663329161453,
+    95.92605017675895,
+    "higher",
+    true
+   ],
+   [
+    "LATAM",
+    "North America",
+    "units x average price x (1 - average discount)",
+    "average unit price",
+    422.3089455569461,
+    441.88513244331426,
+    19.576186886368134,
+    4.635513192966069,
+    4.014132970668246,
+    "about the same",
+    false
+   ],
+   [
+    "LATAM",
+    "North America",
+    "units x average price x (1 - average discount)",
+    "1 - average discount",
+    0.9499106845562106,
+    0.9505523110990395,
+    0.0006416265428288437,
+    0.06754598650804793,
+    0.059816852572810095,
+    "about the same",
+    false
+   ],
+   [
+    "LATAM",
+    "North America",
+    "revenue by segment",
+    "SMB",
+    397368.60850000003,
+    1617705.654,
+    1220337.0455,
+    307.1045420790958,
+    45.4976862540497,
+    "higher",
+    true
+   ],
+   [
+    "LATAM",
+    "North America",
+    "revenue by segment",
+    "Mid-Market",
+    580222.7535,
+    1471980.869,
+    891758.1155,
+    153.69237247604767,
+    33.247315651962325,
+    "higher",
+    false
+   ],
+   [
+    "LATAM",
+    "North America",
+    "revenue by segment",
+    "Enterprise",
+    304502.5095,
+    874603.183,
+    570100.6735,
+    187.22363715035328,
+    21.254998093987982,
+    "higher",
+    false
+   ]
+  ],
+  "row_count": 9
+ },
+ "answer": "North America generated $3,964,289.71 in completed revenue compared to $1,282,093.87 for LATAM, driven primarily by a higher number of orders (1,229 vs 434) and units sold (9,438 vs 3,196). Average order value was also higher in North America at $3,225.62 versus $2,954.13 in LATAM, while average unit price ($441.89 vs $422.31) and 1 - average discount (0.95 vs 0.95) were about the same. Across segments, SMB was the largest contributor to the revenue difference ($1,617,705.65 vs $397,368.61), followed by Mid-Market ($1,471,980.87 vs $580,222.75) and Enterprise ($874,603.18 vs $304,502.51).",
+ "key_numbers": [
+  "3964289.71",
+  "1282093.87",
+  "1229",
+  "434",
+  "9438",
+  "3196",
+  "3225.62",
+  "2954.13",
+  "441.89",
+  "422.31",
+  "0.95",
+  "1617705.65",
+  "397368.61",
+  "1471980.87",
+  "580222.75",
+  "874603.18",
+  "304502.51"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question that asks why. A first query has been run. ",
+   "prompt_hash": "6c079dcca3e4e5ea891b8d65bf9f67e95a2e0c16c73f0256bb84714a70ea9df9",
+   "cache_hit": false,
+   "latency_ms": 6573.1,
+   "input_tokens": 4944,
+   "output_tokens": 95,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1006,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You plan the next step of an analysis of a read-only SQLite database. Choose exa",
+   "prompt_hash": "c9194d329a68a2d45cc7cfbd389c2122238d8abd9152d83b16e2c8bab980cae0",
+   "cache_hit": false,
+   "latency_ms": 6525.5,
+   "input_tokens": 5711,
+   "output_tokens": 164,
+   "original_latency_ms": null,
+   "thoughts_tokens": 879,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "8f34989b0866d663e75656c8b603bd87e6248a971f4f72f560e39f38016cafeb",
+   "cache_hit": false,
+   "latency_ms": 10650.3,
+   "input_tokens": 2331,
+   "output_tokens": 256,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1788,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "0c2756970e6afc78b783a366445729ea60a51f1d0175cd6035424960a51d670c",
+   "cache_hit": false,
+   "latency_ms": 8673.8,
+   "input_tokens": 2694,
+   "output_tokens": 463,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1140,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "938c3f200752641644802baac740f266839b95ac565e3e22da9d4bdde0c1cea2",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2940,
+   "output_tokens": 82,
+   "original_latency_ms": 12282.8,
+   "thoughts_tokens": 1962,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "1379f3021b28294a43217bd78b0a969130dbf7b2fce7a5144a47f2b28a3cb308",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3128,
+   "output_tokens": 317,
+   "original_latency_ms": 8869.0,
+   "thoughts_tokens": 1272,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "ea3026aa1dff02b2473a1d4ab620585255b954c711b85f3778eac4b4e4c90dc1",
+   "cache_hit": false,
+   "latency_ms": 3915.5,
+   "input_tokens": 659,
+   "output_tokens": 51,
+   "original_latency_ms": null,
+   "thoughts_tokens": 271,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 36.423,
+ "latency_live_s": 57.575,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "driver not named: ['pattern: \\\\b(buying\\\\s+customers|buyers|customers|customer\\\\s+base|accounts)\\\\b']"
+ }
+}

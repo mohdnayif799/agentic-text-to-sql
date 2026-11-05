@@ -1,0 +1,103 @@
+{
+ "question_id": "hv10",
+ "type": "statistics",
+ "arch": "baseline",
+ "question": "For support tickets opened in 2025 that have been resolved, what was the median number of days to resolve a ticket in each region?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH resolved_2025 AS (SELECT r.region_name, (JULIANDAY(t.resolved_date) - JULIANDAY(t.created_date)) AS resolution_days FROM support_tickets AS t JOIN customers AS c ON t.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND NOT t.resolved_date IS NULL), ranked AS (SELECT region_name, resolution_days, ROW_NUMBER() OVER (PARTITION BY region_name ORDER BY resolution_days ASC, ticket_id ASC) AS rn, COUNT(*) OVER (PARTITION BY region_name) AS cnt FROM (SELECT r.region_name, t.resolved_date, t.created_date, t.ticket_id, (JULIANDAY(t.resolved_date) - JULIANDAY(t.created_date)) AS resolution_days FROM support_tickets AS t JOIN customers AS c ON t.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND NOT t.resolved_date IS NULL)) SELECT region_name, AVG(resolution_days) AS median_resolution_days FROM ranked WHERE rn IN ((cnt + 1) / 2, (cnt + 2) / 2) GROUP BY region_name LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "region_name | median_resolution_days\nAPAC | 12.0\nEMEA | 11.0\nLATAM | 12.0\nNorth America | 11.0"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH resolved_2025 AS (SELECT r.region_name, (JULIANDAY(t.resolved_date) - JULIANDAY(t.created_date)) AS resolution_days FROM support_tickets AS t JOIN customers AS c ON t.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND NOT t.resolved_date IS NULL), ranked AS (SELECT region_name, resolution_days, ROW_NUMBER() OVER (PARTITION BY region_name ORDER BY resolution_days ASC, ticket_id ASC) AS rn, COUNT(*) OVER (PARTITION BY region_name) AS cnt FROM (SELECT r.region_name, t.resolved_date, t.created_date, t.ticket_id, (JULIANDAY(t.resolved_date) - JULIANDAY(t.created_date)) AS resolution_days FROM support_tickets AS t JOIN customers AS c ON t.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND NOT t.resolved_date IS NULL)) SELECT region_name, AVG(resolution_days) AS median_resolution_days FROM ranked WHERE rn IN ((cnt + 1) / 2, (cnt + 2) / 2) GROUP BY region_name LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH resolved_2025 AS (SELECT r.region_name, (JULIANDAY(t.resolved_date) - JULIANDAY(t.created_date)) AS resolution_days FROM support_tickets AS t JOIN customers AS c ON t.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND NOT t.resolved_date IS NULL), ranked AS (SELECT region_name, resolution_days, ROW_NUMBER() OVER (PARTITION BY region_name ORDER BY resolution_days ASC, ticket_id ASC) AS rn, COUNT(*) OVER (PARTITION BY region_name) AS cnt FROM (SELECT r.region_name, t.resolved_date, t.created_date, t.ticket_id, (JULIANDAY(t.resolved_date) - JULIANDAY(t.created_date)) AS resolution_days FROM support_tickets AS t JOIN customers AS c ON t.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND NOT t.resolved_date IS NULL)) SELECT region_name, AVG(resolution_days) AS median_resolution_days FROM ranked WHERE rn IN ((cnt + 1) / 2, (cnt + 2) / 2) GROUP BY region_name LIMIT 500",
+  "ok": true,
+  "columns": [
+   "region_name",
+   "median_resolution_days"
+  ],
+  "rows": [
+   [
+    "APAC",
+    12.0
+   ],
+   [
+    "EMEA",
+    11.0
+   ],
+   [
+    "LATAM",
+    12.0
+   ],
+   [
+    "North America",
+    11.0
+   ]
+  ],
+  "row_count": 4
+ },
+ "answer": "For support tickets opened in 2025 and resolved, the median number of days to resolve a ticket was 12.0 days in APAC, 11.0 days in EMEA, 12.0 days in LATAM, and 11.0 days in North America.",
+ "key_numbers": [
+  "12.0",
+  "11.0"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "1536e2d178366f90266c2a9f007b3b9de06956d2f82296bc7ee2ed397c9c424c",
+   "cache_hit": false,
+   "latency_ms": 1820.9,
+   "input_tokens": 2817,
+   "output_tokens": 491,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "69a066db69b5bcd8ec0440387da13acff51410f0b05067d8d395a99dc65a7ede",
+   "cache_hit": false,
+   "latency_ms": 915.1,
+   "input_tokens": 854,
+   "output_tokens": 103,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 2.753,
+ "latency_live_s": 2.753,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "4 row(s) match"
+ }
+}

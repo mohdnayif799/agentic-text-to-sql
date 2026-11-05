@@ -1,0 +1,169 @@
+{
+ "question_id": "hv16",
+ "type": "segment_comparison",
+ "arch": "full",
+ "question": "Did the Partner channel's share of completed orders go up from 2024 to 2025? If it did, give Partner's 2025 completed orders by region. If it did not, give the 2025 completed orders by region for whichever channel's share rose the most.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The answer depends on a condition: evaluate the condition first with its own query, then answer only the branch that applies."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "WITH channel_shares AS (SELECT o.channel, SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN 1 ELSE 0 END) AS orders_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN 1 ELSE 0 END) AS orders_2025, SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN 1 ELSE 0 END) * 1.0 / (SELECT COUNT(*) FROM orders WHERE status = 'completed' AND order_date >= '2024-01-01' AND order_date <= '2024-12-31') AS share_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN 1 ELSE 0 END) * 1.0 / (SELECT COUNT(*) FROM orders WHERE status = 'completed' AND order_date >= '2025-01-01' AND order_date <= '2025-12-31') AS share_2025 FROM orders AS o WHERE o.status = 'completed' GROUP BY o.channel), partner_diff AS (SELECT share_2025 - share_2024 AS diff FROM channel_shares WHERE channel = 'Partner'), target_channel AS (SELECT CASE WHEN (SELECT diff FROM partner_diff) > 0 THEN 'Partner' ELSE (SELECT channel FROM (SELECT channel, share_2025 - share_2024 AS diff FROM channel_shares ORDER BY diff DESC LIMIT 1)) END AS chosen_channel) SELECT r.region_name, COUNT(o.order_id) AS completed_orders_2025 FROM regions AS r JOIN customers AS c ON c.region_id = r.region_id JOIN orders AS o ON o.customer_id = c.customer_id CROSS JOIN target_channel WHERE o.status = 'completed' AND o.channel = target_channel.chosen_channel AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY r.region_name ORDER BY completed_orders_2025 DESC",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "region_name | completed_orders_2025\nNorth America | 567\nEMEA | 374\nAPAC | 306\nLATAM | 208"
+  },
+  {
+   "sql": "WITH channel_shares AS (SELECT o.channel, SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN 1 ELSE 0 END) * 1.0 / (SELECT COUNT(*) FROM orders WHERE status = 'completed' AND order_date >= '2024-01-01' AND order_date <= '2024-12-31') AS share_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN 1 ELSE 0 END) * 1.0 / (SELECT COUNT(*) FROM orders WHERE status = 'completed' AND order_date >= '2025-01-01' AND order_date <= '2025-12-31') AS share_2025 FROM orders AS o WHERE o.status = 'completed' GROUP BY o.channel) SELECT MAX(CASE WHEN channel = 'Partner' THEN share_2024 END) AS partner_share_2024, MAX(CASE WHEN channel = 'Partner' THEN share_2025 END) AS partner_share_2025, (MAX(CASE WHEN channel = 'Partner' THEN share_2025 END) - MAX(CASE WHEN channel = 'Partner' THEN share_2024 END)) AS partner_share_diff, CASE WHEN (MAX(CASE WHEN channel = 'Partner' THEN share_2025 END) - MAX(CASE WHEN channel = 'Partner' THEN share_2024 END)) > 0 THEN 1 ELSE 0 END AS condition_met FROM channel_shares LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "partner_share_2024 | partner_share_2025 | partner_share_diff | condition_met\n0.2546427447277306 | 0.24359816152330926 | -0.01104458320442131 | 0"
+  },
+  {
+   "sql": "WITH channel_shares AS (SELECT o.channel, SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN 1 ELSE 0 END) * 1.0 / (SELECT COUNT(*) FROM orders WHERE status = 'completed' AND order_date >= '2024-01-01' AND order_date <= '2024-12-31') AS share_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN 1 ELSE 0 END) * 1.0 / (SELECT COUNT(*) FROM orders WHERE status = 'completed' AND order_date >= '2025-01-01' AND order_date <= '2025-12-31') AS share_2025 FROM orders AS o WHERE o.status = 'completed' GROUP BY o.channel), target_channel AS (SELECT channel FROM channel_shares ORDER BY (share_2025 - share_2024) DESC LIMIT 1) SELECT r.region_name, COUNT(o.order_id) AS completed_orders_2025 FROM regions AS r JOIN customers AS c ON c.region_id = r.region_id JOIN orders AS o ON o.customer_id = c.customer_id CROSS JOIN target_channel WHERE o.status = 'completed' AND o.channel = target_channel.channel AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY r.region_name ORDER BY completed_orders_2025 DESC",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "region_name | completed_orders_2025\nNorth America | 567\nEMEA | 374\nAPAC | 306\nLATAM | 208"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH channel_shares AS (SELECT o.channel, SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN 1 ELSE 0 END) AS orders_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN 1 ELSE 0 END) AS orders_2025, SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN 1 ELSE 0 END) * 1.0 / (SELECT COUNT(*) FROM orders WHERE status = 'completed' AND order_date >= '2024-01-01' AND order_date <= '2024-12-31') AS share_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN 1 ELSE 0 END) * 1.0 / (SELECT COUNT(*) FROM orders WHERE status = 'completed' AND order_date >= '2025-01-01' AND order_date <= '2025-12-31') AS share_2025 FROM orders AS o WHERE o.status = 'completed' GROUP BY o.channel), partner_diff AS (SELECT share_2025 - share_2024 AS diff FROM channel_shares WHERE channel = 'Partner'), target_channel AS (SELECT CASE WHEN (SELECT diff FROM partner_diff) > 0 THEN 'Partner' ELSE (SELECT channel FROM (SELECT channel, share_2025 - share_2024 AS diff FROM channel_shares ORDER BY diff DESC LIMIT 1)) END AS chosen_channel) SELECT r.region_name, COUNT(o.order_id) AS completed_orders_2025 FROM regions AS r JOIN customers AS c ON c.region_id = r.region_id JOIN orders AS o ON o.customer_id = c.customer_id CROSS JOIN target_channel WHERE o.status = 'completed' AND o.channel = target_channel.chosen_channel AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY r.region_name ORDER BY completed_orders_2025 DESC",
+   "reason": "",
+   "signal": null,
+   "escalation_signal": "conditional"
+  },
+  {
+   "step": 2,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH channel_shares AS (SELECT o.channel, SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN 1 ELSE 0 END) * 1.0 / (SELECT COUNT(*) FROM orders WHERE status = 'completed' AND order_date >= '2024-01-01' AND order_date <= '2024-12-31') AS share_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN 1 ELSE 0 END) * 1.0 / (SELECT COUNT(*) FROM orders WHERE status = 'completed' AND order_date >= '2025-01-01' AND order_date <= '2025-12-31') AS share_2025 FROM orders AS o WHERE o.status = 'completed' GROUP BY o.channel) SELECT MAX(CASE WHEN channel = 'Partner' THEN share_2024 END) AS partner_share_2024, MAX(CASE WHEN channel = 'Partner' THEN share_2025 END) AS partner_share_2025, (MAX(CASE WHEN channel = 'Partner' THEN share_2025 END) - MAX(CASE WHEN channel = 'Partner' THEN share_2024 END)) AS partner_share_diff, CASE WHEN (MAX(CASE WHEN channel = 'Partner' THEN share_2025 END) - MAX(CASE WHEN channel = 'Partner' THEN share_2024 END)) > 0 THEN 1 ELSE 0 END AS condition_met FROM channel_shares LIMIT 500",
+   "reason": "We compute the Partner channel's share of completed orders in 2024 and 2025 to determine if it increased.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH channel_shares AS (SELECT o.channel, SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN 1 ELSE 0 END) * 1.0 / (SELECT COUNT(*) FROM orders WHERE status = 'completed' AND order_date >= '2024-01-01' AND order_date <= '2024-12-31') AS share_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN 1 ELSE 0 END) * 1.0 / (SELECT COUNT(*) FROM orders WHERE status = 'completed' AND order_date >= '2025-01-01' AND order_date <= '2025-12-31') AS share_2025 FROM orders AS o WHERE o.status = 'completed' GROUP BY o.channel), target_channel AS (SELECT channel FROM channel_shares ORDER BY (share_2025 - share_2024) DESC LIMIT 1) SELECT r.region_name, COUNT(o.order_id) AS completed_orders_2025 FROM regions AS r JOIN customers AS c ON c.region_id = r.region_id JOIN orders AS o ON o.customer_id = c.customer_id CROSS JOIN target_channel WHERE o.status = 'completed' AND o.channel = target_channel.channel AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY r.region_name ORDER BY completed_orders_2025 DESC",
+   "reason": "The Partner channel's share of completed orders did not go up from 2024 to 2025 (it decreased from ~25.46% to ~24.36%), so we give the 2025 completed orders by region for whichever channel's share rose the most.",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 3,
+ "selected_result": {
+  "sql": "WITH channel_shares AS (SELECT o.channel, SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN 1 ELSE 0 END) * 1.0 / (SELECT COUNT(*) FROM orders WHERE status = 'completed' AND order_date >= '2024-01-01' AND order_date <= '2024-12-31') AS share_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN 1 ELSE 0 END) * 1.0 / (SELECT COUNT(*) FROM orders WHERE status = 'completed' AND order_date >= '2025-01-01' AND order_date <= '2025-12-31') AS share_2025 FROM orders AS o WHERE o.status = 'completed' GROUP BY o.channel), target_channel AS (SELECT channel FROM channel_shares ORDER BY (share_2025 - share_2024) DESC LIMIT 1) SELECT r.region_name, COUNT(o.order_id) AS completed_orders_2025 FROM regions AS r JOIN customers AS c ON c.region_id = r.region_id JOIN orders AS o ON o.customer_id = c.customer_id CROSS JOIN target_channel WHERE o.status = 'completed' AND o.channel = target_channel.channel AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY r.region_name ORDER BY completed_orders_2025 DESC",
+  "ok": true,
+  "columns": [
+   "region_name",
+   "completed_orders_2025"
+  ],
+  "rows": [
+   [
+    "North America",
+    567
+   ],
+   [
+    "EMEA",
+    374
+   ],
+   [
+    "APAC",
+    306
+   ],
+   [
+    "LATAM",
+    208
+   ]
+  ],
+  "row_count": 4
+ },
+ "answer": "Assuming that the Partner channel's share of completed orders did not go up from 2024 to 2025 (as its share decreased from approximately 25.46% to 24.36%, resulting in a difference of -0.011), we provide the 2025 completed orders by region for the channel whose share rose the most. The 2025 completed orders for this channel are as follows: North America has 567, EMEA has 374, APAC has 306, and LATAM has 208.",
+ "key_numbers": [
+  "567",
+  "374",
+  "306",
+  "208",
+  "0.2546",
+  "0.2436",
+  "-0.011"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question whose answer depends on a condition (for ex",
+   "prompt_hash": "0f9af8fd37cfb802996efbb35889a892ad799a9151c309feb2e0ab821b782e28",
+   "cache_hit": false,
+   "latency_ms": 1616.3,
+   "input_tokens": 3663,
+   "output_tokens": 453,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "The condition of a question has been evaluated: its result is the last step belo",
+   "prompt_hash": "cf5dbdf5ea4140f99d9eaaacd0bb49bb873e1014df4fa7081a6a973a8f015758",
+   "cache_hit": false,
+   "latency_ms": 1801.5,
+   "input_tokens": 4236,
+   "output_tokens": 545,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "0e90289096a2a2d0751810f9fd6c98899883ad61e1db85aa30d3ebdb8b762c6f",
+   "cache_hit": false,
+   "latency_ms": 1244.4,
+   "input_tokens": 1150,
+   "output_tokens": 217,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "629681e4671269fc293d8b3fb522e2bc04153b82dd265d7d4736f4a964b60f1a",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2961,
+   "output_tokens": 757,
+   "original_latency_ms": 2282.8,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.801,
+ "latency_live_s": 7.084,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "4 row(s) match; answer missing ['text: Direct']"
+ }
+}

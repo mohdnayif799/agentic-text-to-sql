@@ -1,0 +1,163 @@
+{
+ "question_id": "dv05",
+ "type": "segment_comparison",
+ "arch": "full",
+ "question": "Between 2024 and 2025, did completed revenue grow faster in the Partner channel than in the Online channel? If yes, break Partner's 2025 completed revenue down by customer segment; if not, break Online's 2025 completed revenue down by customer segment.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The answer depends on a condition: evaluate the condition first with its own query, then answer only the branch that applies."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "WITH channel_growth AS (SELECT o.channel, SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2025, SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2024 FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.channel IN ('Partner', 'Online') GROUP BY o.channel), channel_growth_rates AS (SELECT channel, (rev_2025 - rev_2024) / rev_2024 AS growth_rate FROM channel_growth), faster_channel AS (SELECT channel FROM channel_growth_rates ORDER BY growth_rate DESC LIMIT 1) SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue_2025 FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON c.customer_id = o.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.channel = (SELECT channel FROM faster_channel) GROUP BY c.segment ORDER BY completed_revenue_2025 DESC",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "segment | completed_revenue_2025\nSMB | 1417119.7035\nMid-Market | 1197621.4425\nEnterprise | 664599.477"
+  },
+  {
+   "sql": "WITH channel_growth AS (SELECT o.channel, SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2025, SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2024 FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.channel IN ('Partner', 'Online') GROUP BY o.channel), growth_rates AS (SELECT MAX(CASE WHEN channel = 'Partner' THEN (rev_2025 - rev_2024) / rev_2024 END) AS partner_growth, MAX(CASE WHEN channel = 'Online' THEN (rev_2025 - rev_2024) / rev_2024 END) AS online_growth FROM channel_growth) SELECT partner_growth, online_growth, CASE WHEN partner_growth > online_growth THEN 1 ELSE 0 END AS condition_text FROM growth_rates LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "partner_growth | online_growth | condition_text\n0.28505230337808046 | 0.25410119173238865 | 1"
+  },
+  {
+   "sql": "SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue_2025 FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON c.customer_id = o.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.channel = 'Partner' GROUP BY c.segment ORDER BY completed_revenue_2025 DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "segment | completed_revenue_2025\nSMB | 1417119.7035\nMid-Market | 1197621.4425\nEnterprise | 664599.477"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH channel_growth AS (SELECT o.channel, SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2025, SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2024 FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.channel IN ('Partner', 'Online') GROUP BY o.channel), channel_growth_rates AS (SELECT channel, (rev_2025 - rev_2024) / rev_2024 AS growth_rate FROM channel_growth), faster_channel AS (SELECT channel FROM channel_growth_rates ORDER BY growth_rate DESC LIMIT 1) SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue_2025 FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON c.customer_id = o.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.channel = (SELECT channel FROM faster_channel) GROUP BY c.segment ORDER BY completed_revenue_2025 DESC",
+   "reason": "",
+   "signal": null,
+   "escalation_signal": "conditional"
+  },
+  {
+   "step": 2,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH channel_growth AS (SELECT o.channel, SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2025, SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2024 FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.channel IN ('Partner', 'Online') GROUP BY o.channel), growth_rates AS (SELECT MAX(CASE WHEN channel = 'Partner' THEN (rev_2025 - rev_2024) / rev_2024 END) AS partner_growth, MAX(CASE WHEN channel = 'Online' THEN (rev_2025 - rev_2024) / rev_2024 END) AS online_growth FROM channel_growth) SELECT partner_growth, online_growth, CASE WHEN partner_growth > online_growth THEN 1 ELSE 0 END AS condition_text FROM growth_rates LIMIT 500",
+   "reason": "We need to compare the completed revenue growth rate between 2024 and 2025 for the Partner channel versus the Online channel to determine which branch of the question to follow.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue_2025 FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON c.customer_id = o.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.channel = 'Partner' GROUP BY c.segment ORDER BY completed_revenue_2025 DESC LIMIT 500",
+   "reason": "Since completed revenue grew faster in the Partner channel than in the Online channel (growth rate of 28.51% vs. 25.41%), we break Partner's 2025 completed revenue down by customer segment.",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 3,
+ "selected_result": {
+  "sql": "SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue_2025 FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON c.customer_id = o.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.channel = 'Partner' GROUP BY c.segment ORDER BY completed_revenue_2025 DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "segment",
+   "completed_revenue_2025"
+  ],
+  "rows": [
+   [
+    "SMB",
+    1417119.7035
+   ],
+   [
+    "Mid-Market",
+    1197621.4425
+   ],
+   [
+    "Enterprise",
+    664599.477
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "Assuming that the condition is evaluated based on completed revenue growing faster in the Partner channel (growth rate of 28.51%) than in the Online channel (growth rate of 25.41%), Partner's 2025 completed revenue broken down by customer segment is as follows: SMB generated 1,417,119.70, Mid-Market generated 1,197,621.44, and Enterprise generated 664,599.48.",
+ "key_numbers": [
+  "28.51%",
+  "25.41%",
+  "1417119.7035",
+  "1197621.4425",
+  "664599.477"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question whose answer depends on a condition (for ex",
+   "prompt_hash": "51f74e29daec7250cfa078eabd402fbed202482259e91505fcbf4fef98bcd90b",
+   "cache_hit": false,
+   "latency_ms": 1489.1,
+   "input_tokens": 3400,
+   "output_tokens": 346,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "The condition of a question has been evaluated: its result is the last step belo",
+   "prompt_hash": "14c75b5be7171850cf98abefcc09beae3f1011745c2f438a2eed11279264bf28",
+   "cache_hit": false,
+   "latency_ms": 1187.8,
+   "input_tokens": 3825,
+   "output_tokens": 233,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "4c59ac1241e9df725534f24369ac54a0fa313d31944ec1daf062f1f1f9d5c88c",
+   "cache_hit": false,
+   "latency_ms": 1008.2,
+   "input_tokens": 819,
+   "output_tokens": 200,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "a7d2e3f74333f7a7fa1a0219b5c85c2bca0981799af680cd505a17291a4ec834",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2926,
+   "output_tokens": 563,
+   "original_latency_ms": 2034.6,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 3.786,
+ "latency_live_s": 5.82,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "3 row(s) match"
+ }
+}

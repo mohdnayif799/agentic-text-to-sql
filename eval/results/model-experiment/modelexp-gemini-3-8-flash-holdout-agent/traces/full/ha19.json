@@ -1,0 +1,180 @@
+{
+ "question_id": "ha19",
+ "type": "segment_comparison",
+ "arch": "full",
+ "question": "Compare the 2025 average completed order value of Enterprise and SMB customers. If Enterprise's is more than 20% higher than SMB's, break down Enterprise's 2025 completed revenue by product category; otherwise, break down SMB's 2025 completed revenue by product category.",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The answer depends on a condition: evaluate the condition first with its own query, then answer only the branch that applies."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "WITH segment_aov AS (SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) * 1.0 / COUNT(DISTINCT o.order_id) AS aov FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment IN ('Enterprise', 'SMB') GROUP BY c.segment), chosen_segment AS (SELECT CASE WHEN MAX(CASE WHEN segment = 'Enterprise' THEN aov END) > 1.20 * MAX(CASE WHEN segment = 'SMB' THEN aov END) THEN 'Enterprise' ELSE 'SMB' END AS segment FROM segment_aov) SELECT p.category, ROUND(SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)), 2) AS revenue FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id JOIN chosen_segment AS cs ON c.segment = cs.segment WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.category ORDER BY revenue DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "category | revenue\nHardware | 3171929.67\nServices | 979587.31\nSoftware | 869276.06\nAccessories | 134633.95"
+  },
+  {
+   "sql": "WITH segment_aov AS (SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) * 1.0 / COUNT(DISTINCT o.order_id) AS aov FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment IN ('Enterprise', 'SMB') GROUP BY c.segment) SELECT MAX(CASE WHEN segment = 'Enterprise' THEN aov END) AS enterprise_aov, MAX(CASE WHEN segment = 'SMB' THEN aov END) AS smb_aov, (MAX(CASE WHEN segment = 'Enterprise' THEN aov END) - MAX(CASE WHEN segment = 'SMB' THEN aov END)) / MAX(CASE WHEN segment = 'SMB' THEN aov END) AS pct_higher, CASE WHEN MAX(CASE WHEN segment = 'Enterprise' THEN aov END) > 1.20 * MAX(CASE WHEN segment = 'SMB' THEN aov END) THEN 1 ELSE 0 END AS condition_met, CASE WHEN MAX(CASE WHEN segment = 'Enterprise' THEN aov END) > 1.20 * MAX(CASE WHEN segment = 'SMB' THEN aov END) THEN 'Enterprise' ELSE 'SMB' END AS selected_segment FROM segment_aov LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "enterprise_aov | smb_aov | pct_higher | condition_met | selected_segment\n2854.422516536965 | 2838.8915096365636 | 0.005470799728584756 | 0 | SMB"
+  },
+  {
+   "sql": "SELECT p.category, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = 'SMB' GROUP BY p.category ORDER BY revenue DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "category | revenue\nHardware | 3171929.6655\nServices | 979587.305\nSoftware | 869276.058\nAccessories | 134633.953"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH segment_aov AS (SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) * 1.0 / COUNT(DISTINCT o.order_id) AS aov FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment IN ('Enterprise', 'SMB') GROUP BY c.segment), chosen_segment AS (SELECT CASE WHEN MAX(CASE WHEN segment = 'Enterprise' THEN aov END) > 1.20 * MAX(CASE WHEN segment = 'SMB' THEN aov END) THEN 'Enterprise' ELSE 'SMB' END AS segment FROM segment_aov) SELECT p.category, ROUND(SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)), 2) AS revenue FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id JOIN chosen_segment AS cs ON c.segment = cs.segment WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.category ORDER BY revenue DESC LIMIT 500",
+   "reason": "",
+   "signal": null,
+   "escalation_signal": "conditional"
+  },
+  {
+   "step": 2,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH segment_aov AS (SELECT c.segment, SUM(oi.quantity * oi.unit_price * (1.0 - oi.discount)) * 1.0 / COUNT(DISTINCT o.order_id) AS aov FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment IN ('Enterprise', 'SMB') GROUP BY c.segment) SELECT MAX(CASE WHEN segment = 'Enterprise' THEN aov END) AS enterprise_aov, MAX(CASE WHEN segment = 'SMB' THEN aov END) AS smb_aov, (MAX(CASE WHEN segment = 'Enterprise' THEN aov END) - MAX(CASE WHEN segment = 'SMB' THEN aov END)) / MAX(CASE WHEN segment = 'SMB' THEN aov END) AS pct_higher, CASE WHEN MAX(CASE WHEN segment = 'Enterprise' THEN aov END) > 1.20 * MAX(CASE WHEN segment = 'SMB' THEN aov END) THEN 1 ELSE 0 END AS condition_met, CASE WHEN MAX(CASE WHEN segment = 'Enterprise' THEN aov END) > 1.20 * MAX(CASE WHEN segment = 'SMB' THEN aov END) THEN 'Enterprise' ELSE 'SMB' END AS selected_segment FROM segment_aov LIMIT 500",
+   "reason": "Calculates the 2025 average completed order value for Enterprise and SMB customers to evaluate if Enterprise exceeds SMB by more than 20%.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.category, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = 'SMB' GROUP BY p.category ORDER BY revenue DESC LIMIT 500",
+   "reason": "The condition is false because Enterprise's 2025 average completed order value is only about 0.55% higher than SMB's, so we break down SMB's 2025 completed revenue by product category.",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 3,
+ "selected_result": {
+  "sql": "SELECT p.category, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND c.segment = 'SMB' GROUP BY p.category ORDER BY revenue DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "category",
+   "revenue"
+  ],
+  "rows": [
+   [
+    "Hardware",
+    3171929.6655
+   ],
+   [
+    "Services",
+    979587.305
+   ],
+   [
+    "Software",
+    869276.058
+   ],
+   [
+    "Accessories",
+    134633.953
+   ]
+  ],
+  "row_count": 4
+ },
+ "answer": "In 2025, Enterprise average completed order value was 2,854.42 compared to 2,838.89 for SMB (0.55% higher), which does not exceed the 20% threshold, selecting the SMB breakdown. SMB's 2025 completed revenue by category is Hardware at 3,171,929.67, Services at 979,587.31, Software at 869,276.06, and Accessories at 134,633.95.",
+ "key_numbers": [
+  "2854.422516536965",
+  "2838.8915096365636",
+  "0.005470799728584756",
+  "3171929.6655",
+  "979587.305",
+  "869276.058",
+  "134633.953"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question whose answer depends on a condition (for ex",
+   "prompt_hash": "4e0e8073b962e2401575a3ca8b77c07dc11b9db4495a8c23b6fe1057c99189ab",
+   "cache_hit": false,
+   "latency_ms": 9501.6,
+   "input_tokens": 3479,
+   "output_tokens": 455,
+   "original_latency_ms": null,
+   "thoughts_tokens": 787,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "The condition of a question has been evaluated: its result is the last step belo",
+   "prompt_hash": "b0f0b289092f6a77de3ca7a749076bd76b2daffc1da2aa73e7a65ccb080ad233",
+   "cache_hit": false,
+   "latency_ms": 5912.7,
+   "input_tokens": 3991,
+   "output_tokens": 245,
+   "original_latency_ms": null,
+   "thoughts_tokens": 372,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "784a1c7bf282f37811101f6c5167f3f832003790deb7aff4e0fce4663754046a",
+   "cache_hit": false,
+   "latency_ms": 5062.1,
+   "input_tokens": 876,
+   "output_tokens": 288,
+   "original_latency_ms": null,
+   "thoughts_tokens": 190,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "6200e0ff892f71966a6e4a864cfada23e8028e15f94e1d0b5674e30ebb2e204e",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2987,
+   "output_tokens": 442,
+   "original_latency_ms": 15583.3,
+   "thoughts_tokens": 1602,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "db3b317b50bdfcd487715b53d7b97e15c1ca38bb668e5f1ffd326dc5620923ee",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3537,
+   "output_tokens": 534,
+   "original_latency_ms": 6764.6,
+   "thoughts_tokens": 284,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 20.582,
+ "latency_live_s": 42.93,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "4 row(s) match"
+ }
+}

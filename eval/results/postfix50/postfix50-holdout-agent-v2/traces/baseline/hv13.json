@@ -1,0 +1,90 @@
+{
+ "question_id": "hv13",
+ "type": "ambiguous",
+ "arch": "baseline",
+ "question": "Which product category is growing the fastest? Give the category and its growth as a percentage.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH rev_2024 AS (SELECT p.category, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date < '2025-01-01' GROUP BY p.category), rev_2025 AS (SELECT p.category, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date < '2026-01-01' GROUP BY p.category) SELECT r2025.category, (r2025.rev - r2024.rev) * 100.0 / r2024.rev AS growth_pct FROM rev_2025 AS r2025 JOIN rev_2024 AS r2024 ON r2025.category = r2024.category ORDER BY growth_pct DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "category | growth_pct\nAccessories | 59.820446957906206"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH rev_2024 AS (SELECT p.category, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date < '2025-01-01' GROUP BY p.category), rev_2025 AS (SELECT p.category, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date < '2026-01-01' GROUP BY p.category) SELECT r2025.category, (r2025.rev - r2024.rev) * 100.0 / r2024.rev AS growth_pct FROM rev_2025 AS r2025 JOIN rev_2024 AS r2024 ON r2025.category = r2024.category ORDER BY growth_pct DESC LIMIT 1"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH rev_2024 AS (SELECT p.category, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date < '2025-01-01' GROUP BY p.category), rev_2025 AS (SELECT p.category, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date < '2026-01-01' GROUP BY p.category) SELECT r2025.category, (r2025.rev - r2024.rev) * 100.0 / r2024.rev AS growth_pct FROM rev_2025 AS r2025 JOIN rev_2024 AS r2024 ON r2025.category = r2024.category ORDER BY growth_pct DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "category",
+   "growth_pct"
+  ],
+  "rows": [
+   [
+    "Accessories",
+    59.820446957906206
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Assuming growth is measured by the percentage increase in revenue from 2024 to 2025, the fastest-growing product category is Accessories with a growth of 59.82%.",
+ "key_numbers": [
+  "59.820446957906206"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "ef5d9779c246d6dc6232f9cbe3c267099dcd4fbc26c4f9b35742762ffee3f565",
+   "cache_hit": false,
+   "latency_ms": 1641.2,
+   "input_tokens": 2852,
+   "output_tokens": 439,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "355e6fccf2d055e28c7d35c5b59304c703833f921a5e7075323d64cbd657268c",
+   "cache_hit": false,
+   "latency_ms": 933.4,
+   "input_tokens": 795,
+   "output_tokens": 90,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 2.601,
+ "latency_live_s": 2.601,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "matched interpretation revenue_growth_2024_2025"
+ }
+}

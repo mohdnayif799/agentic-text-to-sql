@@ -150,3 +150,33 @@ class TestFreeze:
             digest, rel = line.split(" *", 1)
             actual = hashlib.sha256((ROOT / rel).read_bytes()).hexdigest()
             assert actual == digest, rel
+
+
+@pytest.fixture(scope="module")
+def postfix():
+    return _script("report_postfix_50")
+
+
+class TestPostFixReport:
+    def _side(self, postfix, flags: dict[str, bool]) -> dict:
+        ids = {name: [] for name in postfix.SETS}
+        ids["holdout_agent"] = list(flags)
+        return {"ids": ids, "items": {(q, "full"): _item(q, "full", ok)
+                                      for q, ok in flags.items()}}
+
+    def test_regressions_and_gains_are_against_the_primary(self, postfix):
+        primary = self._side(postfix, {"a": True, "b": False, "c": True})
+        rerun = self._side(postfix, {"a": False, "b": True, "c": True})
+        assert postfix.changes(primary, rerun, "full") == {
+            "regressions": ["a"], "gains": ["b"]}
+
+    def test_a_question_missing_from_the_rerun_is_a_regression(self, postfix):
+        primary = self._side(postfix, {"a": True})
+        rerun = self._side(postfix, {})
+        assert postfix.changes(primary, rerun, "full")["regressions"] == ["a"]
+
+    def test_the_primary_results_are_read_not_written(self, postfix):
+        results = ROOT / "eval" / "results" / "primary50"
+        before = {p: p.stat().st_mtime_ns for p in results.rglob("results.json")}
+        postfix.load(results, "primary50")
+        assert before == {p: p.stat().st_mtime_ns for p in results.rglob("results.json")}

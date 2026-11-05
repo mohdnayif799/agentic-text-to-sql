@@ -1,0 +1,57 @@
+{
+ "question_id": "hv09",
+ "type": "statistics",
+ "arch": "baseline",
+ "question": "Over the 24 months of 2024 and 2025, which product category has the steepest upward trend in monthly units sold in completed orders? Give the category and the slope of a least-squares line, in units per month.",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "failed",
+ "path": "direct",
+ "stop_reason": "error",
+ "error": "Could not produce a query: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: EOF while parsing a string at line 2 column 385 [type=json_invalid, input_value='{\\n  \"sql\": \"WITH RECURS...nmonthly_actual AS (\\\\n', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "plan": [],
+ "sql_attempts": [],
+ "steps": [],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": null,
+ "answer": "Could not produce a query: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: EOF while parsing a string at line 2 column 385 [type=json_invalid, input_value='{\\n  \"sql\": \"WITH RECURS...nmonthly_actual AS (\\\\n', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "1ebd073fcd1b79942355604777d9771dd9c5fd908dd5aae24e18db4710aaf67a",
+   "cache_hit": false,
+   "latency_ms": 15461.9,
+   "input_tokens": 2972,
+   "output_tokens": 78,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1966,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "200d39ceb93808c80cfac0573833f45d4652d27af1d5d20f7f0b946272a93a9e",
+   "cache_hit": false,
+   "latency_ms": 15915.1,
+   "input_tokens": 3158,
+   "output_tokens": 149,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1895,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 31.397,
+ "latency_live_s": 31.397,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "no selected result; answer missing ['text: Software', 'number: 22.09304347826087']"
+ }
+}

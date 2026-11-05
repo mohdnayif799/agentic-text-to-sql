@@ -1,0 +1,92 @@
+{
+ "question_id": "hv01",
+ "type": "multi_hop",
+ "arch": "baseline",
+ "question": "Which region had the highest refund rate in 2025, and within that region which sales channel had the most refunded orders? Give the region, the channel and the number of refunded orders.",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH top_region AS (SELECT c.region_id, r.region_name FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.region_id, r.region_name ORDER BY CAST(SUM(CASE WHEN o.status = 'refunded' THEN 1 ELSE 0 END) AS REAL) / COUNT(*) DESC LIMIT 1) SELECT tr.region_name, o.channel, COUNT(*) AS refunded_orders FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN top_region AS tr ON c.region_id = tr.region_id WHERE o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.status = 'refunded' GROUP BY tr.region_name, o.channel ORDER BY refunded_orders DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "region_name | channel | refunded_orders\nLATAM | Online | 79"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH top_region AS (SELECT c.region_id, r.region_name FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.region_id, r.region_name ORDER BY CAST(SUM(CASE WHEN o.status = 'refunded' THEN 1 ELSE 0 END) AS REAL) / COUNT(*) DESC LIMIT 1) SELECT tr.region_name, o.channel, COUNT(*) AS refunded_orders FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN top_region AS tr ON c.region_id = tr.region_id WHERE o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.status = 'refunded' GROUP BY tr.region_name, o.channel ORDER BY refunded_orders DESC LIMIT 1"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH top_region AS (SELECT c.region_id, r.region_name FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.region_id, r.region_name ORDER BY CAST(SUM(CASE WHEN o.status = 'refunded' THEN 1 ELSE 0 END) AS REAL) / COUNT(*) DESC LIMIT 1) SELECT tr.region_name, o.channel, COUNT(*) AS refunded_orders FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN top_region AS tr ON c.region_id = tr.region_id WHERE o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.status = 'refunded' GROUP BY tr.region_name, o.channel ORDER BY refunded_orders DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "region_name",
+   "channel",
+   "refunded_orders"
+  ],
+  "rows": [
+   [
+    "LATAM",
+    "Online",
+    79
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "In 2025, the region with the highest refund rate was LATAM, where the Online sales channel had the most refunded orders with a total of 79.",
+ "key_numbers": [
+  "79"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "ce7b41c5317a80bad8fcee477f3db7ac69408c3262082b4c2310d31fc8a284d9",
+   "cache_hit": false,
+   "latency_ms": 12849.8,
+   "input_tokens": 2787,
+   "output_tokens": 412,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1192,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "7f099cb05ad4927663406f8752ffb3309cb26d5a846e3122924a31477249f8f9",
+   "cache_hit": false,
+   "latency_ms": 2845.8,
+   "input_tokens": 725,
+   "output_tokens": 54,
+   "original_latency_ms": null,
+   "thoughts_tokens": 76,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 16.324,
+ "latency_live_s": 16.324,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

@@ -1,0 +1,151 @@
+{
+ "question_id": "hv04",
+ "type": "term_matching",
+ "arch": "full",
+ "question": "How much completed revenue did our customer Nadia Popesku bring in during 2025, and how many support tickets were opened by that customer in the same year? Give the customer's ID and name with both figures.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT c.customer_id, c.customer_name, COALESCE(SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.status = 'completed' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END), 0) AS completed_revenue_2025, (SELECT COUNT(*) FROM support_tickets AS t WHERE t.customer_id = c.customer_id AND t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31') AS tickets_opened_2025 FROM customers AS c LEFT JOIN orders AS o ON o.customer_id = c.customer_id LEFT JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Nadia Popesku' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+   "ok": true,
+   "failure": "empty",
+   "error": null,
+   "row_count": 0,
+   "preview": "0 rows returned."
+  },
+  {
+   "sql": "SELECT c.customer_id, c.customer_name, COALESCE(SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.status = 'completed' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END), 0) AS completed_revenue_2025, (SELECT COUNT(*) FROM support_tickets AS t WHERE t.customer_id = c.customer_id AND t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31') AS tickets_opened_2025 FROM customers AS c LEFT JOIN orders AS o ON o.customer_id = c.customer_id LEFT JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Nadia Popescu' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "customer_id | customer_name | completed_revenue_2025 | tickets_opened_2025\n836 | Nadia Popescu | 13490.8825 | 5"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql",
+    "repair"
+   ],
+   "sql": "SELECT c.customer_id, c.customer_name, COALESCE(SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.status = 'completed' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END), 0) AS completed_revenue_2025, (SELECT COUNT(*) FROM support_tickets AS t WHERE t.customer_id = c.customer_id AND t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31') AS tickets_opened_2025 FROM customers AS c LEFT JOIN orders AS o ON o.customer_id = c.customer_id LEFT JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Nadia Popescu' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+   "reason": "",
+   "signal": "empty"
+  }
+ ],
+ "repairs": [
+  {
+   "step": 1,
+   "signal": "empty",
+   "detail": "The query ran but returned no rows. 'Nadia Popesku' is not a value of customers.customer_name. Closest stored values: 'Nadia Popescu', 'Kai Popescu', 'Mia Popescu'. Use the stored spelling.",
+   "via": "repair",
+   "accepted": true,
+   "attempts": 1,
+   "before": {
+    "sql": "SELECT c.customer_id, c.customer_name, COALESCE(SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.status = 'completed' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END), 0) AS completed_revenue_2025, (SELECT COUNT(*) FROM support_tickets AS t WHERE t.customer_id = c.customer_id AND t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31') AS tickets_opened_2025 FROM customers AS c LEFT JOIN orders AS o ON o.customer_id = c.customer_id LEFT JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Nadia Popesku' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+    "ok": true,
+    "rows": 0,
+    "error": null
+   },
+   "after": {
+    "sql": "SELECT c.customer_id, c.customer_name, COALESCE(SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.status = 'completed' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END), 0) AS completed_revenue_2025, (SELECT COUNT(*) FROM support_tickets AS t WHERE t.customer_id = c.customer_id AND t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31') AS tickets_opened_2025 FROM customers AS c LEFT JOIN orders AS o ON o.customer_id = c.customer_id LEFT JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Nadia Popescu' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+    "ok": true,
+    "rows": 1,
+    "error": null
+   },
+   "effect": "fix"
+  }
+ ],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT c.customer_id, c.customer_name, COALESCE(SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.status = 'completed' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END), 0) AS completed_revenue_2025, (SELECT COUNT(*) FROM support_tickets AS t WHERE t.customer_id = c.customer_id AND t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31') AS tickets_opened_2025 FROM customers AS c LEFT JOIN orders AS o ON o.customer_id = c.customer_id LEFT JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.customer_name = 'Nadia Popescu' GROUP BY c.customer_id, c.customer_name LIMIT 500",
+  "ok": true,
+  "columns": [
+   "customer_id",
+   "customer_name",
+   "completed_revenue_2025",
+   "tickets_opened_2025"
+  ],
+  "rows": [
+   [
+    836,
+    "Nadia Popescu",
+    13490.8825,
+    5
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "During 2025, customer Nadia Popescu (ID 836) brought in $13,490.88 in completed revenue and had 5 support tickets opened.",
+ "key_numbers": [
+  "836",
+  "13490.8825",
+  "5"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "90a1f16d107b60a4200280f0117ff20abca1ab1515960581c5b63f41560b72ff",
+   "cache_hit": false,
+   "latency_ms": 871.3,
+   "input_tokens": 742,
+   "output_tokens": 92,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "729c201097bd046148ea55d9b988c23810bc8c28a5f2c1439c1a70c60cc2dae0",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2902,
+   "output_tokens": 386,
+   "original_latency_ms": 1523.6,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You fix one SQLite query. A concrete problem was detected and is described below",
+   "prompt_hash": "2cce456767a9cc465a5f7bc67729fe98032e748314efbee9402a6e778d4e2efa",
+   "cache_hit": false,
+   "latency_ms": 1506.2,
+   "input_tokens": 3149,
+   "output_tokens": 331,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "cae2c25a1b9d5d52162dd17d4bdfe6bb9049af3075b31bfde61cb1681ebc4159",
+   "cache_hit": false,
+   "latency_ms": 904.3,
+   "input_tokens": 630,
+   "output_tokens": 53,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 3.347,
+ "latency_live_s": 4.871,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

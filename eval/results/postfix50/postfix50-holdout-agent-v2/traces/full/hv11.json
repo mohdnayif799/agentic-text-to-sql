@@ -1,0 +1,155 @@
+{
+ "question_id": "hv11",
+ "type": "recovery",
+ "arch": "full",
+ "question": "For each sales channel, what was marketing spend per completed order in the first half of 2024?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT m.channel AS sales_channel, SUM(m.amount) / COUNT(DISTINCT o.order_id) AS spend_per_completed_order FROM marketing_spend AS m JOIN regions AS r ON r.region_id = m.region_id JOIN orders AS o ON o.channel = m.channel AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-06-30' AND o.status = 'completed' JOIN customers AS c ON c.customer_id = o.customer_id AND c.region_id = r.region_id WHERE m.month >= '2024-01' AND m.month <= '2024-06' GROUP BY m.channel LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "sales_channel | spend_per_completed_order\nDirect | 92914.01636604776\nOnline | 85551.60290015848\nPartner | 105568.21229226362"
+  },
+  {
+   "sql": "SELECT s.channel AS sales_channel, s.total_spend / o.completed_orders AS spend_per_completed_order FROM (SELECT channel, SUM(amount) AS total_spend FROM marketing_spend WHERE month >= '2024-01' AND month <= '2024-06' GROUP BY channel) AS s JOIN (SELECT channel, COUNT(DISTINCT order_id) AS completed_orders FROM orders WHERE order_date >= '2024-01-01' AND order_date <= '2024-06-30' AND status = 'completed' GROUP BY channel) AS o ON s.channel = o.channel LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "sales_channel | spend_per_completed_order\nDirect | 939.0929177718833\nOnline | 553.7508716323296\nPartner | 1178.338051575931"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql",
+    "repair"
+   ],
+   "sql": "SELECT s.channel AS sales_channel, s.total_spend / o.completed_orders AS spend_per_completed_order FROM (SELECT channel, SUM(amount) AS total_spend FROM marketing_spend WHERE month >= '2024-01' AND month <= '2024-06' GROUP BY channel) AS s JOIN (SELECT channel, COUNT(DISTINCT order_id) AS completed_orders FROM orders WHERE order_date >= '2024-01-01' AND order_date <= '2024-06-30' AND status = 'completed' GROUP BY channel) AS o ON s.channel = o.channel LIMIT 500",
+   "reason": "",
+   "signal": "fanout"
+  }
+ ],
+ "repairs": [
+  {
+   "step": 1,
+   "signal": "fanout",
+   "detail": "Join fan-out: o is joined on o.channel = m.channel AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-06-30' AND o.status = 'completed', a key that is not unique on either side, so SUM/COUNT/AVG values are multiplied. Aggregate each table separately (for example in subqueries) before combining them.",
+   "via": "repair",
+   "accepted": true,
+   "attempts": 1,
+   "before": {
+    "sql": "SELECT m.channel AS sales_channel, SUM(m.amount) / COUNT(DISTINCT o.order_id) AS spend_per_completed_order FROM marketing_spend AS m JOIN regions AS r ON r.region_id = m.region_id JOIN orders AS o ON o.channel = m.channel AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-06-30' AND o.status = 'completed' JOIN customers AS c ON c.customer_id = o.customer_id AND c.region_id = r.region_id WHERE m.month >= '2024-01' AND m.month <= '2024-06' GROUP BY m.channel LIMIT 500",
+    "ok": true,
+    "rows": 3,
+    "error": null
+   },
+   "after": {
+    "sql": "SELECT s.channel AS sales_channel, s.total_spend / o.completed_orders AS spend_per_completed_order FROM (SELECT channel, SUM(amount) AS total_spend FROM marketing_spend WHERE month >= '2024-01' AND month <= '2024-06' GROUP BY channel) AS s JOIN (SELECT channel, COUNT(DISTINCT order_id) AS completed_orders FROM orders WHERE order_date >= '2024-01-01' AND order_date <= '2024-06-30' AND status = 'completed' GROUP BY channel) AS o ON s.channel = o.channel LIMIT 500",
+    "ok": true,
+    "rows": 3,
+    "error": null
+   },
+   "effect": "fix"
+  }
+ ],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT s.channel AS sales_channel, s.total_spend / o.completed_orders AS spend_per_completed_order FROM (SELECT channel, SUM(amount) AS total_spend FROM marketing_spend WHERE month >= '2024-01' AND month <= '2024-06' GROUP BY channel) AS s JOIN (SELECT channel, COUNT(DISTINCT order_id) AS completed_orders FROM orders WHERE order_date >= '2024-01-01' AND order_date <= '2024-06-30' AND status = 'completed' GROUP BY channel) AS o ON s.channel = o.channel LIMIT 500",
+  "ok": true,
+  "columns": [
+   "sales_channel",
+   "spend_per_completed_order"
+  ],
+  "rows": [
+   [
+    "Direct",
+    939.0929177718833
+   ],
+   [
+    "Online",
+    553.7508716323296
+   ],
+   [
+    "Partner",
+    1178.338051575931
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "In the first half of 2024, the marketing spend per completed order was 939.09 for the Direct channel, 553.75 for the Online channel, and 1,178.34 for the Partner channel.",
+ "key_numbers": [
+  "939.0929177718833",
+  "553.7508716323296",
+  "1178.338051575931"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "bd1e42dc79f6633bfd730abf7157048631bbd0426090c0ff3836bbedbf2e416c",
+   "cache_hit": false,
+   "latency_ms": 913.9,
+   "input_tokens": 655,
+   "output_tokens": 145,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "8b4f4d0229a1b0ff3e2573b948f69ea5ac16347302cc80254c4bb7a1bbec2aec",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2836,
+   "output_tokens": 327,
+   "original_latency_ms": 1377.6,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You fix one SQLite query. A concrete problem was detected and is described below",
+   "prompt_hash": "3ff7b1fc9c09785e9113f3e923ec52af33fc67999b7a61789980d86d59df7853",
+   "cache_hit": false,
+   "latency_ms": 1281.8,
+   "input_tokens": 3066,
+   "output_tokens": 232,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "0b8878afa37095bea191f2de84e8bc068f47e96d605bf32fb9bc4778a4db44c7",
+   "cache_hit": false,
+   "latency_ms": 931.5,
+   "input_tokens": 543,
+   "output_tokens": 51,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 3.174,
+ "latency_live_s": 4.552,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "3 row(s) match"
+ }
+}

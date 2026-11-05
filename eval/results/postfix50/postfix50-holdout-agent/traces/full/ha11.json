@@ -1,0 +1,208 @@
+{
+ "question_id": "ha11",
+ "type": "statistics",
+ "arch": "full",
+ "question": "Fit a straight-line trend to monthly completed revenue from January 2024 to December 2025, using month number 1 to 24 as x. Which months fell more than 1.5 standard deviations below the trend line, using the standard deviation of the residuals, and what was each month's residual (actual minus trend, in dollars)? Label months as YYYY-MM.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The question asks for a forecast, a projection or a fitted trend line: get the series it is fitted on (one row per period), fit it from that series, and report each forecast with its period."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "WITH monthly_rev AS (SELECT SUBSTRING(o.order_date, 1, 7) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY SUBSTRING(o.order_date, 1, 7)), numbered_months AS (SELECT ROW_NUMBER() OVER (ORDER BY month) AS x, month, rev, CAST(ROW_NUMBER() OVER (ORDER BY month) AS REAL) AS rx FROM monthly_rev), stats AS (SELECT AVG(rx) AS mean_x, AVG(rev) AS mean_y, SUM((rx - (SELECT AVG(CAST(ROW_NUMBER() OVER (ORDER BY month) AS REAL)) FROM monthly_rev)) * (rev - (SELECT AVG(rev) FROM monthly_rev))) / SUM((rx - (SELECT AVG(CAST(ROW_NUMBER() OVER (ORDER BY month) AS REAL)) FROM monthly_rev)) * (rx - (SELECT AVG(CAST(ROW_NUMBER() OVER (ORDER BY month) AS REAL)) FROM monthly_rev))) AS slope, AVG(rev) - (SUM((rx - (SELECT AVG(CAST(ROW_NUMBER() OVER (ORDER BY month) AS REAL)) FROM monthly_rev)) * (rev - (SELECT AVG(rev) FROM monthly_rev))) / SUM((rx - (SELECT AVG(CAST(ROW_NUMBER() OVER (ORDER BY month) AS REAL)) FROM monthly_rev)) * (rx - (SELECT AVG(CAST(ROW_NUMBER() OVER (ORDER BY month) AS REAL)) FROM monthly_rev)))) * AVG(rx) AS intercept FROM numbered_months), residuals_calc AS (SELECT nm.month, nm.rev, (s.intercept + s.slope * nm.rx) AS trend, (nm.rev - (s.intercept + s.slope * nm.rx)) AS residual FROM numbered_months AS nm CROSS JOIN stats AS s), stddev_calc AS (SELECT SQRT(SUM(residual * residual) / COUNT(*)) AS std_dev FROM residuals_calc) SELECT rc.month, rc.residual FROM residuals_calc AS rc CROSS JOIN stddev_calc AS sd WHERE rc.residual < -1.5 * sd.std_dev ORDER BY rc.month LIMIT 500",
+   "ok": false,
+   "failure": "other",
+   "error": "(sqlite3.OperationalError) misuse of window function ROW_NUMBER()",
+   "row_count": 0,
+   "preview": "ERROR (other): (sqlite3.OperationalError) misuse of window function ROW_NUMBER()"
+  },
+  {
+   "sql": "WITH RECURSIVE months(x, month) AS (SELECT 1, '2024-01' UNION ALL SELECT x + 1, STRFTIME('%Y-%m', '2024-01-01', '+' || x || ' month') FROM months WHERE x < 24), monthly_rev AS (SELECT m.x, m.month, COALESCE(SUM(oi.quantity * oi.unit_price * (1 - oi.discount)), 0.0) AS rev FROM months AS m LEFT JOIN orders AS o ON SUBSTRING(o.order_date, 1, 7) = m.month AND o.status = 'completed' LEFT JOIN order_items AS oi ON oi.order_id = o.order_id GROUP BY m.x, m.month), stats AS (SELECT AVG(x) AS mean_x, AVG(rev) AS mean_y, SUM((x - (SELECT AVG(x) FROM monthly_rev)) * (rev - (SELECT AVG(rev) FROM monthly_rev))) / SUM((x - (SELECT AVG(x) FROM monthly_rev)) * (x - (SELECT AVG(x) FROM monthly_rev))) AS slope, AVG(rev) - (SUM((x - (SELECT AVG(x) FROM monthly_rev)) * (rev - (SELECT AVG(rev) FROM monthly_rev))) / SUM((x - (SELECT AVG(x) FROM monthly_rev)) * (x - (SELECT AVG(x) FROM monthly_rev)))) * AVG(x) AS intercept FROM monthly_rev), residuals_calc AS (SELECT mr.month, mr.rev, (s.intercept + s.slope * mr.x) AS trend, (mr.rev - (s.intercept + s.slope * mr.x)) AS residual FROM monthly_rev AS mr CROSS JOIN stats AS s), stddev_calc AS (SELECT SQRT(SUM(residual * residual) / COUNT(*)) AS std_dev FROM residuals_calc) SELECT rc.month, rc.residual FROM residuals_calc AS rc CROSS JOIN stddev_calc AS sd WHERE rc.residual < -1.5 * sd.std_dev ORDER BY rc.month LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "month | residual\n2025-07 | -348547.3194584057\n2025-08 | -425181.9997340579\n2025-09 | -452444.7145097101"
+  },
+  {
+   "sql": "WITH RECURSIVE months(x, month) AS (SELECT 1, '2024-01' UNION ALL SELECT x + 1, STRFTIME('%Y-%m', '2024-01-01', '+' || x || ' month') FROM months WHERE x < 24) SELECT m.month AS period, COALESCE(SUM(oi.quantity * oi.unit_price * (1 - oi.discount)), 0.0) AS value FROM months AS m LEFT JOIN orders AS o ON SUBSTRING(o.order_date, 1, 7) = m.month AND o.status = 'completed' LEFT JOIN order_items AS oi ON oi.order_id = o.order_id GROUP BY m.x, m.month ORDER BY m.x LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 24,
+   "preview": "period | value\n2024-01 | 628957.8065\n2024-02 | 588582.8859999999\n2024-03 | 756149.951\n2024-04 | 772174.8205\n2024-05 | 837798.7595\n... 19 more row(s)"
+  },
+  {
+   "sql": "-- compute: zscore_anomalies on step 2",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "period | value | expected | residual | z_score | x_convention\n2025-07 | 748889.067 | 1097436.3864584055 | -348547.3194584055 | -1.815098217019091 | x = month number, 1 = 2024-01\n2025-08 | 692802.7975 | 1117984.7972340577 | -425181.9997340577 | -2.214181680768879 | x = month number, 1 = 2024-01\n2025-09 | 686088.4935 | 1138533.2080097098 | -452444.71450970985 | -2.3561552442358953 | x = month number, 1 = 2024-01"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql",
+    "repair"
+   ],
+   "sql": "WITH RECURSIVE months(x, month) AS (SELECT 1, '2024-01' UNION ALL SELECT x + 1, STRFTIME('%Y-%m', '2024-01-01', '+' || x || ' month') FROM months WHERE x < 24), monthly_rev AS (SELECT m.x, m.month, COALESCE(SUM(oi.quantity * oi.unit_price * (1 - oi.discount)), 0.0) AS rev FROM months AS m LEFT JOIN orders AS o ON SUBSTRING(o.order_date, 1, 7) = m.month AND o.status = 'completed' LEFT JOIN order_items AS oi ON oi.order_id = o.order_id GROUP BY m.x, m.month), stats AS (SELECT AVG(x) AS mean_x, AVG(rev) AS mean_y, SUM((x - (SELECT AVG(x) FROM monthly_rev)) * (rev - (SELECT AVG(rev) FROM monthly_rev))) / SUM((x - (SELECT AVG(x) FROM monthly_rev)) * (x - (SELECT AVG(x) FROM monthly_rev))) AS slope, AVG(rev) - (SUM((x - (SELECT AVG(x) FROM monthly_rev)) * (rev - (SELECT AVG(rev) FROM monthly_rev))) / SUM((x - (SELECT AVG(x) FROM monthly_rev)) * (x - (SELECT AVG(x) FROM monthly_rev)))) * AVG(x) AS intercept FROM monthly_rev), residuals_calc AS (SELECT mr.month, mr.rev, (s.intercept + s.slope * mr.x) AS trend, (mr.rev - (s.intercept + s.slope * mr.x)) AS residual FROM monthly_rev AS mr CROSS JOIN stats AS s), stddev_calc AS (SELECT SQRT(SUM(residual * residual) / COUNT(*)) AS std_dev FROM residuals_calc) SELECT rc.month, rc.residual FROM residuals_calc AS rc CROSS JOIN stddev_calc AS sd WHERE rc.residual < -1.5 * sd.std_dev ORDER BY rc.month LIMIT 500",
+   "reason": "",
+   "signal": "error",
+   "escalation_signal": "forecast"
+  },
+  {
+   "step": 2,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH RECURSIVE months(x, month) AS (SELECT 1, '2024-01' UNION ALL SELECT x + 1, STRFTIME('%Y-%m', '2024-01-01', '+' || x || ' month') FROM months WHERE x < 24) SELECT m.month AS period, COALESCE(SUM(oi.quantity * oi.unit_price * (1 - oi.discount)), 0.0) AS value FROM months AS m LEFT JOIN orders AS o ON SUBSTRING(o.order_date, 1, 7) = m.month AND o.status = 'completed' LEFT JOIN order_items AS oi ON oi.order_id = o.order_id GROUP BY m.x, m.month ORDER BY m.x LIMIT 500",
+   "reason": "Identify monthly completed revenue anomalies more than 1.5 standard deviations below the linear trend line.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "compute:zscore_anomalies"
+   ],
+   "sql": "-- compute: zscore_anomalies on step 2",
+   "reason": "Identify monthly completed revenue anomalies more than 1.5 standard deviations below the linear trend line.",
+   "signal": null
+  }
+ ],
+ "repairs": [
+  {
+   "step": 1,
+   "signal": "error",
+   "detail": "(sqlite3.OperationalError) misuse of window function ROW_NUMBER()",
+   "via": "A's retry",
+   "accepted": true,
+   "attempts": 1,
+   "before": {
+    "sql": "WITH monthly_rev AS (SELECT SUBSTRING(o.order_date, 1, 7) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY SUBSTRING(o.order_date, 1, 7)), numbered_months AS (SELECT ROW_NUMBER() OVER (ORDER BY month) AS x, month, rev, CAST(ROW_NUMBER() OVER (ORDER BY month) AS REAL) AS rx FROM monthly_rev), stats AS (SELECT AVG(rx) AS mean_x, AVG(rev) AS mean_y, SUM((rx - (SELECT AVG(CAST(ROW_NUMBER() OVER (ORDER BY month) AS REAL)) FROM monthly_rev)) * (rev - (SELECT AVG(rev) FROM monthly_rev))) / SUM((rx - (SELECT AVG(CAST(ROW_NUMBER() OVER (ORDER BY month) AS REAL)) FROM monthly_rev)) * (rx - (SELECT AVG(CAST(ROW_NUMBER() OVER (ORDER BY month) AS REAL)) FROM monthly_rev))) AS slope, AVG(rev) - (SUM((rx - (SELECT AVG(CAST(ROW_NUMBER() OVER (ORDER BY month) AS REAL)) FROM monthly_rev)) * (rev - (SELECT AVG(rev) FROM monthly_rev))) / SUM((rx - (SELECT AVG(CAST(ROW_NUMBER() OVER (ORDER BY month) AS REAL)) FROM monthly_rev)) * (rx - (SELECT AVG(CAST(ROW_NUMBER() OVER (ORDER BY month) AS REAL)) FROM monthly_rev)))) * AVG(rx) AS intercept FROM numbered_months), residuals_calc AS (SELECT nm.month, nm.rev, (s.intercept + s.slope * nm.rx) AS trend, (nm.rev - (s.intercept + s.slope * nm.rx)) AS residual FROM numbered_months AS nm CROSS JOIN stats AS s), stddev_calc AS (SELECT SQRT(SUM(residual * residual) / COUNT(*)) AS std_dev FROM residuals_calc) SELECT rc.month, rc.residual FROM residuals_calc AS rc CROSS JOIN stddev_calc AS sd WHERE rc.residual < -1.5 * sd.std_dev ORDER BY rc.month LIMIT 500",
+    "ok": false,
+    "rows": 0,
+    "error": "(sqlite3.OperationalError) misuse of window function ROW_NUMBER()"
+   },
+   "after": {
+    "sql": "WITH RECURSIVE months(x, month) AS (SELECT 1, '2024-01' UNION ALL SELECT x + 1, STRFTIME('%Y-%m', '2024-01-01', '+' || x || ' month') FROM months WHERE x < 24), monthly_rev AS (SELECT m.x, m.month, COALESCE(SUM(oi.quantity * oi.unit_price * (1 - oi.discount)), 0.0) AS rev FROM months AS m LEFT JOIN orders AS o ON SUBSTRING(o.order_date, 1, 7) = m.month AND o.status = 'completed' LEFT JOIN order_items AS oi ON oi.order_id = o.order_id GROUP BY m.x, m.month), stats AS (SELECT AVG(x) AS mean_x, AVG(rev) AS mean_y, SUM((x - (SELECT AVG(x) FROM monthly_rev)) * (rev - (SELECT AVG(rev) FROM monthly_rev))) / SUM((x - (SELECT AVG(x) FROM monthly_rev)) * (x - (SELECT AVG(x) FROM monthly_rev))) AS slope, AVG(rev) - (SUM((x - (SELECT AVG(x) FROM monthly_rev)) * (rev - (SELECT AVG(rev) FROM monthly_rev))) / SUM((x - (SELECT AVG(x) FROM monthly_rev)) * (x - (SELECT AVG(x) FROM monthly_rev)))) * AVG(x) AS intercept FROM monthly_rev), residuals_calc AS (SELECT mr.month, mr.rev, (s.intercept + s.slope * mr.x) AS trend, (mr.rev - (s.intercept + s.slope * mr.x)) AS residual FROM monthly_rev AS mr CROSS JOIN stats AS s), stddev_calc AS (SELECT SQRT(SUM(residual * residual) / COUNT(*)) AS std_dev FROM residuals_calc) SELECT rc.month, rc.residual FROM residuals_calc AS rc CROSS JOIN stddev_calc AS sd WHERE rc.residual < -1.5 * sd.std_dev ORDER BY rc.month LIMIT 500",
+    "ok": true,
+    "rows": 3,
+    "error": null
+   },
+   "effect": "n/a"
+  }
+ ],
+ "selected_step": 3,
+ "selected_result": {
+  "sql": "-- compute: zscore_anomalies on step 2",
+  "ok": true,
+  "columns": [
+   "period",
+   "value",
+   "expected",
+   "residual",
+   "z_score",
+   "x_convention"
+  ],
+  "rows": [
+   [
+    "2025-07",
+    748889.067,
+    1097436.3864584055,
+    -348547.3194584055,
+    -1.815098217019091,
+    "x = month number, 1 = 2024-01"
+   ],
+   [
+    "2025-08",
+    692802.7975,
+    1117984.7972340577,
+    -425181.9997340577,
+    -2.214181680768879,
+    "x = month number, 1 = 2024-01"
+   ],
+   [
+    "2025-09",
+    686088.4935,
+    1138533.2080097098,
+    -452444.71450970985,
+    -2.3561552442358953,
+    "x = month number, 1 = 2024-01"
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "Assuming the definition of more than 1.5 standard deviations below the trend line refers to a z-score less than -1.5, three months fell into this category: 2025-07 with a residual of -$348,547.32, 2025-08 with a residual of -$425,182.00, and 2025-09 with a residual of -$452,444.71.",
+ "key_numbers": [
+  "-348547.3194584055",
+  "-425181.9997340577",
+  "-452444.71450970985"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question that asks for a forecast, a projection or a",
+   "prompt_hash": "496bd15bf3b9737e85dbd4f3ad4619b51079ed254ab58f78e7f89d8e8016ee02",
+   "cache_hit": false,
+   "latency_ms": 1606.9,
+   "input_tokens": 4258,
+   "output_tokens": 277,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "c79645622fc9ca57d9b9b956fee39a7de3bccaa64b11da1a04f64e29724be186",
+   "cache_hit": false,
+   "latency_ms": 1089.7,
+   "input_tokens": 808,
+   "output_tokens": 198,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "42b6b4421ea9c4559b2111419205eadf5818020eaa7db107408f4748a65c68b0",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3005,
+   "output_tokens": 792,
+   "original_latency_ms": 2447.9,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "86672c4638aeb613e461f5bd73d5a65c070ca187906334dd06c2c94d30050b90",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3595,
+   "output_tokens": 682,
+   "original_latency_ms": 2263.8,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 2.882,
+ "latency_live_s": 7.593,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "3 row(s) match"
+ }
+}

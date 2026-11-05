@@ -1,0 +1,179 @@
+{
+ "question_id": "ha01",
+ "type": "multi_hop",
+ "arch": "full",
+ "question": "Which customer segment had the most customers churn in 2025, and who was that segment's top customer by completed revenue in 2025? Give the customer's ID, name and 2025 completed revenue.",
+ "model": "gemini-3.5-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The query result provides the top customer's ID, name, and completed revenue, but it does not specify which customer segment had the most churn in 2025."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "WITH top_churn_segment AS (SELECT segment FROM customers WHERE churn_date >= '2025-01-01' AND churn_date <= '2025-12-31' GROUP BY segment ORDER BY COUNT(*) DESC LIMIT 1) SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM customers AS c JOIN orders AS o ON c.customer_id = o.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN top_churn_segment AS tcs ON c.segment = tcs.segment WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY completed_revenue DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "customer_id | customer_name | completed_revenue\n84 | Jonas Duarte | 34461.23"
+  },
+  {
+   "sql": "SELECT segment, COUNT(*) AS churn_count FROM customers WHERE churn_date >= '2025-01-01' AND churn_date <= '2025-12-31' GROUP BY segment ORDER BY churn_count DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "segment | churn_count\nMid-Market | 61\nSMB | 48\nEnterprise | 27"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH top_churn_segment AS (SELECT segment FROM customers WHERE churn_date >= '2025-01-01' AND churn_date <= '2025-12-31' GROUP BY segment ORDER BY COUNT(*) DESC LIMIT 1) SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM customers AS c JOIN orders AS o ON c.customer_id = o.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN top_churn_segment AS tcs ON c.segment = tcs.segment WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY completed_revenue DESC LIMIT 1",
+   "reason": "",
+   "signal": null
+  },
+  {
+   "step": 2,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT segment, COUNT(*) AS churn_count FROM customers WHERE churn_date >= '2025-01-01' AND churn_date <= '2025-12-31' GROUP BY segment ORDER BY churn_count DESC LIMIT 500",
+   "reason": "Identify which segment had the most churned customers in 2025 to explicitly report the segment name alongside the top customer.",
+   "signal": null
+  },
+  {
+   "step": "final",
+   "tools": [
+    "assemble"
+   ],
+   "plan": {
+    "base_step": 1,
+    "columns": [
+     {
+      "step": 2,
+      "column": "segment"
+     }
+    ]
+   }
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "-- assembled: rows from step 1, values from step(s) 2\nWITH top_churn_segment AS (SELECT segment FROM customers WHERE churn_date >= '2025-01-01' AND churn_date <= '2025-12-31' GROUP BY segment ORDER BY COUNT(*) DESC LIMIT 1) SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM customers AS c JOIN orders AS o ON c.customer_id = o.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN top_churn_segment AS tcs ON c.segment = tcs.segment WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY completed_revenue DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "customer_id",
+   "customer_name",
+   "completed_revenue",
+   "row_segment",
+   "row_segment_2",
+   "row_segment_3"
+  ],
+  "rows": [
+   [
+    84,
+    "Jonas Duarte",
+    34461.23,
+    "Mid-Market",
+    "SMB",
+    "Enterprise"
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "In 2025, the Mid-Market customer segment experienced the most customer churn. That segment's top customer by completed revenue in 2025 was Jonas Duarte (ID: 84) with $34,461.23.",
+ "key_numbers": [
+  "84",
+  "34461.23"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You plan the next step of an analysis of a read-only SQLite database. Choose exa",
+   "prompt_hash": "5b860dd15139bd0199700de370667e912b694fdaa078fd03012401bdd5496ed4",
+   "cache_hit": false,
+   "latency_ms": 3138.2,
+   "input_tokens": 4587,
+   "output_tokens": 111,
+   "original_latency_ms": null,
+   "thoughts_tokens": 217,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You plan the next step of an analysis of a read-only SQLite database. Choose exa",
+   "prompt_hash": "ed74728ef3e85184930aaa602aa9325820cc97c984a07a40dba7941eff55dc85",
+   "cache_hit": false,
+   "latency_ms": 2664.6,
+   "input_tokens": 4712,
+   "output_tokens": 16,
+   "original_latency_ms": null,
+   "thoughts_tokens": 229,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "Several queries were run to answer one question. Choose the final result table t",
+   "prompt_hash": "d6811ed2ccbfc4553d9587016719026a99b48a5885c5ae9e1daf5a3a1e92b322",
+   "cache_hit": false,
+   "latency_ms": 4200.4,
+   "input_tokens": 788,
+   "output_tokens": 48,
+   "original_latency_ms": null,
+   "thoughts_tokens": 577,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "407a5e1ca3eeb92014be64b74433f20e7d79e860630617666afffc30a54668da",
+   "cache_hit": false,
+   "latency_ms": 5505.7,
+   "input_tokens": 743,
+   "output_tokens": 99,
+   "original_latency_ms": null,
+   "thoughts_tokens": 747,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "321c7b9f88c65a57abf97e89367c813353e6e798365df199bc6e829216b228f9",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2996,
+   "output_tokens": 385,
+   "original_latency_ms": 9809.0,
+   "thoughts_tokens": 1538,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "12e5915a68efbae09428aac3b70e6249eb3d1d5c4a1740cb8c697fdadab70131",
+   "cache_hit": false,
+   "latency_ms": 3233.6,
+   "input_tokens": 589,
+   "output_tokens": 60,
+   "original_latency_ms": null,
+   "thoughts_tokens": 306,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 18.837,
+ "latency_live_s": 28.646,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

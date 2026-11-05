@@ -1,0 +1,57 @@
+{
+ "question_id": "ha07",
+ "type": "why",
+ "arch": "baseline",
+ "question": "Why did APAC's completed revenue fall so much more than other regions' from Q2 to Q3 2025?",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "failed",
+ "path": "direct",
+ "stop_reason": "error",
+ "error": "Could not produce a query: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: expected value at line 1 column 1 [type=json_invalid, input_value='```json\\n{\\n  \"sql\": \"SE... \\'2025-07\\' AND \\'2025', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "plan": [],
+ "sql_attempts": [],
+ "steps": [],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": null,
+ "answer": "Could not produce a query: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: expected value at line 1 column 1 [type=json_invalid, input_value='```json\\n{\\n  \"sql\": \"SE... \\'2025-07\\' AND \\'2025', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "1b4119c643ceafa1fbc217a352667517210e3b0440b02a66826aa26e917bef84",
+   "cache_hit": false,
+   "latency_ms": 19683.4,
+   "input_tokens": 2946,
+   "output_tokens": 80,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1964,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "883e36d3507160a622c6ed3a806590d4ab10a37f601c7db28cd2827a3085bead",
+   "cache_hit": false,
+   "latency_ms": 18429.6,
+   "input_tokens": 3135,
+   "output_tokens": 80,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1964,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 38.117,
+ "latency_live_s": 38.117,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "driver not named: [\"any_of: [{'pattern': 'fewer\\\\\\\\s+(completed\\\\\\\\s+)?orders'}, {'pattern': 'order\\\\\\\\s+(volume|count|counts|numbers)'}, {'pattern': '(number|count|volume)\\\\\\\\s+of\\\\\\\\s+(completed\\\\\\\\s+)?orders'}, {'pattern': 'orders\\\\\\\\s+(fell|dropped|declined|decreased|shrank)'}]\"]"
+ }
+}

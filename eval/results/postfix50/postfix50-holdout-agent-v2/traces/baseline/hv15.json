@@ -1,0 +1,107 @@
+{
+ "question_id": "hv15",
+ "type": "segment_comparison",
+ "arch": "baseline",
+ "question": "Compare the 2025 completed revenue per buying customer of EMEA and APAC. If EMEA's is more than 10% higher than APAC's, list EMEA's top 3 customers by 2025 completed revenue; otherwise, list APAC's top 3. Give each customer's ID, name and revenue.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH region_rev AS (SELECT r.region_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS total_rev, COUNT(DISTINCT o.customer_id) AS buying_customers FROM regions AS r JOIN customers AS c ON c.region_id = r.region_id JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND r.region_name IN ('EMEA', 'APAC') GROUP BY r.region_name), metrics AS (SELECT MAX(CASE WHEN region_name = 'EMEA' THEN total_rev / NULLIF(buying_customers, 0) END) AS emea_rev_per_customer, MAX(CASE WHEN region_name = 'APAC' THEN total_rev / NULLIF(buying_customers, 0) END) AS apac_rev_per_customer FROM region_rev) SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND r.region_name = CASE WHEN (SELECT emea_rev_per_customer FROM metrics) > 1.1 * (SELECT apac_rev_per_customer FROM metrics) THEN 'EMEA' ELSE 'APAC' END GROUP BY c.customer_id, c.customer_name ORDER BY revenue DESC LIMIT 3",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "customer_id | customer_name | revenue\n1254 | Sara Muller | 38417.3135\n989 | Chen Silva | 36637.7335\n1283 | Ines Moreau | 36552.446"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH region_rev AS (SELECT r.region_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS total_rev, COUNT(DISTINCT o.customer_id) AS buying_customers FROM regions AS r JOIN customers AS c ON c.region_id = r.region_id JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND r.region_name IN ('EMEA', 'APAC') GROUP BY r.region_name), metrics AS (SELECT MAX(CASE WHEN region_name = 'EMEA' THEN total_rev / NULLIF(buying_customers, 0) END) AS emea_rev_per_customer, MAX(CASE WHEN region_name = 'APAC' THEN total_rev / NULLIF(buying_customers, 0) END) AS apac_rev_per_customer FROM region_rev) SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND r.region_name = CASE WHEN (SELECT emea_rev_per_customer FROM metrics) > 1.1 * (SELECT apac_rev_per_customer FROM metrics) THEN 'EMEA' ELSE 'APAC' END GROUP BY c.customer_id, c.customer_name ORDER BY revenue DESC LIMIT 3"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH region_rev AS (SELECT r.region_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS total_rev, COUNT(DISTINCT o.customer_id) AS buying_customers FROM regions AS r JOIN customers AS c ON c.region_id = r.region_id JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND r.region_name IN ('EMEA', 'APAC') GROUP BY r.region_name), metrics AS (SELECT MAX(CASE WHEN region_name = 'EMEA' THEN total_rev / NULLIF(buying_customers, 0) END) AS emea_rev_per_customer, MAX(CASE WHEN region_name = 'APAC' THEN total_rev / NULLIF(buying_customers, 0) END) AS apac_rev_per_customer FROM region_rev) SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND r.region_name = CASE WHEN (SELECT emea_rev_per_customer FROM metrics) > 1.1 * (SELECT apac_rev_per_customer FROM metrics) THEN 'EMEA' ELSE 'APAC' END GROUP BY c.customer_id, c.customer_name ORDER BY revenue DESC LIMIT 3",
+  "ok": true,
+  "columns": [
+   "customer_id",
+   "customer_name",
+   "revenue"
+  ],
+  "rows": [
+   [
+    1254,
+    "Sara Muller",
+    38417.3135
+   ],
+   [
+    989,
+    "Chen Silva",
+    36637.7335
+   ],
+   [
+    1283,
+    "Ines Moreau",
+    36552.446
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "Assuming EMEA's completed revenue per buying customer in 2025 exceeded APAC's by more than 10%, EMEA's top 3 customers by 2025 completed revenue are Sara Muller (customer ID 1254) with 38,417.31, Chen Silva (customer ID 989) with 36,637.73, and Ines Moreau (customer ID 1283) with 36,552.45.",
+ "key_numbers": [
+  "38417.3135",
+  "36637.7335",
+  "36552.446",
+  "1254",
+  "989",
+  "1283"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "e33691d45bf7eb79f11e10d8708268439e7a55496b4a0648ff3c997ffcb510f9",
+   "cache_hit": false,
+   "latency_ms": 2224.6,
+   "input_tokens": 2991,
+   "output_tokens": 664,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "f98b924d4bada5375e10bf38b8d28b14a3226bc28d047cf11ed4ddc1fac2b1cd",
+   "cache_hit": false,
+   "latency_ms": 1106.7,
+   "input_tokens": 1008,
+   "output_tokens": 201,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 3.355,
+ "latency_live_s": 3.355,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "3 row(s) match"
+ }
+}

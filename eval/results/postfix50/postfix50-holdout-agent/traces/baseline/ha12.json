@@ -1,0 +1,88 @@
+{
+ "question_id": "ha12",
+ "type": "statistics",
+ "arch": "baseline",
+ "question": "Using a straight-line trend fitted to monthly completed revenue from January 2024 to December 2025, what is the forecast for January 2026?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH monthly_rev AS (SELECT SUBSTRING(o.order_date, 1, 7) AS month_str, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY SUBSTRING(o.order_date, 1, 7)), numbered AS (SELECT ROW_NUMBER() OVER (ORDER BY month_str) AS x, rev AS y FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(y) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * y) AS sum_xy FROM numbered), regression AS (SELECT (n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats) SELECT (intercept + slope * 25) AS forecast_jan_2026 FROM regression LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "forecast_jan_2026\n1220726.8511123187"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH monthly_rev AS (SELECT SUBSTRING(o.order_date, 1, 7) AS month_str, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY SUBSTRING(o.order_date, 1, 7)), numbered AS (SELECT ROW_NUMBER() OVER (ORDER BY month_str) AS x, rev AS y FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(y) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * y) AS sum_xy FROM numbered), regression AS (SELECT (n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats) SELECT (intercept + slope * 25) AS forecast_jan_2026 FROM regression LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH monthly_rev AS (SELECT SUBSTRING(o.order_date, 1, 7) AS month_str, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY SUBSTRING(o.order_date, 1, 7)), numbered AS (SELECT ROW_NUMBER() OVER (ORDER BY month_str) AS x, rev AS y FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(y) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * y) AS sum_xy FROM numbered), regression AS (SELECT (n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats) SELECT (intercept + slope * 25) AS forecast_jan_2026 FROM regression LIMIT 500",
+  "ok": true,
+  "columns": [
+   "forecast_jan_2026"
+  ],
+  "rows": [
+   [
+    1220726.8511123187
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Based on a straight-line trend fitted to monthly completed revenue from January 2024 to December 2025, the forecast for January 2026 is 1,220,726.85.",
+ "key_numbers": [
+  "1220726.8511123187"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "2783dcff12030f037228bc2506310927ef688b461104a70c3da8c45d618ccff1",
+   "cache_hit": false,
+   "latency_ms": 1896.4,
+   "input_tokens": 2957,
+   "output_tokens": 526,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "6e46b0b291d7a0890ed3c572d39c51f979d56539d764d60a2bcdceee3192f0fc",
+   "cache_hit": false,
+   "latency_ms": 944.2,
+   "input_tokens": 803,
+   "output_tokens": 98,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 2.882,
+ "latency_live_s": 2.882,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

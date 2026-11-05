@@ -1,0 +1,104 @@
+{
+ "question_id": "hv02",
+ "type": "multi_hop",
+ "arch": "baseline",
+ "question": "Who was our biggest Enterprise customer in North America by completed revenue in 2024, and how many support tickets did that customer open in 2025? Give the customer's ID and name with the ticket count.",
+ "model": "gemini-3.5-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH top_customer AS (SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue_2024 FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id JOIN orders AS o ON c.customer_id = o.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id WHERE c.segment = 'Enterprise' AND r.region_name = 'North America' AND o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY revenue_2024 DESC LIMIT 1) SELECT tc.customer_id, tc.customer_name, COUNT(st.ticket_id) AS tickets_opened_2025 FROM top_customer AS tc LEFT JOIN support_tickets AS st ON tc.customer_id = st.customer_id AND st.created_date >= '2025-01-01' AND st.created_date <= '2025-12-31' GROUP BY tc.customer_id, tc.customer_name",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "customer_id | customer_name | tickets_opened_2025\n1175 | Marco Kim | 0"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH top_customer AS (SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue_2024 FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id JOIN orders AS o ON c.customer_id = o.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id WHERE c.segment = 'Enterprise' AND r.region_name = 'North America' AND o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY revenue_2024 DESC LIMIT 1) SELECT tc.customer_id, tc.customer_name, COUNT(st.ticket_id) AS tickets_opened_2025 FROM top_customer AS tc LEFT JOIN support_tickets AS st ON tc.customer_id = st.customer_id AND st.created_date >= '2025-01-01' AND st.created_date <= '2025-12-31' GROUP BY tc.customer_id, tc.customer_name"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH top_customer AS (SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue_2024 FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id JOIN orders AS o ON c.customer_id = o.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id WHERE c.segment = 'Enterprise' AND r.region_name = 'North America' AND o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY revenue_2024 DESC LIMIT 1) SELECT tc.customer_id, tc.customer_name, COUNT(st.ticket_id) AS tickets_opened_2025 FROM top_customer AS tc LEFT JOIN support_tickets AS st ON tc.customer_id = st.customer_id AND st.created_date >= '2025-01-01' AND st.created_date <= '2025-12-31' GROUP BY tc.customer_id, tc.customer_name",
+  "ok": true,
+  "columns": [
+   "customer_id",
+   "customer_name",
+   "tickets_opened_2025"
+  ],
+  "rows": [
+   [
+    1175,
+    "Marco Kim",
+    0
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Our biggest Enterprise customer in North America by completed revenue in 2024 was Marco Kim (ID 1175). In 2025, this customer opened 0 support tickets.",
+ "key_numbers": [
+  "1175",
+  "0"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "ec00b0cbc0750770f1612cca8d3ced62a3b8a1172d7ced320154d9346028f5c8",
+   "cache_hit": false,
+   "latency_ms": 10413.3,
+   "input_tokens": 2903,
+   "output_tokens": 186,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1858,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "565fdb6eaa9616d2422ff476251a879a8feafea4b3ae1f35b466d22427c1d7c3",
+   "cache_hit": false,
+   "latency_ms": 7274.0,
+   "input_tokens": 3203,
+   "output_tokens": 431,
+   "original_latency_ms": null,
+   "thoughts_tokens": 933,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "49d023f4db2e610a30a7bc4af9386be37690aedca2a9dfa412b78d61f88141a5",
+   "cache_hit": false,
+   "latency_ms": 2976.0,
+   "input_tokens": 776,
+   "output_tokens": 80,
+   "original_latency_ms": null,
+   "thoughts_tokens": 261,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 20.7,
+ "latency_live_s": 20.7,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

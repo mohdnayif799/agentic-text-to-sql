@@ -1,0 +1,101 @@
+{
+ "question_id": "ha02",
+ "type": "multi_hop",
+ "arch": "full",
+ "question": "In the 2025 month with the lowest total marketing spend, what was our completed revenue?",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH lowest_spend_month AS (SELECT month FROM marketing_spend WHERE month LIKE '2025-%' GROUP BY month ORDER BY SUM(amount) ASC LIMIT 1) SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND STRFTIME('%Y-%m', o.order_date) = (SELECT month FROM lowest_spend_month)",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "completed_revenue\n748889.067"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH lowest_spend_month AS (SELECT month FROM marketing_spend WHERE month LIKE '2025-%' GROUP BY month ORDER BY SUM(amount) ASC LIMIT 1) SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND STRFTIME('%Y-%m', o.order_date) = (SELECT month FROM lowest_spend_month)",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH lowest_spend_month AS (SELECT month FROM marketing_spend WHERE month LIKE '2025-%' GROUP BY month ORDER BY SUM(amount) ASC LIMIT 1) SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND STRFTIME('%Y-%m', o.order_date) = (SELECT month FROM lowest_spend_month)",
+  "ok": true,
+  "columns": [
+   "completed_revenue"
+  ],
+  "rows": [
+   [
+    748889.067
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "In the 2025 month with the lowest total marketing spend, the completed revenue was $748,889.07.",
+ "key_numbers": [
+  "748889.067"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "fbb98bc8440bdc9d7c3a4af38316e97b79512c05c6f5238e00372e33ecb06eec",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2834,
+   "output_tokens": 237,
+   "original_latency_ms": 16914.2,
+   "thoughts_tokens": 1759,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "aa6d0c179d57a361e2e1119d6678959a102828bd16b60a9db26622355e125561",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 558,
+   "output_tokens": 57,
+   "original_latency_ms": 2632.5,
+   "thoughts_tokens": 72,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "3460de4f36028ff73e51e79e6ac136af8f0ade57e94bf826cb5ec45667accfad",
+   "cache_hit": false,
+   "latency_ms": 2850.7,
+   "input_tokens": 446,
+   "output_tokens": 42,
+   "original_latency_ms": null,
+   "thoughts_tokens": 110,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 2.875,
+ "latency_live_s": 22.422,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "1 row(s) match; answer missing [\"any_of: [{'text': '2025-07'}, {'pattern': 'jul(y)?\\\\\\\\.?\\\\\\\\s+2025'}]\"]"
+ }
+}

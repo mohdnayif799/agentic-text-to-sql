@@ -1,0 +1,103 @@
+{
+ "question_id": "ha13",
+ "type": "recovery",
+ "arch": "full",
+ "question": "How much did we spend on marketing in Q3 2025?",
+ "model": "gemini-3.5-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT SUM(amount) AS total_marketing_spend FROM marketing_spend WHERE month >= '2025-07' AND month <= '2025-09'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "total_marketing_spend\n532065.66"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT SUM(amount) AS total_marketing_spend FROM marketing_spend WHERE month >= '2025-07' AND month <= '2025-09'",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT SUM(amount) AS total_marketing_spend FROM marketing_spend WHERE month >= '2025-07' AND month <= '2025-09'",
+  "ok": true,
+  "columns": [
+   "total_marketing_spend"
+  ],
+  "rows": [
+   [
+    532065.66
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Assuming Q3 2025 corresponds to the months 2025-07 through 2025-09, total marketing spend was $532,065.66.",
+ "key_numbers": [
+  "532065.66"
+ ],
+ "caveats": [
+  "Assuming Q3 2025 is defined as the months from July 2025 through September 2025."
+ ],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "f041172a46fec21e8c25e8eaadf50eec4d0f36032a21fe1a1325c89bb4dc45f3",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2762,
+   "output_tokens": 130,
+   "original_latency_ms": 4748.9,
+   "thoughts_tokens": 631,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "784d6a63630a9837fe2fbbc3bcdce0416e46408e7b195e53bca432aa95f7393b",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 475,
+   "output_tokens": 125,
+   "original_latency_ms": 4169.6,
+   "thoughts_tokens": 510,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "ac1406e7321bf7d75fe1a7abafef09872f03917e111e91f31834621bdfbbceb8",
+   "cache_hit": false,
+   "latency_ms": 2113.6,
+   "input_tokens": 363,
+   "output_tokens": 33,
+   "original_latency_ms": null,
+   "thoughts_tokens": 140,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 2.136,
+ "latency_live_s": 11.055,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

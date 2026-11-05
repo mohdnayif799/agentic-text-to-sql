@@ -1,0 +1,152 @@
+{
+ "question_id": "ha12",
+ "type": "statistics",
+ "arch": "full",
+ "question": "Using a straight-line trend fitted to monthly completed revenue from January 2024 to December 2025, what is the forecast for January 2026?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The question asks for a forecast, a projection or a fitted trend line: get the series it is fitted on (one row per period), fit it from that series, and report each forecast with its period."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "WITH monthly_rev AS (SELECT SUBSTRING(o.order_date, 1, 7) AS month_str, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY SUBSTRING(o.order_date, 1, 7)), numbered AS (SELECT ROW_NUMBER() OVER (ORDER BY month_str) AS x, rev AS y FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(y) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * y) AS sum_xy FROM numbered), regression AS (SELECT (n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats) SELECT (intercept + slope * 25) AS forecast_jan_2026 FROM regression LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "forecast_jan_2026\n1220726.8511123187"
+  },
+  {
+   "sql": "SELECT SUBSTRING(o.order_date, 1, 7) AS month_str, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY SUBSTRING(o.order_date, 1, 7) ORDER BY month_str LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 24,
+   "preview": "month_str | rev\n2024-01 | 628957.8065\n2024-02 | 588582.8859999999\n2024-03 | 756149.951\n2024-04 | 772174.8205\n2024-05 | 837798.7595\n... 19 more row(s)"
+  },
+  {
+   "sql": "-- compute: linear_trend_forecast on step 2",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "month_str | steps_ahead | x | forecast | slope | intercept | points | x_convention\n2026-01 | 1 | 25.0 | 1220726.8511123185 | 20548.41077565217 | 707016.5817210142 | 24 | x = month number, 1 = 2024-01"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH monthly_rev AS (SELECT SUBSTRING(o.order_date, 1, 7) AS month_str, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY SUBSTRING(o.order_date, 1, 7)), numbered AS (SELECT ROW_NUMBER() OVER (ORDER BY month_str) AS x, rev AS y FROM monthly_rev), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(y) AS sum_y, SUM(x * x) AS sum_xx, SUM(x * y) AS sum_xy FROM numbered), regression AS (SELECT (n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x) AS slope, (sum_y - ((n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x)) * sum_x) / n AS intercept FROM stats) SELECT (intercept + slope * 25) AS forecast_jan_2026 FROM regression LIMIT 500",
+   "reason": "",
+   "signal": null,
+   "escalation_signal": "forecast"
+  },
+  {
+   "step": 2,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT SUBSTRING(o.order_date, 1, 7) AS month_str, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY SUBSTRING(o.order_date, 1, 7) ORDER BY month_str LIMIT 500",
+   "reason": "Extract monthly completed revenue from January 2024 to December 2025 and forecast January 2026 using a linear trend.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "compute:linear_trend_forecast"
+   ],
+   "sql": "-- compute: linear_trend_forecast on step 2",
+   "reason": "Extract monthly completed revenue from January 2024 to December 2025 and forecast January 2026 using a linear trend.",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 3,
+ "selected_result": {
+  "sql": "-- compute: linear_trend_forecast on step 2",
+  "ok": true,
+  "columns": [
+   "month_str",
+   "steps_ahead",
+   "x",
+   "forecast",
+   "slope",
+   "intercept",
+   "points",
+   "x_convention"
+  ],
+  "rows": [
+   [
+    "2026-01",
+    1,
+    25.0,
+    1220726.8511123185,
+    20548.41077565217,
+    707016.5817210142,
+    24,
+    "x = month number, 1 = 2024-01"
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Using a straight-line trend fitted to monthly completed revenue from January 2024 to December 2025, the forecast for January 2026 is 1,220,726.85.",
+ "key_numbers": [
+  "1220726.85"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question that asks for a forecast, a projection or a",
+   "prompt_hash": "fecd813c179750a0c37119b2e4dc96eea2e7cb951446f015b13ea74654fe07d0",
+   "cache_hit": false,
+   "latency_ms": 1196.4,
+   "input_tokens": 4003,
+   "output_tokens": 236,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "35123590a9474ff23392085cd19523277c08f4315957e1d622eed2bfcf0f1fad",
+   "cache_hit": false,
+   "latency_ms": 892.7,
+   "input_tokens": 572,
+   "output_tokens": 89,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "2783dcff12030f037228bc2506310927ef688b461104a70c3da8c45d618ccff1",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2957,
+   "output_tokens": 526,
+   "original_latency_ms": 1896.4,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 2.176,
+ "latency_live_s": 4.072,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

@@ -1,0 +1,92 @@
+{
+ "question_id": "hv09",
+ "type": "statistics",
+ "arch": "baseline",
+ "question": "Over the 24 months of 2024 and 2025, which product category has the steepest upward trend in monthly units sold in completed orders? Give the category and the slope of a least-squares line, in units per month.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH monthly_category_units AS (SELECT p.category, SUBSTRING(o.order_date, 1, 7) AS ym, SUM(oi.quantity) AS monthly_units, ((CAST(SUBSTRING(o.order_date, 1, 4) AS INTEGER) - 2024) * 12 + (CAST(SUBSTRING(o.order_date, 6, 2) AS INTEGER) - 1)) AS x FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.category, ym), regression_calc AS (SELECT category, COUNT(*) AS n, SUM(x) AS sum_x, SUM(monthly_units) AS sum_y, SUM(x * monthly_units) AS sum_xy, SUM(x * x) AS sum_xx, SUM(monthly_units * monthly_units) AS sum_yy FROM monthly_category_units GROUP BY category) SELECT category, (n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x) AS slope FROM regression_calc ORDER BY slope DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "category | slope\nSoftware | 22.09304347826087"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH monthly_category_units AS (SELECT p.category, SUBSTRING(o.order_date, 1, 7) AS ym, SUM(oi.quantity) AS monthly_units, ((CAST(SUBSTRING(o.order_date, 1, 4) AS INTEGER) - 2024) * 12 + (CAST(SUBSTRING(o.order_date, 6, 2) AS INTEGER) - 1)) AS x FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.category, ym), regression_calc AS (SELECT category, COUNT(*) AS n, SUM(x) AS sum_x, SUM(monthly_units) AS sum_y, SUM(x * monthly_units) AS sum_xy, SUM(x * x) AS sum_xx, SUM(monthly_units * monthly_units) AS sum_yy FROM monthly_category_units GROUP BY category) SELECT category, (n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x) AS slope FROM regression_calc ORDER BY slope DESC LIMIT 1"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH monthly_category_units AS (SELECT p.category, SUBSTRING(o.order_date, 1, 7) AS ym, SUM(oi.quantity) AS monthly_units, ((CAST(SUBSTRING(o.order_date, 1, 4) AS INTEGER) - 2024) * 12 + (CAST(SUBSTRING(o.order_date, 6, 2) AS INTEGER) - 1)) AS x FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.category, ym), regression_calc AS (SELECT category, COUNT(*) AS n, SUM(x) AS sum_x, SUM(monthly_units) AS sum_y, SUM(x * monthly_units) AS sum_xy, SUM(x * x) AS sum_xx, SUM(monthly_units * monthly_units) AS sum_yy FROM monthly_category_units GROUP BY category) SELECT category, (n * sum_xy - sum_x * sum_y) * 1.0 / (n * sum_xx - sum_x * sum_x) AS slope FROM regression_calc ORDER BY slope DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "category",
+   "slope"
+  ],
+  "rows": [
+   [
+    "Software",
+    22.09304347826087
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Over the 24 months of 2024 and 2025, the product category with the steepest upward trend in monthly units sold in completed orders is Software, with a slope of 22.09 units per month.",
+ "key_numbers": [
+  "22.09304347826087",
+  "2024",
+  "2025"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "1ebd073fcd1b79942355604777d9771dd9c5fd908dd5aae24e18db4710aaf67a",
+   "cache_hit": false,
+   "latency_ms": 2062.5,
+   "input_tokens": 2972,
+   "output_tokens": 589,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "d908eecd4a4a74dc98a544b1eaa9486c1c44c41e2a6139bd5b055da4c443cfde",
+   "cache_hit": false,
+   "latency_ms": 902.9,
+   "input_tokens": 809,
+   "output_tokens": 120,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 3.007,
+ "latency_live_s": 3.007,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

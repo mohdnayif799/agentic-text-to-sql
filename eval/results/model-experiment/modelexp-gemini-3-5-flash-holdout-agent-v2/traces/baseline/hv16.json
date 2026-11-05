@@ -1,0 +1,88 @@
+{
+ "question_id": "hv16",
+ "type": "segment_comparison",
+ "arch": "baseline",
+ "question": "Did the Partner channel's share of completed orders go up from 2024 to 2025? If it did, give Partner's 2025 completed orders by region. If it did not, give the 2025 completed orders by region for whichever channel's share rose the most.",
+ "model": "gemini-3.5-flash",
+ "today": "2026-10-04",
+ "status": "failed",
+ "path": "direct",
+ "stop_reason": "error",
+ "error": "Could not produce a query: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: expected value at line 1 column 1 [type=json_invalid, input_value='AS total_2025\\n    FROM ...* cs.cnt_2025 / t.total', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "...",
+   "ok": false,
+   "failure": "blocked",
+   "error": "Could not parse SQL: Invalid expression / Unexpected token. Line 1, Col: 1.\n  \u001b[4m.\u001b[0m..",
+   "row_count": 0,
+   "preview": "ERROR (blocked): Could not parse SQL: Invalid expression / Unexpected token. Line 1, Col: 1.\n  \u001b[4m.\u001b[0m.."
+  }
+ ],
+ "steps": [],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": null,
+ "answer": "Could not produce a query: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: expected value at line 1 column 1 [type=json_invalid, input_value='AS total_2025\\n    FROM ...* cs.cnt_2025 / t.total', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "629681e4671269fc293d8b3fb522e2bc04153b82dd265d7d4736f4a964b60f1a",
+   "cache_hit": false,
+   "latency_ms": 11561.8,
+   "input_tokens": 2961,
+   "output_tokens": 80,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1964,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "2e57b27bb387447573ced7f76117253b02a4089f01f497f30ab5e0eacab7c83f",
+   "cache_hit": false,
+   "latency_ms": 10639.6,
+   "input_tokens": 3137,
+   "output_tokens": 77,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1967,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "232ae7fcef48b1a917d6ef2b1bf10f373d6e9adbedd63d68b6fba706b527517d",
+   "cache_hit": false,
+   "latency_ms": 9895.7,
+   "input_tokens": 3010,
+   "output_tokens": 81,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1963,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "bf05d6e22ad20cf91c49de0958a673fb0b647e66e60b8b17df01cbcaa4afe247",
+   "cache_hit": false,
+   "latency_ms": 10644.1,
+   "input_tokens": 3195,
+   "output_tokens": 80,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1964,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 42.766,
+ "latency_live_s": 42.766,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "no selected result; answer missing ['text: Direct']"
+ }
+}

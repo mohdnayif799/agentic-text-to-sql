@@ -1,0 +1,57 @@
+{
+ "question_id": "hv13",
+ "type": "ambiguous",
+ "arch": "full",
+ "question": "Which product category is growing the fastest? Give the category and its growth as a percentage.",
+ "model": "gemini-3.5-flash",
+ "today": "2026-10-04",
+ "status": "failed",
+ "path": "direct",
+ "stop_reason": "error",
+ "error": "cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: EOF while parsing a string at line 4 column 276 [type=json_invalid, input_value='{\\n  \"expected_shape\": \"...rder_date < \\'2026-01-0', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "plan": [],
+ "sql_attempts": [],
+ "steps": [],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": null,
+ "answer": "Could not complete the analysis: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: EOF while parsing a string at line 4 column 276 [type=json_invalid, input_value='{\\n  \"expected_shape\": \"...rder_date < \\'2026-01-0', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "ef5d9779c246d6dc6232f9cbe3c267099dcd4fbc26c4f9b35742762ffee3f565",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2852,
+   "output_tokens": 77,
+   "original_latency_ms": 10504.3,
+   "thoughts_tokens": 1967,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "4aa0e70a2d03f50e0ce3bbb6a38da349115f77faab61a21a3f9f7ce97dc364a6",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3042,
+   "output_tokens": 197,
+   "original_latency_ms": 10343.0,
+   "thoughts_tokens": 1847,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.016,
+ "latency_live_s": 20.863,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "no interpretation matched (assumption stated: False; answer fits: none)"
+ }
+}

@@ -1,0 +1,108 @@
+{
+ "question_id": "hv03",
+ "type": "term_matching",
+ "arch": "full",
+ "question": "By what percentage did unit sales of the 'Meridan Cascaed' change from 2024 to 2025? Give the product's ID and name with the percentage.",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.product_id, p.product_name, (SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN oi.quantity ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN oi.quantity ELSE 0 END)) * 100.0 / SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN oi.quantity ELSE 0 END) AS pct_change FROM products AS p JOIN order_items AS oi ON p.product_id = oi.product_id JOIN orders AS o ON oi.order_id = o.order_id WHERE p.product_name = 'Meridian Cascade' AND o.status = 'completed' GROUP BY p.product_id, p.product_name LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "product_id | product_name | pct_change\n32 | Meridian Cascade | 67.56756756756756"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.product_id, p.product_name, (SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN oi.quantity ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN oi.quantity ELSE 0 END)) * 100.0 / SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN oi.quantity ELSE 0 END) AS pct_change FROM products AS p JOIN order_items AS oi ON p.product_id = oi.product_id JOIN orders AS o ON oi.order_id = o.order_id WHERE p.product_name = 'Meridian Cascade' AND o.status = 'completed' GROUP BY p.product_id, p.product_name LIMIT 500",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT p.product_id, p.product_name, (SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN oi.quantity ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN oi.quantity ELSE 0 END)) * 100.0 / SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN oi.quantity ELSE 0 END) AS pct_change FROM products AS p JOIN order_items AS oi ON p.product_id = oi.product_id JOIN orders AS o ON oi.order_id = o.order_id WHERE p.product_name = 'Meridian Cascade' AND o.status = 'completed' GROUP BY p.product_id, p.product_name LIMIT 500",
+  "ok": true,
+  "columns": [
+   "product_id",
+   "product_name",
+   "pct_change"
+  ],
+  "rows": [
+   [
+    32,
+    "Meridian Cascade",
+    67.56756756756756
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Unit sales of 'Meridian Cascade' (product ID 32) increased by approximately 67.57% (67.56756756756756%) from 2024 to 2025.",
+ "key_numbers": [
+  "32",
+  "67.56756756756756"
+ ],
+ "caveats": [
+  "Assuming the user's mention of 'Meridan Cascaed' refers to 'Meridian Cascade'."
+ ],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "7648aef2149d920ff6bd8e715808f97d6762ff579438fda86935ab4729a647b8",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2854,
+   "output_tokens": 392,
+   "original_latency_ms": 13124.1,
+   "thoughts_tokens": 1373,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "197c79468efb0208de3ad917afa3aecb79b712a14025a3403ed3169c6403d46c",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 735,
+   "output_tokens": 116,
+   "original_latency_ms": 3112.9,
+   "thoughts_tokens": 106,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "f328df68b0e825a6946032b0e41748662ed40c44814add8148986919f37b5844",
+   "cache_hit": false,
+   "latency_ms": 4392.4,
+   "input_tokens": 623,
+   "output_tokens": 44,
+   "original_latency_ms": null,
+   "thoughts_tokens": 165,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.438,
+ "latency_live_s": 20.675,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

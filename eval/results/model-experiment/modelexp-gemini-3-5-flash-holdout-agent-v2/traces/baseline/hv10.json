@@ -1,0 +1,114 @@
+{
+ "question_id": "hv10",
+ "type": "statistics",
+ "arch": "baseline",
+ "question": "For support tickets opened in 2025 that have been resolved, what was the median number of days to resolve a ticket in each region?",
+ "model": "gemini-3.5-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH resolved_tickets AS (SELECT r.region_name, JULIANDAY(st.resolved_date) - JULIANDAY(st.created_date) AS resolution_days FROM support_tickets AS st JOIN customers AS c ON st.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE st.created_date >= '2025-01-01' AND st.created_date <= '2025-12-31' AND NOT st.resolved_date IS NULL), ranked AS (SELECT region_name, resolution_days, ROW_NUMBER() OVER (PARTITION BY region_name ORDER BY resolution_days) AS row_num, COUNT(*) OVER (PARTITION BY region_name) AS total_count FROM resolved_tickets) SELECT region_name, AVG(resolution_days) AS median_resolution_days FROM ranked WHERE row_num IN ((total_count + 1) / 2, (total_count + 2) / 2) GROUP BY region_name LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "region_name | median_resolution_days\nAPAC | 12.0\nEMEA | 11.0\nLATAM | 12.0\nNorth America | 11.0"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH resolved_tickets AS (SELECT r.region_name, JULIANDAY(st.resolved_date) - JULIANDAY(st.created_date) AS resolution_days FROM support_tickets AS st JOIN customers AS c ON st.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE st.created_date >= '2025-01-01' AND st.created_date <= '2025-12-31' AND NOT st.resolved_date IS NULL), ranked AS (SELECT region_name, resolution_days, ROW_NUMBER() OVER (PARTITION BY region_name ORDER BY resolution_days) AS row_num, COUNT(*) OVER (PARTITION BY region_name) AS total_count FROM resolved_tickets) SELECT region_name, AVG(resolution_days) AS median_resolution_days FROM ranked WHERE row_num IN ((total_count + 1) / 2, (total_count + 2) / 2) GROUP BY region_name LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH resolved_tickets AS (SELECT r.region_name, JULIANDAY(st.resolved_date) - JULIANDAY(st.created_date) AS resolution_days FROM support_tickets AS st JOIN customers AS c ON st.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE st.created_date >= '2025-01-01' AND st.created_date <= '2025-12-31' AND NOT st.resolved_date IS NULL), ranked AS (SELECT region_name, resolution_days, ROW_NUMBER() OVER (PARTITION BY region_name ORDER BY resolution_days) AS row_num, COUNT(*) OVER (PARTITION BY region_name) AS total_count FROM resolved_tickets) SELECT region_name, AVG(resolution_days) AS median_resolution_days FROM ranked WHERE row_num IN ((total_count + 1) / 2, (total_count + 2) / 2) GROUP BY region_name LIMIT 500",
+  "ok": true,
+  "columns": [
+   "region_name",
+   "median_resolution_days"
+  ],
+  "rows": [
+   [
+    "APAC",
+    12.0
+   ],
+   [
+    "EMEA",
+    11.0
+   ],
+   [
+    "LATAM",
+    12.0
+   ],
+   [
+    "North America",
+    11.0
+   ]
+  ],
+  "row_count": 4
+ },
+ "answer": "For support tickets opened in 2025 that have been resolved, the median resolution time was 12.0 days in APAC, 11.0 days in EMEA, 12.0 days in LATAM, and 11.0 days in North America.",
+ "key_numbers": [
+  "12.0",
+  "11.0"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "1536e2d178366f90266c2a9f007b3b9de06956d2f82296bc7ee2ed397c9c424c",
+   "cache_hit": false,
+   "latency_ms": 11344.4,
+   "input_tokens": 2817,
+   "output_tokens": 164,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1880,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "da61f85bb48f87a27c32e93f6edb512273de197e7277ab5c2dd5df06cc579e08",
+   "cache_hit": false,
+   "latency_ms": 8407.0,
+   "input_tokens": 3092,
+   "output_tokens": 370,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1301,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "d8275e0394054a21600073186417f60ef0e32f62ea8348979c1eb6e4e67108fa",
+   "cache_hit": false,
+   "latency_ms": 3673.6,
+   "input_tokens": 718,
+   "output_tokens": 107,
+   "original_latency_ms": null,
+   "thoughts_tokens": 358,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 23.44,
+ "latency_live_s": 23.44,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "4 row(s) match"
+ }
+}

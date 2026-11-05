@@ -1,0 +1,839 @@
+{
+ "set": "holdout_easy",
+ "archs": [
+  "baseline",
+  "full"
+ ],
+ "provider": "gemini",
+ "model": "gemini-3.8-flash",
+ "temperature": 0.0,
+ "today": "2026-10-04",
+ "max_steps": 3,
+ "max_attempts_per_step": 3,
+ "questions_sha256": "28000bf1ccead0f5e0b5427fabaf7b91c594f13ef5cf3dca4a900e5e9e15beba",
+ "code_commit": "7b13955",
+ "started_utc": "2026-11-05T17:59:43+00:00",
+ "planned_calls": {
+  "per_arch": {
+   "baseline": {
+    "typical": 24,
+    "max": 36
+   },
+   "full": {
+    "typical": 36,
+    "max": 156
+   }
+  },
+  "judge_max": 0,
+  "typical": 60,
+  "max": 192
+ },
+ "judge_model": "gemini-3.5-flash-lite",
+ "note": "secondary model experiment: not a primary result",
+ "finished_utc": "2026-11-05T18:02:25+00:00",
+ "complete": true,
+ "stopped_reason": null,
+ "summary": {
+  "baseline": {
+   "primary": "12/12",
+   "wilson95": [
+    0.758,
+    1.0
+   ],
+   "pending": 0,
+   "errors": 0,
+   "not_evaluated": 0,
+   "answer_ok": 12,
+   "end_to_end": 12,
+   "avg_llm_calls": 2.0,
+   "avg_latency_s": 10.78,
+   "avg_latency_live_s": 10.78,
+   "by_type": {
+    "easy": "12/12"
+   }
+  },
+  "full": {
+   "primary": "12/12",
+   "wilson95": [
+    0.758,
+    1.0
+   ],
+   "pending": 0,
+   "errors": 0,
+   "not_evaluated": 0,
+   "answer_ok": 12,
+   "end_to_end": 12,
+   "avg_llm_calls": 3.0,
+   "avg_latency_s": 2.7,
+   "avg_latency_live_s": 13.42,
+   "by_type": {
+    "easy": "12/12"
+   }
+  }
+ },
+ "escalation": {},
+ "missed_escalations": {
+  "baseline_failed": 0,
+  "router": {
+   "escalated": 0,
+   "not_escalated": 0,
+   "error": 0,
+   "not_run": 0
+  },
+  "full": {
+   "escalated": 0,
+   "not_escalated": 0,
+   "error": 0,
+   "not_run": 0
+  },
+  "questions": []
+ },
+ "provider_resumes": [],
+ "retries": [],
+ "items": [
+  {
+   "id": "he01",
+   "type": "easy",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 8.28,
+   "latency_live_s": 8.28,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/he01.json"
+  },
+  {
+   "id": "he01",
+   "type": "easy",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 2.223,
+   "latency_live_s": 9.849,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/he01.json"
+  },
+  {
+   "id": "he02",
+   "type": "easy",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 10.246,
+   "latency_live_s": 10.246,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/he02.json"
+  },
+  {
+   "id": "he02",
+   "type": "easy",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 2.912,
+   "latency_live_s": 13.146,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/he02.json"
+  },
+  {
+   "id": "he03",
+   "type": "easy",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 9.261,
+   "latency_live_s": 9.261,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/he03.json"
+  },
+  {
+   "id": "he03",
+   "type": "easy",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 2.888,
+   "latency_live_s": 12.14,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/he03.json"
+  },
+  {
+   "id": "he04",
+   "type": "easy",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 11.433,
+   "latency_live_s": 11.433,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/he04.json"
+  },
+  {
+   "id": "he04",
+   "type": "easy",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 2.011,
+   "latency_live_s": 13.436,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/he04.json"
+  },
+  {
+   "id": "he05",
+   "type": "easy",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "3 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 12.071,
+   "latency_live_s": 12.071,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/he05.json"
+  },
+  {
+   "id": "he05",
+   "type": "easy",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "3 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 2.476,
+   "latency_live_s": 14.53,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/he05.json"
+  },
+  {
+   "id": "he06",
+   "type": "easy",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "3 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 11.663,
+   "latency_live_s": 11.663,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/he06.json"
+  },
+  {
+   "id": "he06",
+   "type": "easy",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "3 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 2.879,
+   "latency_live_s": 14.534,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/he06.json"
+  },
+  {
+   "id": "he07",
+   "type": "easy",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "3 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 9.676,
+   "latency_live_s": 9.676,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/he07.json"
+  },
+  {
+   "id": "he07",
+   "type": "easy",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "3 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 2.331,
+   "latency_live_s": 11.996,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/he07.json"
+  },
+  {
+   "id": "he08",
+   "type": "easy",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 13.978,
+   "latency_live_s": 13.978,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/he08.json"
+  },
+  {
+   "id": "he08",
+   "type": "easy",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 2.688,
+   "latency_live_s": 16.656,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/he08.json"
+  },
+  {
+   "id": "he09",
+   "type": "easy",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "6 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 14.512,
+   "latency_live_s": 14.512,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/he09.json"
+  },
+  {
+   "id": "he09",
+   "type": "easy",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "6 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 4.011,
+   "latency_live_s": 18.514,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/he09.json"
+  },
+  {
+   "id": "he10",
+   "type": "easy",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 10.664,
+   "latency_live_s": 10.664,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/he10.json"
+  },
+  {
+   "id": "he10",
+   "type": "easy",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 2.787,
+   "latency_live_s": 13.444,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/he10.json"
+  },
+  {
+   "id": "he11",
+   "type": "easy",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "3 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 10.477,
+   "latency_live_s": 10.477,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/he11.json"
+  },
+  {
+   "id": "he11",
+   "type": "easy",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "3 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 2.479,
+   "latency_live_s": 12.94,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/he11.json"
+  },
+  {
+   "id": "he12",
+   "type": "easy",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 7.127,
+   "latency_live_s": 7.127,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/he12.json"
+  },
+  {
+   "id": "he12",
+   "type": "easy",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 2.676,
+   "latency_live_s": 9.797,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/he12.json"
+  }
+ ]
+}

@@ -1,0 +1,57 @@
+{
+ "question_id": "ha20",
+ "type": "segment_comparison",
+ "arch": "full",
+ "question": "Compare the 2025 refund rate (refunded orders as a percentage of all orders) of the Online and Direct channels. If the gap is more than 1.5 percentage points, show the 2025 refund rate by region for whichever of the two channels is higher; otherwise, give the overall 2025 refund rate across all channels.",
+ "model": "gemini-3.5-flash",
+ "today": "2026-10-04",
+ "status": "failed",
+ "path": "direct",
+ "stop_reason": "error",
+ "error": "cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: expected value at line 1 column 1 [type=json_invalid, input_value='```json\\n{\\n  \"sql\": \"WI...HEN status = \\'refunded', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "plan": [],
+ "sql_attempts": [],
+ "steps": [],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": null,
+ "answer": "Could not complete the analysis: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: expected value at line 1 column 1 [type=json_invalid, input_value='```json\\n{\\n  \"sql\": \"WI...HEN status = \\'refunded', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "f12d51c3b0d6f7d59dba2644f9f8f8056d16ed5c89f763bcf3c1d614aecacd7e",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2851,
+   "output_tokens": 80,
+   "original_latency_ms": 11866.2,
+   "thoughts_tokens": 1964,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "0583ebbee99e25fa60679d1d4a2c52cc902905e9557aa23633dacd0b31a8b1c8",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3040,
+   "output_tokens": 77,
+   "original_latency_ms": 11450.2,
+   "thoughts_tokens": 1967,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.012,
+ "latency_live_s": 23.328,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "no selected result; answer missing ['text: Online']"
+ }
+}
