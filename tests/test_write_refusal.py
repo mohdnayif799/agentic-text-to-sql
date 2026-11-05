@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date
+from pathlib import Path
 
 import pytest
 from streamlit.testing.v1 import AppTest
@@ -226,6 +227,12 @@ class TestTheGuardIsStillTheSecondLayer:
 
 def warnings(at: AppTest) -> list[str]:
     return [w.value for w in at.warning]
+
+
+def test_the_app_shows_a_later_refusal_as_an_answer():
+    # archs refuse with status "refused" when the model writes a write statement.
+    source = (Path(__file__).resolve().parents[1] / "app.py").read_text("utf-8")
+    assert 'if outcome.status in ("done", "refused"):' in source
 
 
 class TestInTheApp:

@@ -13,6 +13,12 @@ so it is byte-identical to A). The run then escalates only on a signal:
    needs_followup -> follow-up queries, each seeing the original question
    verbatim, the reason and capped previews of earlier results.
 
+Two things end a run early, in code. A write statement from the model, at any
+step, ends it as refused (the read-only guard stays as the final layer). A final
+table that cannot be a fact from the data (no query read a table, or it filtered
+on a value the column does not hold) is answered by saying the data doesn't track
+that, instead of writing a figure from it.
+
 With no signal and no follow-up, C answers directly with A's answer call on
 A's result, so the direct path is exactly A's calls. The one addition is made
 in code after that call: when the question ranks things without saying by what
@@ -56,6 +62,7 @@ from agentcrew.archs.assemble import AssemblyPlan, assemble, default_plan
 from agentcrew.archs.assumption import assumption_sentence, states_assumption
 from agentcrew.archs.baseline import RETRY_BLOCK, SQL_SYSTEM, SQL_USER
 from agentcrew.archs.checks import (
+    WRONG_FIGURES,
     Schema,
     Signal,
     classify,
@@ -64,15 +71,29 @@ from agentcrew.archs.checks import (
     schema_error,
     schema_of,
 )
+from agentcrew.archs.explore import NEAR_MATCH, value_index
 from agentcrew.archs.fanout import KeyIndex, fanout_problem
 from agentcrew.archs.outcome import ArchOutcome, RepairEvent, SqlAttempt
+from agentcrew.archs.sqlfacts import join_filter_problem, reads_no_table, text_filters
 from agentcrew.config import Settings
 from agentcrew.context import SharedContext
+from agentcrew.db.safety import is_write_sql
 from agentcrew.llm import LLMClient, StructuredOutputError
+from agentcrew.refusal import WRITE_REFUSAL
 from agentcrew.schemas import ExecutionResult, FinalAnswer, SqlDraft
 from agentcrew.tools import ToolContext, execute_readonly_sql
 
 PREVIEW_ROWS = 8
+#: Enough to name a short column's values in an answer, without listing a long one.
+MAX_VALUES_NAMED = 10
+
+UNTRACKED_NO_TABLE = (
+    "The data doesn't track this, so I can't give a figure: no table records it."
+)
+UNTRACKED_VALUE = (
+    "The data doesn't track this, so I can't give a figure: '{value}' is not a value "
+    "of {table}.{column}.{known}"
+)
 
 #: (executed sql, result) -> a verification Signal or None (architecture D).
 Verifier = Callable[[str, ExecutionResult], "Signal | None"]
@@ -174,6 +195,15 @@ ASSEMBLY_USER = """\
 """
 
 
+class WriteAttempt(Exception):
+    """The model turned the question into a write. The run ends as refused; the
+    statement is never sent to the database."""
+
+    def __init__(self, sql: str) -> None:
+        super().__init__("the model wrote a write statement")
+        self.sql = sql
+
+
 class FollowupDecision(BaseModel):
     needs_followup: bool = False
     reason: str = Field(default="", description="One sentence.")
@@ -208,6 +238,11 @@ def _normalise(sql: str) -> str:
     return " ".join(sql.split()).rstrip(";").lower()
 
 
+def _no_figure(result: ExecutionResult) -> bool:
+    """No rows, or nothing in them but zeros and NULLs."""
+    return all(cell in (None, 0) for row in result.rows for cell in row)
+
+
 _KEY_INDEXES: dict[str, KeyIndex] = {}
 
 
@@ -238,6 +273,8 @@ class Router:
         self.settings = settings
         self.schema: Schema = schema_of(tools.catalog)
         self.keys = _key_index(tools)
+        self.ran: list[SqlAttempt] = []
+        """Every query this run executed, for a run that ends before its steps do."""
         # Read from the question before any call; C and D share it, so they
         # stay identical up to escalation.
         self.question_signal = question_signal(question)
@@ -278,10 +315,58 @@ class Router:
         return obj
 
     def _execute(self, sql: str) -> tuple[ExecutionResult, Signal | None]:
+        # Every query the model writes passes here, whichever step wrote it.
+        if is_write_sql(sql):
+            raise WriteAttempt(sql)
         problem = schema_error(sql, self.schema)    # before executing, no LLM
         fanout = fanout_problem(sql, self.keys)     # before executing, no LLM
+        join_filter = join_filter_problem(sql, self.schema)  # the same
         result = execute_readonly_sql(self.tools, sql)
-        return result, classify(result, problem, self.tools.max_rows, fanout)
+        self.ran.append(SqlAttempt.from_result(result, sql))
+        signal = classify(result, problem, self.tools.max_rows, fanout, join_filter)
+        return result, self._with_value_hint(sql, result, signal)
+
+    def _near_values(self, table: str, column: str, value: str) -> list[str]:
+        """Stored values close to `value` in this column, best first. The whole
+        phrase is compared, so a name is matched as a name, not word by word."""
+        hits = value_index(self.tools).search(value.strip("%"), table, column)
+        return [row[2] for row in hits if row[3] >= NEAR_MATCH]
+
+    def _missing_values(self, sql: str) -> list[tuple[str, str, str]]:
+        """(table, column, value) for each text value the query filters on that the
+        column does not hold, in a column whose values are indexed."""
+        index = value_index(self.tools)
+        missing = []
+        for table, column, value in text_filters(sql, self.schema):
+            held = index.values_of(table, column)
+            if held is None:
+                continue
+            bare = value.strip("%").lower()
+            present = (any(bare in v.lower() for v in held) if "%" in value
+                       else value in held)
+            if not present:
+                missing.append((table, column, value))
+        return missing
+
+    def _with_value_hint(self, sql: str, result: ExecutionResult,
+                         signal: Signal | None) -> Signal | None:
+        """No figure from a value the column does not hold: say which stored value is
+        close, so the repair fixes the spelling, not the query's shape. A COUNT over
+        no rows returns a row holding 0, so that counts as well as an empty result."""
+        empty = signal is not None and signal.kind == "empty"
+        if not (empty or (signal is None and result.ok and _no_figure(result))):
+            return signal
+        hints = []
+        for table, column, value in self._missing_values(sql):
+            near = self._near_values(table, column, value)
+            if near:
+                listed = ", ".join(f"'{v}'" for v in near[:MAX_VALUES_NAMED])
+                hints.append(f"'{value}' is not a value of {table}.{column}. Closest "
+                             f"stored values: {listed}. Use the stored spelling.")
+        if not hints:
+            return signal
+        said = signal.detail if signal else "The query returned only zeros."
+        return Signal("empty", f"{said} {' '.join(hints)}")
 
     def _check(self, sql: str, verify: Verifier | None
                ) -> tuple[ExecutionResult, Signal | None]:
@@ -464,11 +549,16 @@ class Router:
             if selected is None:
                 return self._failed(steps, decision, "every query failed")
             direct = not self.escalated(decision, first)
+            untracked = self._untracked(selected, steps)
+            if untracked:
+                return self._untracked_outcome(selected, steps, not direct, untracked)
             final, selected, selected_step, fell_back = self._answer(
                 selected, selected_step, steps, not direct)
             if fell_back:
                 plan_used = {"fallback": "the answer call failed on the final "
                                          "table; answered from step 1"}
+        except WriteAttempt as write:
+            return self._refused(write, bool(steps))
         except StructuredOutputError as exc:
             return ArchOutcome(
                 arch="router", question=self.question, status="failed",
@@ -504,15 +594,74 @@ class Router:
             selected_step=selected_step,
         )
 
+    def _untracked(self, selected: ExecutionResult | None,
+                   steps: list[StepRun]) -> str | None:
+        """Why the final table says nothing about the data, or None. Read from the
+        query, never from the question's wording:
+        - no query read a table, so a row like [0] is the model's own value;
+        - the table holds no figure (no rows, or only zeros and NULLs) and the query
+          filtered on a value the column does not hold, with no stored value close.
+        Anything else the data cannot answer still reaches the answer call."""
+        if selected is None or not selected.ok:
+            return None
+        step = next((s for s in steps
+                     if s.result is selected and s.kind == "sql"), None)
+        if step is None:
+            return None
+        if all(s.kind == "lookup" or reads_no_table(s.sql) for s in steps):
+            return UNTRACKED_NO_TABLE
+        if not _no_figure(selected):
+            return None
+        for table, column, value in self._missing_values(step.sql):
+            if self._near_values(table, column, value):
+                continue
+            held = value_index(self.tools).values_of(table, column) or []
+            known = (f" It holds: {', '.join(sorted(held))}."
+                     if len(held) <= MAX_VALUES_NAMED else "")
+            return UNTRACKED_VALUE.format(value=value.strip("%"), table=table,
+                                          column=column, known=known)
+        return None
+
+    def _untracked_outcome(self, selected: ExecutionResult, steps: list[StepRun],
+                           escalated: bool, reason: str) -> ArchOutcome:
+        """The table stays when a query did read the data: "no order has this status"
+        is true. A table no query read is dropped, since nothing in it is a fact."""
+        return ArchOutcome(
+            arch="router", question=self.question, status="done", answer=reason,
+            selected=None if reason == UNTRACKED_NO_TABLE else selected,
+            path="escalated" if escalated else "direct",
+            attempts=tuple(a for s in steps for a in s.attempts),
+            steps=tuple({"step": s.number, "tools": [s.tool], "sql": s.sql,
+                         "reason": s.reason} for s in steps),
+            repairs=tuple(r for s in steps for r in s.repairs),
+            stop_reason="untracked",
+        )
+
+    def _refused(self, write: WriteAttempt, escalated: bool) -> ArchOutcome:
+        """The same refusal as the first layer's. The write is kept in the steps for
+        the record; it is not an attempt, because it never ran."""
+        return ArchOutcome(
+            arch="router", question=self.question, status="refused",
+            answer=WRITE_REFUSAL, selected=None,
+            path="escalated" if escalated else "direct",
+            attempts=tuple(self.ran),
+            steps=({"step": "final", "tools": ["refused"], "sql": write.sql},),
+            stop_reason="refused",
+        )
+
     def _select(
         self, steps: list[StepRun]
     ) -> tuple[ExecutionResult | None, int | None, dict | None]:
         selectable = [s for s in steps if s.kind in ("sql", "compute")]
         usable = {s.number: s.result for s in selectable
                   if s.result.ok and s.result.rows}
-        # A table with a known hollow row is only a last resort: a repair can
-        # keep the row, and the assembly call could still choose that table.
-        clean = {n: r for n, r in usable.items() if not hollow_rows(r)}
+        # A table with a known hollow row, or figures known to be wrong, is only a
+        # last resort: a repair can keep the problem, and the assembly call could
+        # still choose that table.
+        wrong = {s.number for s in selectable
+                 if s.signal and s.signal.kind in WRONG_FIGURES}
+        clean = {n: r for n, r in usable.items()
+                 if not hollow_rows(r) and n not in wrong}
         usable = clean or usable
         if not usable:
             ran = [s for s in selectable if s.result.ok]

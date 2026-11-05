@@ -8,6 +8,8 @@ Checked in this order, and only the first one is acted on:
           literal, so this catches mistakes the database would not report.
   fanout  an aggregate after a join on a key that is not unique on either
           side (archs/fanout.py), which multiplies the aggregated values
+  join_filter  a LEFT JOIN's ON clause filters a table nothing else reads, so the
+          filter restricts nothing (archs/sqlfacts.py)
   empty   the query ran but returned no rows
   sanity  every value is NULL, or the result hit the row cap (the query
           probably lacks an aggregation or filter)
@@ -59,6 +61,11 @@ class Signal:
     detail: str
 
 
+#: Signals that mean the figures themselves are wrong, not just suspicious. A table
+#: with one of these is never fitted on, and is chosen only if nothing else is usable.
+WRONG_FIGURES = frozenset({"fanout", "join_filter"})
+
+
 def schema_of(catalog: Catalog) -> Schema:
     return {
         name: {c.name: c.type for c in table.columns}
@@ -85,16 +92,20 @@ def classify(
     schema_problem: str | None,
     max_rows: int,
     fanout_problem: str | None = None,
+    join_filter_problem: str | None = None,
 ) -> Signal | None:
-    """First signal for an executed query. `schema_problem` (schema_error) and
-    `fanout_problem` (fanout.fanout_problem) are found statically, before the
-    query is executed."""
+    """First signal for an executed query. `schema_problem` (schema_error),
+    `fanout_problem` (fanout.fanout_problem) and `join_filter_problem`
+    (sqlfacts.join_filter_problem) are found statically, before the query is
+    executed."""
     if not result.ok:
         return Signal("error", result.error_message or "query failed")
     if schema_problem:
         return Signal("schema", f"Schema check: {schema_problem}")
     if fanout_problem:
         return Signal("fanout", fanout_problem)
+    if join_filter_problem:
+        return Signal("join_filter", join_filter_problem)
     if not result.rows:
         return Signal("empty", "The query ran but returned no rows.")
     if all(cell is None for row in result.rows for cell in row):
