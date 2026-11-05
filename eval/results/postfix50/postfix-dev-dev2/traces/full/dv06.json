@@ -1,0 +1,101 @@
+{
+ "question_id": "dv06",
+ "type": "recovery",
+ "arch": "full",
+ "question": "Between 2024-11 and 2025-02 inclusive, how many customers churned?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT COUNT(*) AS churned_count FROM customers WHERE churn_date BETWEEN '2024-11-01' AND '2025-02-28'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "churned_count\n20"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT COUNT(*) AS churned_count FROM customers WHERE churn_date BETWEEN '2024-11-01' AND '2025-02-28'",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT COUNT(*) AS churned_count FROM customers WHERE churn_date BETWEEN '2024-11-01' AND '2025-02-28'",
+  "ok": true,
+  "columns": [
+   "churned_count"
+  ],
+  "rows": [
+   [
+    20
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Between 2024-11 and 2025-02 inclusive, a total of 20 customers churned.",
+ "key_numbers": [
+  "20"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "e79c799b3989f13ea08761295cbac83cad597a11b2201e59a53b0ae3cac59919",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2614,
+   "output_tokens": 173,
+   "original_latency_ms": 1019.1,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "ab8e90a0df6fe68118a3d4d84c6f76aa252e8e254ecaafda7228932895c8a51d",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 478,
+   "output_tokens": 61,
+   "original_latency_ms": 917.9,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "3a61c9c435c85b946c5a54ceb3826695c8edf7ecc02d2f433080128c0d219888",
+   "cache_hit": false,
+   "latency_ms": 890.5,
+   "input_tokens": 366,
+   "output_tokens": 43,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.929,
+ "latency_live_s": 2.866,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

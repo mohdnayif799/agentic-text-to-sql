@@ -22,6 +22,7 @@ We never rely on the model choosing to behave.
 from __future__ import annotations
 
 import hashlib
+import re
 from dataclasses import dataclass
 
 import sqlglot
@@ -57,8 +58,32 @@ _DENIED_COMMAND_PREFIXES = (
 )
 
 
+#: What a write looks like when sqlglot cannot parse the statement, or parses it as an
+#: opaque command. A request that reached SQL as one of these is a write request.
+_WRITE_START = re.compile(
+    r"^\s*(?:delete|update|insert|replace|drop|alter|truncate|create|merge)\b",
+    re.IGNORECASE,
+)
+_COMMENTS = re.compile(r"--[^\n]*|/\*.*?\*/", re.DOTALL)
+
+
 class UnsafeSQLError(Exception):
     """Raised when a statement fails the guard."""
+
+
+def is_write_sql(sql: str) -> bool:
+    """True if any statement in `sql` would change data or schema. The read-only
+    guard rejects these too; this tells the caller the request itself was a write,
+    which is a reason to stop rather than to try another query."""
+    text = _COMMENTS.sub(" ", sql or "")
+    if any(_WRITE_START.match(part) for part in text.split(";")):
+        return True
+    try:
+        statements = sqlglot.parse(sql, dialect=DIALECT)
+    except Exception:  # sqlglot raises several subclasses
+        return False  # no statement opens with a write; the guard rejects the rest
+    return any(tree.find(*_MUTATING) is not None
+               for tree in statements if tree is not None)
 
 
 @dataclass(frozen=True)

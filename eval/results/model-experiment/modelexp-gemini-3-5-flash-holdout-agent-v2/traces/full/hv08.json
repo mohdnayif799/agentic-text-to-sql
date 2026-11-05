@@ -1,0 +1,57 @@
+{
+ "question_id": "hv08",
+ "type": "statistics",
+ "arch": "full",
+ "question": "Fit a least-squares line to Accessories units sold in completed orders per quarter over the 8 quarters of 2024 and 2025. What does it project for Q1 2026?",
+ "model": "gemini-3.5-flash",
+ "today": "2026-10-04",
+ "status": "failed",
+ "path": "direct",
+ "stop_reason": "error",
+ "error": "cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: expected value at line 1 column 1 [type=json_invalid, input_value='```json\\n{\\n  \"expected_...d OLS linear regression', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "plan": [],
+ "sql_attempts": [],
+ "steps": [],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": null,
+ "answer": "Could not complete the analysis: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: expected value at line 1 column 1 [type=json_invalid, input_value='```json\\n{\\n  \"expected_...d OLS linear regression', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "1952aeeab1d0d652b1d4913c11cda4906d4381a67e05f172735350f8c4f3ab91",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2882,
+   "output_tokens": 80,
+   "original_latency_ms": 11406.7,
+   "thoughts_tokens": 1964,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "dda0270dbb978829e20bef0a4f3b0f42485585554c4fb2e1c4b47db0cd1ef068",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3065,
+   "output_tokens": 80,
+   "original_latency_ms": 10330.3,
+   "thoughts_tokens": 1964,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.018,
+ "latency_live_s": 21.755,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "no selected result; answer missing ['number: 2642.607142857143']"
+ }
+}

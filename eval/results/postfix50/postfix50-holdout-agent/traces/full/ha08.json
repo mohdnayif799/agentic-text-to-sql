@@ -1,0 +1,330 @@
+{
+ "question_id": "ha08",
+ "type": "why",
+ "arch": "full",
+ "question": "Why did customer churn spike in Q3 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The question asks why the customer churn spiked, and the result only shows the counts per month without explaining the underlying cause."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT STRFTIME('%Y-%m', churn_date) AS churn_month, COUNT(*) AS churned_count FROM customers WHERE churn_date >= '2025-07-01' AND churn_date <= '2025-09-30' GROUP BY churn_month ORDER BY churn_month LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "churn_month | churned_count\n2025-07 | 17\n2025-08 | 16\n2025-09 | 34"
+  },
+  {
+   "sql": "-- compute: contribution_by_dimension\nSELECT r.region_name AS region, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2025-04-01' AND '2025-06-30' GROUP BY 1 ORDER BY 1\nSELECT r.region_name AS region, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2025-07-01' AND '2025-09-30' GROUP BY 1 ORDER BY 1\nSELECT c.segment AS segment, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2025-04-01' AND '2025-06-30' GROUP BY 1 ORDER BY 1\nSELECT c.segment AS segment, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2025-07-01' AND '2025-09-30' GROUP BY 1 ORDER BY 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 7,
+   "preview": "side_a | side_b | analysis | item | value_a | value_b | change | pct_change | share_of_change_pct | comparison | largest_contributor\n2025-04-01..2025-06-30 | 2025-07-01..2025-09-30 | churned_customers by region | APAC | 5.0 | 44.0 | 39.0 | 780.0 | 81.25 | higher | True\n2025-04-01..2025-06-30 | 2025-07-01..2025-09-30 | churned_customers by region | EMEA | 5.0 | 11.0 | 6.0 | 120.0 | 12.5 | higher | False\n2025-04-01..2025-06-30 | 2025-07-01..2025-09-30 | churned_customers by region | North America | 7.0 | 9.0 | 2.0 | 28.57142857142857 | 4.166666666666666 | higher | False\n2025-04-01..2025-06-30 | 2025-07-01..2025-09-30 | churned_customers by region | LATAM | 2.0 | 3.0 | 1.0 | 50.0 | 2.083333333333333 | higher | False\n2025-04-01..2025-06-30 | 2025-07-01..2025-09-30 | churned_customers by segment | SMB | 4.0 | 25.0 | 21.0 | 525.0 | 43.75 | higher | True\n... 2 more row(s)"
+  },
+  {
+   "sql": "-- compute: period_history\nSELECT r.region_name AS region, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2025-07-01' AND '2025-09-30' GROUP BY 1 ORDER BY 1\nSELECT r.region_name AS region, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2024-07-01' AND '2024-09-30' GROUP BY 1 ORDER BY 1\nSELECT r.region_name AS region, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2024-10-01' AND '2024-12-31' GROUP BY 1 ORDER BY 1\nSELECT r.region_name AS region, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2025-01-01' AND '2025-03-31' GROUP BY 1 ORDER BY 1\nSELECT r.region_name AS region, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2025-04-01' AND '2025-06-30' GROUP BY 1 ORDER BY 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 5,
+   "preview": "region | 2024-Q3 | 2024-Q4 | 2025-Q1 | 2025-Q2 | earlier_low | earlier_high | 2025-Q3\nAPAC | 4.0 | 1.0 | 2.0 | 5.0 | 1.0 | 5.0 | 44.0\nEMEA | 4.0 | 3.0 | 3.0 | 5.0 | 3.0 | 5.0 | 11.0\nNorth America | 4.0 | 8.0 | 13.0 | 7.0 | 4.0 | 13.0 | 9.0\nLATAM | 3.0 | 2.0 | 1.0 | 2.0 | 1.0 | 3.0 | 3.0\ntotal | 15.0 | 14.0 | 19.0 | 19.0 | 14.0 | 19.0 | 67.0"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT STRFTIME('%Y-%m', churn_date) AS churn_month, COUNT(*) AS churned_count FROM customers WHERE churn_date >= '2025-07-01' AND churn_date <= '2025-09-30' GROUP BY churn_month ORDER BY churn_month LIMIT 500",
+   "reason": "",
+   "signal": null
+  },
+  {
+   "step": 2,
+   "tools": [
+    "compute:contribution_by_dimension"
+   ],
+   "sql": "-- compute: contribution_by_dimension\nSELECT r.region_name AS region, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2025-04-01' AND '2025-06-30' GROUP BY 1 ORDER BY 1\nSELECT r.region_name AS region, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2025-07-01' AND '2025-09-30' GROUP BY 1 ORDER BY 1\nSELECT c.segment AS segment, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2025-04-01' AND '2025-06-30' GROUP BY 1 ORDER BY 1\nSELECT c.segment AS segment, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2025-07-01' AND '2025-09-30' GROUP BY 1 ORDER BY 1",
+   "reason": "We compare churned customers between Q2 2025 and Q3 2025 across segments to see which customer segment drove the spike. Broken down first by region: one value (APAC) holds the largest share of the change (81%).",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "compute:period_history"
+   ],
+   "sql": "-- compute: period_history\nSELECT r.region_name AS region, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2025-07-01' AND '2025-09-30' GROUP BY 1 ORDER BY 1\nSELECT r.region_name AS region, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2024-07-01' AND '2024-09-30' GROUP BY 1 ORDER BY 1\nSELECT r.region_name AS region, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2024-10-01' AND '2024-12-31' GROUP BY 1 ORDER BY 1\nSELECT r.region_name AS region, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2025-01-01' AND '2025-03-31' GROUP BY 1 ORDER BY 1\nSELECT r.region_name AS region, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2025-04-01' AND '2025-06-30' GROUP BY 1 ORDER BY 1",
+   "reason": "What was normal before this period.",
+   "signal": null
+  },
+  {
+   "step": "final",
+   "tools": [
+    "stack"
+   ],
+   "plan": {
+    "stacked_steps": [
+     2
+    ]
+   },
+   "driver_sentence_added": false
+  }
+ ],
+ "repairs": [],
+ "selected_step": 2,
+ "selected_result": {
+  "sql": "-- stacked: rows from step(s) 2\n-- compute: contribution_by_dimension\nSELECT r.region_name AS region, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2025-04-01' AND '2025-06-30' GROUP BY 1 ORDER BY 1\nSELECT r.region_name AS region, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2025-07-01' AND '2025-09-30' GROUP BY 1 ORDER BY 1\nSELECT c.segment AS segment, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2025-04-01' AND '2025-06-30' GROUP BY 1 ORDER BY 1\nSELECT c.segment AS segment, COUNT(c.churn_date) AS churned_customers FROM customers c JOIN regions r ON r.region_id = c.region_id WHERE c.churn_date BETWEEN '2025-07-01' AND '2025-09-30' GROUP BY 1 ORDER BY 1",
+  "ok": true,
+  "columns": [
+   "side_a",
+   "side_b",
+   "analysis",
+   "item",
+   "value_a",
+   "value_b",
+   "change",
+   "pct_change",
+   "share_of_change_pct",
+   "comparison",
+   "largest_contributor"
+  ],
+  "rows": [
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "churned_customers by region",
+    "APAC",
+    5.0,
+    44.0,
+    39.0,
+    780.0,
+    81.25,
+    "higher",
+    true
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "churned_customers by region",
+    "EMEA",
+    5.0,
+    11.0,
+    6.0,
+    120.0,
+    12.5,
+    "higher",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "churned_customers by region",
+    "North America",
+    7.0,
+    9.0,
+    2.0,
+    28.57142857142857,
+    4.166666666666666,
+    "higher",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "churned_customers by region",
+    "LATAM",
+    2.0,
+    3.0,
+    1.0,
+    50.0,
+    2.083333333333333,
+    "higher",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "churned_customers by segment",
+    "SMB",
+    4.0,
+    25.0,
+    21.0,
+    525.0,
+    43.75,
+    "higher",
+    true
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "churned_customers by segment",
+    "Mid-Market",
+    11.0,
+    31.0,
+    20.0,
+    181.8181818181818,
+    41.66666666666667,
+    "higher",
+    false
+   ],
+   [
+    "2025-04-01..2025-06-30",
+    "2025-07-01..2025-09-30",
+    "churned_customers by segment",
+    "Enterprise",
+    4.0,
+    11.0,
+    7.0,
+    175.0,
+    14.583333333333334,
+    "higher",
+    false
+   ]
+  ],
+  "row_count": 7
+ },
+ "answer": "Assuming Q3 2025 is the period from 2025-07-01 to 2025-09-30, the main driver of the churn spike is APAC, which increased from 5.0 to 44.0. For the main driver, the normal range in earlier periods was 1.0 to 5.0, and out of the total 67.0 churned customers in this period, APAC accounts for 44.0. Other regions also increased: EMEA went from 5.0 to 11.0, North America from 7.0 to 9.0, and LATAM from 2.0 to 3.0. By segment, SMB increased from 4.0 to 25.0, Mid-Market from 11.0 to 31.0, and Enterprise from 4.0 to 11.0.",
+ "key_numbers": [
+  "2025-07-01",
+  "2025-09-30",
+  "5.0",
+  "44.0",
+  "1.0",
+  "5.0",
+  "67.0",
+  "11.0",
+  "7.0",
+  "9.0",
+  "2.0",
+  "3.0",
+  "25.0",
+  "31.0"
+ ],
+ "caveats": [],
+ "judge": {
+  "verdict": "fail",
+  "reason": "disqualifying claim present",
+  "facts": [
+   {
+    "fact": "The Q3 2025 churn spike is concentrated in APAC: 44 of the 67 customers who churned in Q3 2025 were APAC customers.",
+    "verdict": "yes",
+    "quote": "For the main driver, the normal range in earlier periods was 1.0 to 5.0, and out of the total 67.0 churned customers in this period, APAC accounts for 44.0.",
+    "quote_verified": true,
+    "counts_as_yes": true,
+    "reason": "The answer explicitly states that out of the total 67 churned customers in Q3 2025, APAC accounts for 44, directly matching the required fact."
+   },
+   {
+    "fact": "This is unusual: APAC had about 1 to 5 churns in each earlier quarter shown, and no other region had a comparable jump in Q3 2025 (3 to 11 churns each).",
+    "verdict": "yes",
+    "quote": "For the main driver, the normal range in earlier periods was 1.0 to 5.0, and out of the total 67.0 churned customers in this period, APAC accounts for 44.0.",
+    "quote_verified": true,
+    "counts_as_yes": true,
+    "reason": "The answer successfully states that APAC had 1 to 5 churns in earlier quarters and that other regions did not have a comparable jump (showing EMEA 5 to 11, North America 7 to 9, LATAM 2 to 3)."
+   }
+  ],
+  "disqualifying": {
+   "verdict": "yes",
+   "quote": "By segment, SMB increased from 4.0 to 25.0, Mid-Market from 11.0 to 31.0, and Enterprise from 4.0 to 11.0.",
+   "quote_verified": true,
+   "counts_as_yes": true,
+   "reason": "The answer claims segment information (SMB, Mid-Market, Enterprise) which is not supported by the evidence and violates the disqualifying claim about giving a segment as the main driver/details."
+  }
+ },
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question that asks why. A first query has been run. ",
+   "prompt_hash": "e8454a8ec9c785d39d6d4a2841861e34960532b198ab1df59a16be4d376a1ace",
+   "cache_hit": false,
+   "latency_ms": 1083.7,
+   "input_tokens": 4522,
+   "output_tokens": 189,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "13a0e2b6ffb0fc72f8d5775d34857cce6b1811c74c787c6948a649d85066ea30",
+   "cache_hit": false,
+   "latency_ms": 1364.1,
+   "input_tokens": 2138,
+   "output_tokens": 343,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "594c458744008a66dbb83f417debb6e304d982828b5eb2521fd1a44630bf16f9",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2757,
+   "output_tokens": 184,
+   "original_latency_ms": 1122.0,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "dd8bfad4f97d677eae21c1a233ac47ae167f840255f9f75faa284efe681def13",
+   "cache_hit": false,
+   "latency_ms": 792.5,
+   "input_tokens": 427,
+   "output_tokens": 48,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "0a779d969b3f6565ea91e8600450b23f7446ead1eedaedbf375dfd4d1bc93d80",
+   "cache_hit": false,
+   "latency_ms": 1058.4,
+   "input_tokens": 1029,
+   "output_tokens": 114,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  },
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "03bb5adbdb29ca5f0a92ca53b7269e5cefd41443fec94a62d738ea8c10bb9ce2",
+   "cache_hit": false,
+   "latency_ms": 967.7,
+   "input_tokens": 1036,
+   "output_tokens": 130,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  },
+  {
+   "role": "You are a strict checker grading an analytics assistant's answer. You receive a ",
+   "prompt_hash": "769f73895b589dacf66ba2951e162359901835c721aadc52aa84c9c900b2615f",
+   "cache_hit": false,
+   "latency_ms": 976.1,
+   "input_tokens": 989,
+   "output_tokens": 114,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  }
+ ],
+ "latency_s": 3.337,
+ "latency_live_s": 4.459,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": true,
+  "end_to_end": false,
+  "detail": "driver named; judge fail"
+ }
+}

@@ -1,0 +1,57 @@
+{
+ "question_id": "ha21",
+ "type": "segment_comparison",
+ "arch": "full",
+ "question": "Compare how many support tickets APAC and EMEA customers opened in 2025. If APAC opened more than 1.5 times as many as EMEA, break APAC's 2025 tickets down by month (label months as YYYY-MM); otherwise, break both regions' 2025 tickets down by severity.",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "failed",
+ "path": "direct",
+ "stop_reason": "error",
+ "error": "cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: EOF while parsing a string at line 3 column 163 [type=json_invalid, input_value='{\\n  \"expected_shape\": \"...imes as many tickets as', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "plan": [],
+ "sql_attempts": [],
+ "steps": [],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": null,
+ "answer": "Could not complete the analysis: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: EOF while parsing a string at line 3 column 163 [type=json_invalid, input_value='{\\n  \"expected_shape\": \"...imes as many tickets as', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "4707cfbf6e6084eefe609b54691693c45898180d4a1e188cf5c81e9531062553",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2862,
+   "output_tokens": 82,
+   "original_latency_ms": 17953.0,
+   "thoughts_tokens": 1962,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "82e7c19ace5dfd502ffe236e4bc97f8e34fbc267cbd98a4833ef9d7e31ff4f55",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3054,
+   "output_tokens": 82,
+   "original_latency_ms": 17569.5,
+   "thoughts_tokens": 1962,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.012,
+ "latency_live_s": 35.535,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "no selected result; answer missing ['text: APAC']"
+ }
+}

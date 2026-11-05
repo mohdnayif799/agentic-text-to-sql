@@ -1,0 +1,494 @@
+{
+ "set": "showcase",
+ "archs": [
+  "baseline",
+  "full"
+ ],
+ "provider": "gemini",
+ "model": "gemini-3.5-flash-lite",
+ "temperature": 0.0,
+ "today": "2026-10-04",
+ "max_steps": 3,
+ "max_attempts_per_step": 3,
+ "questions_sha256": "dbe79111170d7fcd2f19242c8160a96956579b41be29e2e83b09753370ddd0f5",
+ "code_commit": "5d85bfa",
+ "started_utc": "2026-11-05T18:31:06+00:00",
+ "planned_calls": {
+  "per_arch": {
+   "baseline": {
+    "typical": 10,
+    "max": 15
+   },
+   "full": {
+    "typical": 15,
+    "max": 65
+   }
+  },
+  "judge_max": 6,
+  "typical": 31,
+  "max": 86
+ },
+ "finished_utc": "2026-11-05T18:31:34+00:00",
+ "complete": true,
+ "stopped_reason": null,
+ "summary": {
+  "baseline": {
+   "primary": "4/5",
+   "wilson95": [
+    0.376,
+    0.964
+   ],
+   "pending": 0,
+   "errors": 0,
+   "not_evaluated": 0,
+   "answer_ok": 5,
+   "end_to_end": 4,
+   "avg_llm_calls": 2.0,
+   "avg_latency_s": 2.65,
+   "avg_latency_live_s": 2.65,
+   "by_type": {
+    "multi_hop": "1/1",
+    "recovery": "1/1",
+    "statistics": "1/1",
+    "term_matching": "1/1",
+    "why": "0/1"
+   }
+  },
+  "full": {
+   "primary": "4/5",
+   "wilson95": [
+    0.376,
+    0.964
+   ],
+   "pending": 0,
+   "errors": 0,
+   "not_evaluated": 0,
+   "answer_ok": 5,
+   "end_to_end": 4,
+   "avg_llm_calls": 3.4,
+   "avg_latency_s": 1.54,
+   "avg_latency_live_s": 3.79,
+   "by_type": {
+    "multi_hop": "1/1",
+    "recovery": "1/1",
+    "statistics": "1/1",
+    "term_matching": "1/1",
+    "why": "0/1"
+   }
+  }
+ },
+ "escalation": {
+  "full": {
+   "helped": 0,
+   "harmed": 0,
+   "no change": 1,
+   "unknown": 0,
+   "questions": [
+    {
+     "id": "sc03",
+     "baseline": false,
+     "full": false,
+     "effect": "no change"
+    }
+   ]
+  }
+ },
+ "missed_escalations": {
+  "baseline_failed": 1,
+  "router": {
+   "escalated": 0,
+   "not_escalated": 0,
+   "error": 0,
+   "not_run": 1
+  },
+  "full": {
+   "escalated": 1,
+   "not_escalated": 0,
+   "error": 0,
+   "not_run": 0
+  },
+  "questions": [
+   {
+    "id": "sc03",
+    "router": "not run",
+    "full": "escalated (fail)"
+   }
+  ]
+ },
+ "provider_resumes": [],
+ "retries": [],
+ "items": [
+  {
+   "id": "sc01",
+   "type": "multi_hop",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 3.055,
+   "latency_live_s": 3.055,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/sc01.json"
+  },
+  {
+   "id": "sc01",
+   "type": "multi_hop",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.941,
+   "latency_live_s": 3.309,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/sc01.json"
+  },
+  {
+   "id": "sc02",
+   "type": "term_matching",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 2.202,
+   "latency_live_s": 2.202,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/sc02.json"
+  },
+  {
+   "id": "sc02",
+   "type": "term_matching",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.7,
+   "latency_live_s": 2.892,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/sc02.json"
+  },
+  {
+   "id": "sc03",
+   "type": "why",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": true,
+   "end_to_end": false,
+   "first_failing_check": "driver named; judge fail",
+   "detail": "driver named; judge fail",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": {
+    "verdict": "fail",
+    "reason": "required fact(s) not stated: [2]",
+    "facts": [
+     {
+      "fact": "Online has far more completed orders than the other channels: about 3,458 versus about 2,366 (Direct) and 1,922 (Partner).",
+      "verdict": "yes",
+      "quote": "Assuming completed revenue is determined by the total volume of orders and items sold, the Online channel brings in more revenue (10,195,563.46) primarily because it has a significantly higher number of completed orders (3,458) compared to the Direct channel (7,106,104.93 revenue across 2,366 orders) and the Partner channel (5,831,252.80 revenue across 1,922 orders), while their average item values remain similar ranging between 1,185.54 and 1,197.87.",
+      "quote_verified": true,
+      "counts_as_yes": true,
+      "reason": "The answer explicitly states that the Online channel has 3,458 completed orders compared to Direct with 2,366 and Partner with 1,922."
+     },
+     {
+      "fact": "The average completed order value is about the same in every channel (roughly 2,950 to 3,030), so order size does not explain the gap.",
+      "verdict": "no",
+      "quote": "",
+      "quote_verified": false,
+      "counts_as_yes": false,
+      "reason": "The answer mentions average item values ranging between 1,185.54 and 1,197.87, but it does not state that the average completed order value is about the same in every channel (roughly 2,950 to 3,030) and that order size does not explain the gap."
+     }
+    ],
+    "disqualifying": {
+     "verdict": "no",
+     "quote": "",
+     "quote_verified": false,
+     "counts_as_yes": false,
+     "reason": "The answer correctly attributes the higher revenue of the Online channel to a higher volume of completed orders rather than larger orders or prices, and does not contradict the evidence."
+    }
+   },
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 3,
+   "latency_s": 2.52,
+   "latency_live_s": 2.52,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/sc03.json"
+  },
+  {
+   "id": "sc03",
+   "type": "why",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": true,
+   "end_to_end": false,
+   "first_failing_check": "driver named; judge fail",
+   "detail": "driver named; judge fail",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": {
+    "verdict": "fail",
+    "reason": "required fact(s) not stated: [1]",
+    "facts": [
+     {
+      "fact": "Online has far more completed orders than the other channels: about 3,458 versus about 2,366 (Direct) and 1,922 (Partner).",
+      "verdict": "no",
+      "quote": "",
+      "quote_verified": false,
+      "counts_as_yes": false,
+      "reason": "The answer mentions the order counts for Online vs Direct and Online vs Partner separately, but it never combines them into a single statement that compares all three channels together as requested by the fact ('about 3,458 versus about 2,366 (Direct) and 1,922 (Partner)')."
+     },
+     {
+      "fact": "The average completed order value is about the same in every channel (roughly 2,950 to 3,030), so order size does not explain the gap.",
+      "verdict": "yes",
+      "quote": "The average order value for Direct was 3,003.43 and for Online was 2,948.40, which are about the same and do not explain the difference.",
+      "quote_verified": true,
+      "counts_as_yes": true,
+      "reason": "The answer states that the average order values across the channels are about the same and do not explain the difference in revenue, referencing the specific figures which match the evidence."
+     }
+    ],
+    "disqualifying": {
+     "verdict": "no",
+     "quote": "",
+     "quote_verified": false,
+     "counts_as_yes": false,
+     "reason": "The answer correctly identifies that the higher revenue in the Online channel is due to a higher number of orders, and does not attribute the gap to larger orders, higher prices, or smaller discounts. All stated figures match the evidence table."
+    }
+   },
+   "llm_calls": 5,
+   "live_calls": 4,
+   "cache_hits": 1,
+   "judge_calls": 3,
+   "latency_s": 4.295,
+   "latency_live_s": 5.534,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ],
+    [
+     "compute:decompose_change"
+    ],
+    [
+     "stack"
+    ]
+   ],
+   "trace": "traces/full/sc03.json"
+  },
+  {
+   "id": "sc04",
+   "type": "statistics",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 2.961,
+   "latency_live_s": 2.961,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/sc04.json"
+  },
+  {
+   "id": "sc04",
+   "type": "statistics",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.934,
+   "latency_live_s": 3.871,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/sc04.json"
+  },
+  {
+   "id": "sc05",
+   "type": "recovery",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 2.509,
+   "latency_live_s": 2.509,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/sc05.json"
+  },
+  {
+   "id": "sc05",
+   "type": "recovery",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.829,
+   "latency_live_s": 3.322,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/sc05.json"
+  }
+ ]
+}

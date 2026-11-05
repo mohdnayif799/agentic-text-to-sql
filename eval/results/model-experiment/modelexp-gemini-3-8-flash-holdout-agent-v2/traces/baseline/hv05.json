@@ -1,0 +1,57 @@
+{
+ "question_id": "hv05",
+ "type": "why",
+ "arch": "baseline",
+ "question": "Why did LATAM's completed revenue grow so much from 2024 to 2025?",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "failed",
+ "path": "direct",
+ "stop_reason": "error",
+ "error": "Could not produce a query: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: EOF while parsing a string at line 3 column 165 [type=json_invalid, input_value='{\\n  \"expected_shape\": \"...own by customer segment', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "plan": [],
+ "sql_attempts": [],
+ "steps": [],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": null,
+ "answer": "Could not produce a query: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: EOF while parsing a string at line 3 column 165 [type=json_invalid, input_value='{\\n  \"expected_shape\": \"...own by customer segment', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "830d741e5c174cbf6a2b5b4b18b05d6a37f95827451c489aa5be3fffa3edb2f7",
+   "cache_hit": false,
+   "latency_ms": 17043.4,
+   "input_tokens": 2943,
+   "output_tokens": 81,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1963,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "4e09af5f573648ce7c34205ee693c8d31a4d6b2ace2e65909c1cb119be3bc6c8",
+   "cache_hit": false,
+   "latency_ms": 17654.3,
+   "input_tokens": 3128,
+   "output_tokens": 82,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1962,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 34.702,
+ "latency_live_s": 34.702,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "driver not named: [\"any_of: [{'text': 'SMB'}, {'pattern': 'small[-\\\\\\\\s]+(and[-\\\\\\\\s]+medium[-\\\\\\\\s]+)?business'}]\"]"
+ }
+}

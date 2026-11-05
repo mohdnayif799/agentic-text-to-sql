@@ -1,0 +1,92 @@
+{
+ "question_id": "he08",
+ "type": "easy",
+ "arch": "baseline",
+ "question": "Which region has the most customers, and how many customers does it have?",
+ "model": "gemini-3.5-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT r.region_id, r.region_name, COUNT(c.customer_id) AS customer_count FROM regions AS r JOIN customers AS c ON c.region_id = r.region_id GROUP BY r.region_id, r.region_name ORDER BY customer_count DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "region_id | region_name | customer_count\n1 | North America | 545"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT r.region_id, r.region_name, COUNT(c.customer_id) AS customer_count FROM regions AS r JOIN customers AS c ON c.region_id = r.region_id GROUP BY r.region_id, r.region_name ORDER BY customer_count DESC LIMIT 1"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT r.region_id, r.region_name, COUNT(c.customer_id) AS customer_count FROM regions AS r JOIN customers AS c ON c.region_id = r.region_id GROUP BY r.region_id, r.region_name ORDER BY customer_count DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "region_id",
+   "region_name",
+   "customer_count"
+  ],
+  "rows": [
+   [
+    1,
+    "North America",
+    545
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "North America (Region ID 1) has the most customers, with a total of 545 customers.",
+ "key_numbers": [
+  "545"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "099a9bd9a3206c835b16f2789addb401f481a38bfc441ab992336429be402cc9",
+   "cache_hit": false,
+   "latency_ms": 4980.5,
+   "input_tokens": 2683,
+   "output_tokens": 142,
+   "original_latency_ms": null,
+   "thoughts_tokens": 643,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "28334d3b3ff0aed28ac06e3f5723e0dd1d94d47c0a9add66dfbb2b86f37514d0",
+   "cache_hit": false,
+   "latency_ms": 2595.7,
+   "input_tokens": 508,
+   "output_tokens": 62,
+   "original_latency_ms": null,
+   "thoughts_tokens": 248,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 7.582,
+ "latency_live_s": 7.582,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

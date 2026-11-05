@@ -1,0 +1,116 @@
+{
+ "question_id": "hv12",
+ "type": "recovery",
+ "arch": "baseline",
+ "question": "Of the customers who signed up in 2024, how many had no completed order during 2024? Break the count down by region.",
+ "model": "gemini-3.5-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT r.region_name, COUNT(c.customer_id) AS customer_count FROM regions AS r JOIN customers AS c ON c.region_id = r.region_id WHERE c.signup_date >= '2024-01-01' AND c.signup_date <= '2024-12-31' AND NOT EXISTS(SELECT 1 FROM orders AS o WHERE o.customer_id = c.customer_id AND o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31') GROUP BY r.region_name ORDER BY r.region_name LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "region_name | customer_count\nAPAC | 32\nEMEA | 36\nLATAM | 18\nNorth America | 50"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT r.region_name, COUNT(c.customer_id) AS customer_count FROM regions AS r JOIN customers AS c ON c.region_id = r.region_id WHERE c.signup_date >= '2024-01-01' AND c.signup_date <= '2024-12-31' AND NOT EXISTS(SELECT 1 FROM orders AS o WHERE o.customer_id = c.customer_id AND o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31') GROUP BY r.region_name ORDER BY r.region_name LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT r.region_name, COUNT(c.customer_id) AS customer_count FROM regions AS r JOIN customers AS c ON c.region_id = r.region_id WHERE c.signup_date >= '2024-01-01' AND c.signup_date <= '2024-12-31' AND NOT EXISTS(SELECT 1 FROM orders AS o WHERE o.customer_id = c.customer_id AND o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31') GROUP BY r.region_name ORDER BY r.region_name LIMIT 500",
+  "ok": true,
+  "columns": [
+   "region_name",
+   "customer_count"
+  ],
+  "rows": [
+   [
+    "APAC",
+    32
+   ],
+   [
+    "EMEA",
+    36
+   ],
+   [
+    "LATAM",
+    18
+   ],
+   [
+    "North America",
+    50
+   ]
+  ],
+  "row_count": 4
+ },
+ "answer": "Among the customers who signed up in 2024 and had no completed orders during that year, North America had the highest count with 50 customers, followed by EMEA with 36, APAC with 32, and LATAM with 18.",
+ "key_numbers": [
+  "50",
+  "36",
+  "32",
+  "18"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "fe32e4a5bf700e1d18433b75cef017b316ed32444e5abb5166910da24f6725d7",
+   "cache_hit": false,
+   "latency_ms": 10622.3,
+   "input_tokens": 2852,
+   "output_tokens": 77,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1967,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "31a237f989532d26527d23bbb621e63f8e485646e482a12fc48c9bbc844be4f8",
+   "cache_hit": false,
+   "latency_ms": 9518.0,
+   "input_tokens": 3035,
+   "output_tokens": 229,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1000,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "c83e6599a92ee13916dfd5492a1570d63a19cc72d36e6dbb1cefe0c5e3a84bcc",
+   "cache_hit": false,
+   "latency_ms": 2705.5,
+   "input_tokens": 637,
+   "output_tokens": 111,
+   "original_latency_ms": null,
+   "thoughts_tokens": 222,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 22.863,
+ "latency_live_s": 22.863,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "4 row(s) match"
+ }
+}

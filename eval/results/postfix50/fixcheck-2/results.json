@@ -1,0 +1,79 @@
+{
+ "note": "check of a fix: not a score for the set",
+ "set": "holdout_agent_v2",
+ "model": "gemini-3.5-flash-lite",
+ "code_commit": "5d85bfa",
+ "items": [
+  {
+   "id": "hv08",
+   "type": "statistics",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 4,
+   "live_calls": 4,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 9.175,
+   "latency_live_s": 9.175,
+   "latency_unmeasured_calls": 0,
+   "repairs": 1,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql",
+     "repair"
+    ],
+    [
+     "run_sql"
+    ],
+    [
+     "compute:linear_trend_forecast"
+    ]
+   ],
+   "trace": "traces/full/hv08.json"
+  },
+  {
+   "id": "hv04",
+   "type": "term_matching",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 4,
+   "live_calls": 4,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 4.676,
+   "latency_live_s": 4.676,
+   "latency_unmeasured_calls": 0,
+   "repairs": 1,
+   "repair_fixes": 1,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql",
+     "repair"
+    ]
+   ],
+   "trace": "traces/full/hv04.json"
+  }
+ ],
+ "retries": []
+}

@@ -1,0 +1,57 @@
+{
+ "question_id": "ha11",
+ "type": "statistics",
+ "arch": "full",
+ "question": "Fit a straight-line trend to monthly completed revenue from January 2024 to December 2025, using month number 1 to 24 as x. Which months fell more than 1.5 standard deviations below the trend line, using the standard deviation of the residuals, and what was each month's residual (actual minus trend, in dollars)? Label months as YYYY-MM.",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "failed",
+ "path": "direct",
+ "stop_reason": "error",
+ "error": "cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: EOF while parsing a string at line 3 column 174 [type=json_invalid, input_value='{\\n  \"expected_shape\": \"...ssion to find slope and', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "plan": [],
+ "sql_attempts": [],
+ "steps": [],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": null,
+ "answer": "Could not complete the analysis: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: EOF while parsing a string at line 3 column 174 [type=json_invalid, input_value='{\\n  \"expected_shape\": \"...ssion to find slope and', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "42b6b4421ea9c4559b2111419205eadf5818020eaa7db107408f4748a65c68b0",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3005,
+   "output_tokens": 80,
+   "original_latency_ms": 17536.2,
+   "thoughts_tokens": 1964,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "f1305b068dd6bb228366c9c4b1e8c356efb79cdbb70b1e12cf2069cb2d137c4b",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3192,
+   "output_tokens": 77,
+   "original_latency_ms": 16175.4,
+   "thoughts_tokens": 1967,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.031,
+ "latency_live_s": 33.742,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "no selected result; answer missing [\"any_of: [{'text': '2025-07'}, {'pattern': 'jul(y)?\\\\\\\\.?\\\\\\\\s+2025'}]\", \"any_of: [{'text': '2025-08'}, {'pattern': 'aug(ust)?\\\\\\\\.?\\\\\\\\s+2025'}]\", \"any_of: [{'text': '2025-09'}, {'pattern': 'sep(t|tember)?\\\\\\\\.?\\\\\\\\s+2025'}]\"]"
+ }
+}

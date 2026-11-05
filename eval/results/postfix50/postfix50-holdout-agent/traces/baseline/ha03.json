@@ -1,0 +1,93 @@
+{
+ "question_id": "ha03",
+ "type": "multi_hop",
+ "arch": "baseline",
+ "question": "Which product category had the lowest gross margin percentage in 2025, and which product in that category sold the most units in 2025? Give the product's ID, name and units sold in 2025.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH cat_margin_2025 AS (SELECT p.category, SUM(oi.quantity * (oi.unit_price * (1 - oi.discount) - p.unit_cost)) AS gross_margin, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.category ORDER BY (SUM(oi.quantity * (oi.unit_price * (1 - oi.discount) - p.unit_cost)) / SUM(oi.quantity * oi.unit_price * (1 - oi.discount))) ASC LIMIT 1), lowest_cat AS (SELECT category FROM cat_margin_2025) SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND p.category = (SELECT category FROM lowest_cat) GROUP BY p.product_id, p.product_name ORDER BY units_sold DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "product_id | product_name | units_sold\n25 | Anchor Prism | 1075"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH cat_margin_2025 AS (SELECT p.category, SUM(oi.quantity * (oi.unit_price * (1 - oi.discount) - p.unit_cost)) AS gross_margin, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.category ORDER BY (SUM(oi.quantity * (oi.unit_price * (1 - oi.discount) - p.unit_cost)) / SUM(oi.quantity * oi.unit_price * (1 - oi.discount))) ASC LIMIT 1), lowest_cat AS (SELECT category FROM cat_margin_2025) SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND p.category = (SELECT category FROM lowest_cat) GROUP BY p.product_id, p.product_name ORDER BY units_sold DESC LIMIT 1"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH cat_margin_2025 AS (SELECT p.category, SUM(oi.quantity * (oi.unit_price * (1 - oi.discount) - p.unit_cost)) AS gross_margin, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.category ORDER BY (SUM(oi.quantity * (oi.unit_price * (1 - oi.discount) - p.unit_cost)) / SUM(oi.quantity * oi.unit_price * (1 - oi.discount))) ASC LIMIT 1), lowest_cat AS (SELECT category FROM cat_margin_2025) SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND p.category = (SELECT category FROM lowest_cat) GROUP BY p.product_id, p.product_name ORDER BY units_sold DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "product_id",
+   "product_name",
+   "units_sold"
+  ],
+  "rows": [
+   [
+    25,
+    "Anchor Prism",
+    1075
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "In 2025, the product category with the lowest gross margin percentage had product Anchor Prism (ID 25) as the top seller with 1075 units sold.",
+ "key_numbers": [
+  "25",
+  "1075"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "9b27db4832136a98e1202f45f2af9ff97381f8262bd65a0edf901be8a47846bb",
+   "cache_hit": false,
+   "latency_ms": 1813.2,
+   "input_tokens": 3021,
+   "output_tokens": 503,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "736bdfd56451542c658d45918e6434f34ae8641aa4e34495d68ffb7ad0bd8bbc",
+   "cache_hit": false,
+   "latency_ms": 821.8,
+   "input_tokens": 851,
+   "output_tokens": 78,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 2.666,
+ "latency_live_s": 2.666,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "1 row(s) match; answer missing ['text: Accessories']"
+ }
+}

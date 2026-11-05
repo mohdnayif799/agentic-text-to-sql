@@ -1,0 +1,57 @@
+{
+ "question_id": "ha19",
+ "type": "segment_comparison",
+ "arch": "baseline",
+ "question": "Compare the 2025 average completed order value of Enterprise and SMB customers. If Enterprise's is more than 20% higher than SMB's, break down Enterprise's 2025 completed revenue by product category; otherwise, break down SMB's 2025 completed revenue by product category.",
+ "model": "gemini-3.5-flash",
+ "today": "2026-10-04",
+ "status": "failed",
+ "path": "direct",
+ "stop_reason": "error",
+ "error": "Could not produce a query: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: expected value at line 1 column 1 [type=json_invalid, input_value='This query is clean, acc... markdown formatting (`', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "plan": [],
+ "sql_attempts": [],
+ "steps": [],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": null,
+ "answer": "Could not produce a query: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: expected value at line 1 column 1 [type=json_invalid, input_value='This query is clean, acc... markdown formatting (`', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "6200e0ff892f71966a6e4a864cfada23e8028e15f94e1d0b5674e30ebb2e204e",
+   "cache_hit": false,
+   "latency_ms": 10967.2,
+   "input_tokens": 2987,
+   "output_tokens": 81,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1963,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "d41e1c6ffde0ec38ec4399ab0c35c744d65910006e34916fbb7db4322c89c6ef",
+   "cache_hit": false,
+   "latency_ms": 10571.2,
+   "input_tokens": 3178,
+   "output_tokens": 76,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1967,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 21.543,
+ "latency_live_s": 21.543,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "no selected result; answer missing ['text: SMB']"
+ }
+}

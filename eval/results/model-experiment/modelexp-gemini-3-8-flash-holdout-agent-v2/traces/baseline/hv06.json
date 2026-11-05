@@ -1,0 +1,184 @@
+{
+ "question_id": "hv06",
+ "type": "why",
+ "arch": "baseline",
+ "question": "Why was APAC's marketing spend so much lower in 2025 than in 2024?",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT m.channel, ROUND(SUM(CASE WHEN m.month LIKE '2024%' THEN m.amount ELSE 0 END), 2) AS spend_2024, ROUND(SUM(CASE WHEN m.month LIKE '2025%' THEN m.amount ELSE 0 END), 2) AS spend_2025, ROUND(SUM(CASE WHEN m.month LIKE '2025%' THEN m.amount ELSE 0 END) - SUM(CASE WHEN m.month LIKE '2024%' THEN m.amount ELSE 0 END), 2) AS spend_change FROM marketing_spend AS m JOIN regions AS r ON r.region_id = m.region_id WHERE r.region_name = 'APAC' GROUP BY m.channel ORDER BY spend_change ASC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "channel | spend_2024 | spend_2025 | spend_change\nDirect | 217971.33 | 148340.93 | -69630.4\nPartner | 199937.33 | 162944.59 | -36992.74\nOnline | 199580.97 | 196312.83 | -3268.14"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT m.channel, ROUND(SUM(CASE WHEN m.month LIKE '2024%' THEN m.amount ELSE 0 END), 2) AS spend_2024, ROUND(SUM(CASE WHEN m.month LIKE '2025%' THEN m.amount ELSE 0 END), 2) AS spend_2025, ROUND(SUM(CASE WHEN m.month LIKE '2025%' THEN m.amount ELSE 0 END) - SUM(CASE WHEN m.month LIKE '2024%' THEN m.amount ELSE 0 END), 2) AS spend_change FROM marketing_spend AS m JOIN regions AS r ON r.region_id = m.region_id WHERE r.region_name = 'APAC' GROUP BY m.channel ORDER BY spend_change ASC LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT m.channel, ROUND(SUM(CASE WHEN m.month LIKE '2024%' THEN m.amount ELSE 0 END), 2) AS spend_2024, ROUND(SUM(CASE WHEN m.month LIKE '2025%' THEN m.amount ELSE 0 END), 2) AS spend_2025, ROUND(SUM(CASE WHEN m.month LIKE '2025%' THEN m.amount ELSE 0 END) - SUM(CASE WHEN m.month LIKE '2024%' THEN m.amount ELSE 0 END), 2) AS spend_change FROM marketing_spend AS m JOIN regions AS r ON r.region_id = m.region_id WHERE r.region_name = 'APAC' GROUP BY m.channel ORDER BY spend_change ASC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "channel",
+   "spend_2024",
+   "spend_2025",
+   "spend_change"
+  ],
+  "rows": [
+   [
+    "Direct",
+    217971.33,
+    148340.93,
+    -69630.4
+   ],
+   [
+    "Partner",
+    199937.33,
+    162944.59,
+    -36992.74
+   ],
+   [
+    "Online",
+    199580.97,
+    196312.83,
+    -3268.14
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "APAC's marketing spend decreased across all channels in 2025, driven primarily by a reduction of 69,630.40 in Direct spend (from 217,971.33 in 2024 to 148,340.93 in 2025) and a reduction of 36,992.74 in Partner spend (from 199,937.33 in 2024 to 162,944.59 in 2025). Online marketing spend also declined, but by a smaller amount of 3,268.14 (from 199,580.97 to 196,312.83).",
+ "key_numbers": [
+  "217971.33",
+  "148340.93",
+  "-69630.4",
+  "199937.33",
+  "162944.59",
+  "-36992.74",
+  "199580.97",
+  "196312.83",
+  "-3268.14"
+ ],
+ "caveats": [],
+ "judge": {
+  "verdict": "fail",
+  "reason": "required fact(s) not stated: [2]",
+  "facts": [
+   {
+    "fact": "The Direct channel was the largest part of the cut: APAC's Direct spend fell from about 218,000 in 2024 to about 148,000 in 2025 (about -32%), which is about 63% of APAC's decrease.",
+    "verdict": "yes",
+    "quote": "APAC's marketing spend decreased across all channels in 2025, driven primarily by a reduction of 69,630.40 in Direct spend (from 217,971.33 in 2024 to 148,340.93 in 2025) and a reduction of 36,992.74 in Partner spend (from 199,937.33 in 2024 to 162,944.59 in 2025).",
+    "quote_verified": true,
+    "counts_as_yes": true,
+    "reason": "The answer states that Direct spend fell from 217,971.33 in 2024 to 148,340.93 in 2025 (matching 'about 218,000' and 'about 148,000'), identifies it as the primary driver (largest part of the cut), and provides the quantitative details required by the fact."
+   },
+   {
+    "fact": "Online spend in APAC was nearly unchanged (about 200,000 to 196,000), so it does not explain the decrease.",
+    "verdict": "no",
+    "quote": "",
+    "quote_verified": false,
+    "counts_as_yes": false,
+    "reason": "The required fact states that Online spend was nearly unchanged and therefore does not explain the decrease, whereas the answer claims that Online marketing spend also declined."
+   }
+  ],
+  "disqualifying": {
+   "verdict": "no",
+   "quote": "",
+   "quote_verified": false,
+   "counts_as_yes": false,
+   "reason": "The answer correctly attributes the primary reduction to the Direct channel (which had the largest drop of 69,630.40), mentions Partner spend as a secondary factor (allowed per allowed mentions), and accurately states all figures from the evidence table."
+  }
+ },
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "b1089945bfcb02f1c71f0afd4f7f9d7a2a814ddd6e567cc639912a6b273407a0",
+   "cache_hit": false,
+   "latency_ms": 17676.1,
+   "input_tokens": 2770,
+   "output_tokens": 82,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1962,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "facbed1623ad22e069f3252ac4cbcdb869615e12e7688adb172e43d12eae22bc",
+   "cache_hit": false,
+   "latency_ms": 9991.5,
+   "input_tokens": 2963,
+   "output_tokens": 256,
+   "original_latency_ms": null,
+   "thoughts_tokens": 845,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "02624c6c00ac5875a0e881f4675731fd4caf7427df94db9c5ddadd318e20ca5c",
+   "cache_hit": false,
+   "latency_ms": 7100.9,
+   "input_tokens": 729,
+   "output_tokens": 315,
+   "original_latency_ms": null,
+   "thoughts_tokens": 347,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "e4308197212a8aac0be4314e1b69cd6ba294ede4b97878a0b61026e631a5d934",
+   "cache_hit": false,
+   "latency_ms": 1360.8,
+   "input_tokens": 833,
+   "output_tokens": 249,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  },
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "cf791e5c578864479805eab66c7f8089e97c3ef936ca41c96aae97c01f29d9dc",
+   "cache_hit": false,
+   "latency_ms": 954.5,
+   "input_tokens": 800,
+   "output_tokens": 58,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  },
+  {
+   "role": "You are a strict checker grading an analytics assistant's answer. You receive a ",
+   "prompt_hash": "cc87d93fe33719ca5f87d90ec028c89780f1475107136f6e55efc28e796f36ad",
+   "cache_hit": false,
+   "latency_ms": 986.1,
+   "input_tokens": 793,
+   "output_tokens": 81,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  }
+ ],
+ "latency_s": 34.799,
+ "latency_live_s": 34.799,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": true,
+  "end_to_end": false,
+  "detail": "driver named; judge fail"
+ }
+}

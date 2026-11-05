@@ -20,7 +20,9 @@ from agentcrew.llm import FakeClient
 from agentcrew.tools import ToolContext
 
 COUNT = "SELECT COUNT(*) AS n FROM customers"
-EMPTY = "SELECT customer_id FROM customers WHERE customer_name = 'Nobody'"
+#: Empty because of the date, not because of a value the data does not hold. That
+#: case has its own answer (test_safety_search_forecast.TestDataDoesNotTrackIt).
+EMPTY = "SELECT customer_id FROM customers WHERE signup_date < '1900-01-01'"
 BROKEN = "SELECT nope FROM customers"
 NOT_JSON = "this is not JSON"
 
@@ -132,7 +134,7 @@ def test_step0_error_is_retried_the_way_a_retries(run):
 
 
 def test_empty_result_with_failing_repairs_and_steps(run):
-    a = same_as_a(run, "Which customer is called Nobody?", step0=EMPTY,
+    a = same_as_a(run, "Which customer signed up before 1900?", step0=EMPTY,
                   repair=EMPTY + " AND 1 = 1", actions=BAD_STEPS)
     assert a.selected.rows == []
 

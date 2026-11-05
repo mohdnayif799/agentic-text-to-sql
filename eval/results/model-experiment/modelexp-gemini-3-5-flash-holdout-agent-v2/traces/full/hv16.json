@@ -1,0 +1,344 @@
+{
+ "question_id": "hv16",
+ "type": "segment_comparison",
+ "arch": "full",
+ "question": "Did the Partner channel's share of completed orders go up from 2024 to 2025? If it did, give Partner's 2025 completed orders by region. If it did not, give the 2025 completed orders by region for whichever channel's share rose the most.",
+ "model": "gemini-3.5-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The answer depends on a condition: evaluate the condition first with its own query, then answer only the branch that applies."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "...",
+   "ok": false,
+   "failure": "blocked",
+   "error": "Could not parse SQL: Invalid expression / Unexpected token. Line 1, Col: 1.\n  \u001b[4m.\u001b[0m..",
+   "row_count": 0,
+   "preview": "ERROR (blocked): Could not parse SQL: Invalid expression / Unexpected token. Line 1, Col: 1.\n  \u001b[4m.\u001b[0m.."
+  },
+  {
+   "sql": "SELECT o.channel, r.region_name, COUNT(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN 1 END) AS orders_2024, COUNT(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN 1 END) AS orders_2025 FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.status = 'completed' GROUP BY o.channel, r.region_name LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 12,
+   "preview": "channel | region_name | orders_2024 | orders_2025\nDirect | APAC | 212 | 306\nDirect | EMEA | 222 | 374\nDirect | LATAM | 132 | 208\nDirect | North America | 345 | 567\nOnline | APAC | 297 | 406\n... 7 more row(s)"
+  },
+  {
+   "sql": "SELECT o.channel, r.region_name, COUNT(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN 1 END) AS orders_2024, COUNT(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN 1 END) AS orders_2025 FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.status = 'completed' GROUP BY o.channel, r.region_name ORDER BY o.channel, r.region_name LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 12,
+   "preview": "channel | region_name | orders_2024 | orders_2025\nDirect | APAC | 212 | 306\nDirect | EMEA | 222 | 374\nDirect | LATAM | 132 | 208\nDirect | North America | 345 | 567\nOnline | APAC | 297 | 406\n... 7 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql",
+    "repair"
+   ],
+   "sql": "...",
+   "reason": "",
+   "signal": "error",
+   "escalation_signal": "conditional"
+  },
+  {
+   "step": 2,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT o.channel, r.region_name, COUNT(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN 1 END) AS orders_2024, COUNT(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN 1 END) AS orders_2025 FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.status = 'completed' GROUP BY o.channel, r.region_name LIMIT 500",
+   "reason": "Calculate completed orders by channel and region for 2024 and 2025 to determine channel shares and region breakdowns.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT o.channel, r.region_name, COUNT(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN 1 END) AS orders_2024, COUNT(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN 1 END) AS orders_2025 FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.status = 'completed' GROUP BY o.channel, r.region_name ORDER BY o.channel, r.region_name LIMIT 500",
+   "reason": "Get channel totals for 2024 and 2025 to compute shares, alongside 2025 regional breakdowns for all channels.",
+   "signal": null
+  },
+  {
+   "step": "final",
+   "tools": [
+    "assemble"
+   ],
+   "plan": {
+    "base_step": 3,
+    "columns": []
+   }
+  }
+ ],
+ "repairs": [
+  {
+   "step": 1,
+   "signal": "error",
+   "detail": "Could not parse SQL: Invalid expression / Unexpected token. Line 1, Col: 1.\n  \u001b[4m.\u001b[0m..",
+   "via": "A's retry",
+   "accepted": false,
+   "attempts": 1,
+   "before": {
+    "sql": "...",
+    "ok": false,
+    "rows": 0,
+    "error": "Could not parse SQL: Invalid expression / Unexpected token. Line 1, Col: 1.\n  \u001b[4m.\u001b[0m.."
+   },
+   "after": null,
+   "effect": "n/a"
+  }
+ ],
+ "selected_step": 3,
+ "selected_result": {
+  "sql": "-- assembled: rows from step 3\nSELECT o.channel, r.region_name, COUNT(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' THEN 1 END) AS orders_2024, COUNT(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' THEN 1 END) AS orders_2025 FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.status = 'completed' GROUP BY o.channel, r.region_name ORDER BY o.channel, r.region_name LIMIT 500",
+  "ok": true,
+  "columns": [
+   "channel",
+   "region_name",
+   "orders_2024",
+   "orders_2025"
+  ],
+  "rows": [
+   [
+    "Direct",
+    "APAC",
+    212,
+    306
+   ],
+   [
+    "Direct",
+    "EMEA",
+    222,
+    374
+   ],
+   [
+    "Direct",
+    "LATAM",
+    132,
+    208
+   ],
+   [
+    "Direct",
+    "North America",
+    345,
+    567
+   ],
+   [
+    "Online",
+    "APAC",
+    297,
+    406
+   ],
+   [
+    "Online",
+    "EMEA",
+    394,
+    507
+   ],
+   [
+    "Online",
+    "LATAM",
+    203,
+    259
+   ],
+   [
+    "Online",
+    "North America",
+    563,
+    829
+   ],
+   [
+    "Partner",
+    "APAC",
+    170,
+    230
+   ],
+   [
+    "Partner",
+    "EMEA",
+    219,
+    311
+   ],
+   [
+    "Partner",
+    "LATAM",
+    99,
+    156
+   ],
+   [
+    "Partner",
+    "North America",
+    321,
+    416
+   ]
+  ],
+  "row_count": 12
+ },
+ "answer": "Assuming share of completed orders refers to each channel's proportion of all completed orders in that year, the Partner channel's share did not go up (it decreased from 25.5% with 809 orders to 24.4% with 1,113 orders). The Direct channel's share rose the most (increasing from 28.7% to 31.8%), and its 2025 completed orders by region are 306 in APAC, 374 in EMEA, 208 in LATAM, and 567 in North America.",
+ "key_numbers": [
+  "809",
+  "1113",
+  "306",
+  "374",
+  "208",
+  "567"
+ ],
+ "caveats": [
+  "Assuming share of completed orders refers to each channel's percentage of total completed orders across all regions for that year."
+ ],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question whose answer depends on a condition (for ex",
+   "prompt_hash": "ac0212dbae8b31cf1b4b030491eacb378fffb03d029dd7ac6ccf227040ebd187",
+   "cache_hit": false,
+   "latency_ms": 10909.9,
+   "input_tokens": 3058,
+   "output_tokens": 78,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1966,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You start the analysis of a question whose answer depends on a condition (for ex",
+   "prompt_hash": "94b4093432f61f75565fa2a8b9d848aec36375f1888ee577a13c4f0628780052",
+   "cache_hit": false,
+   "latency_ms": 9623.3,
+   "input_tokens": 3258,
+   "output_tokens": 162,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1882,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You plan the next step of an analysis of a read-only SQLite database. Choose exa",
+   "prompt_hash": "ce4b200eaee32baf5298e917d8ede7e64a84a68014c29bcb9ab691b45578a193",
+   "cache_hit": false,
+   "latency_ms": 10677.8,
+   "input_tokens": 4330,
+   "output_tokens": 429,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1615,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You plan the next step of an analysis of a read-only SQLite database. Choose exa",
+   "prompt_hash": "906d9bcc58cf5e6ec0db4347baf0ad621e1badc472a871a79e1c84e1bae8304d",
+   "cache_hit": false,
+   "latency_ms": 9006.2,
+   "input_tokens": 4870,
+   "output_tokens": 223,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1400,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You plan the next step of an analysis of a read-only SQLite database. Choose exa",
+   "prompt_hash": "ff4ef8822ed57cca34f736d8a94a4e97dbbefeb70247e990bce00aefe71a63d5",
+   "cache_hit": false,
+   "latency_ms": 9356.8,
+   "input_tokens": 4694,
+   "output_tokens": 243,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1126,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "Several queries were run to answer one question. Choose the final result table t",
+   "prompt_hash": "3bac80c3590dbd76c76ca8b98b4e708ac633e5c6a70c760fbb5770225dd6b785",
+   "cache_hit": false,
+   "latency_ms": 4387.7,
+   "input_tokens": 1132,
+   "output_tokens": 13,
+   "original_latency_ms": null,
+   "thoughts_tokens": 599,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "90a097da134afbce6e28026557b89b14644a0c18059b08a3dea7b8e92da62bf2",
+   "cache_hit": false,
+   "latency_ms": 10851.9,
+   "input_tokens": 865,
+   "output_tokens": 77,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1967,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "0137ecc03bd68ce9d98f9757a0b75c93ff1a82e89fa268fb2b06821dc6984d9f",
+   "cache_hit": false,
+   "latency_ms": 6020.3,
+   "input_tokens": 1053,
+   "output_tokens": 229,
+   "original_latency_ms": null,
+   "thoughts_tokens": 856,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "629681e4671269fc293d8b3fb522e2bc04153b82dd265d7d4736f4a964b60f1a",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2961,
+   "output_tokens": 80,
+   "original_latency_ms": 11561.8,
+   "thoughts_tokens": 1964,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "2e57b27bb387447573ced7f76117253b02a4089f01f497f30ab5e0eacab7c83f",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3137,
+   "output_tokens": 77,
+   "original_latency_ms": 10639.6,
+   "thoughts_tokens": 1967,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "232ae7fcef48b1a917d6ef2b1bf10f373d6e9adbedd63d68b6fba706b527517d",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3010,
+   "output_tokens": 81,
+   "original_latency_ms": 9895.7,
+   "thoughts_tokens": 1963,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "bf05d6e22ad20cf91c49de0958a673fb0b647e66e60b8b17df01cbcaa4afe247",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3195,
+   "output_tokens": 80,
+   "original_latency_ms": 10644.1,
+   "thoughts_tokens": 1964,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 70.936,
+ "latency_live_s": 113.677,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": true,
+  "end_to_end": false,
+  "detail": "expected 4 row(s), got 12"
+ }
+}

@@ -1,0 +1,102 @@
+{
+ "question_id": "sc04",
+ "type": "statistics",
+ "arch": "full",
+ "question": "Across the 24 months of 2024 and 2025, what is the Pearson correlation between total monthly marketing spend and monthly completed revenue?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH monthly_spend AS (SELECT month, SUM(amount) AS spend FROM marketing_spend WHERE month >= '2024-01' AND month <= '2025-12' GROUP BY month), monthly_revenue AS (SELECT SUBSTRING(o.order_date, 1, 7) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY SUBSTRING(o.order_date, 1, 7)), combined AS (SELECT s.month, s.spend AS x, r.revenue AS y FROM monthly_spend AS s JOIN monthly_revenue AS r ON s.month = r.month), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(y) AS sum_y, SUM(x * x) AS sum_x2, SUM(y * y) AS sum_y2, SUM(x * y) AS sum_xy FROM combined) SELECT (n * sum_xy - sum_x * sum_y) / SQRT((n * sum_x2 - sum_x * sum_x) * (n * sum_y2 - sum_y * sum_y)) AS pearson_correlation FROM stats LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "pearson_correlation\n0.1400200523481467"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH monthly_spend AS (SELECT month, SUM(amount) AS spend FROM marketing_spend WHERE month >= '2024-01' AND month <= '2025-12' GROUP BY month), monthly_revenue AS (SELECT SUBSTRING(o.order_date, 1, 7) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY SUBSTRING(o.order_date, 1, 7)), combined AS (SELECT s.month, s.spend AS x, r.revenue AS y FROM monthly_spend AS s JOIN monthly_revenue AS r ON s.month = r.month), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(y) AS sum_y, SUM(x * x) AS sum_x2, SUM(y * y) AS sum_y2, SUM(x * y) AS sum_xy FROM combined) SELECT (n * sum_xy - sum_x * sum_y) / SQRT((n * sum_x2 - sum_x * sum_x) * (n * sum_y2 - sum_y * sum_y)) AS pearson_correlation FROM stats LIMIT 500",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH monthly_spend AS (SELECT month, SUM(amount) AS spend FROM marketing_spend WHERE month >= '2024-01' AND month <= '2025-12' GROUP BY month), monthly_revenue AS (SELECT SUBSTRING(o.order_date, 1, 7) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY SUBSTRING(o.order_date, 1, 7)), combined AS (SELECT s.month, s.spend AS x, r.revenue AS y FROM monthly_spend AS s JOIN monthly_revenue AS r ON s.month = r.month), stats AS (SELECT COUNT(*) AS n, SUM(x) AS sum_x, SUM(y) AS sum_y, SUM(x * x) AS sum_x2, SUM(y * y) AS sum_y2, SUM(x * y) AS sum_xy FROM combined) SELECT (n * sum_xy - sum_x * sum_y) / SQRT((n * sum_x2 - sum_x * sum_x) * (n * sum_y2 - sum_y * sum_y)) AS pearson_correlation FROM stats LIMIT 500",
+  "ok": true,
+  "columns": [
+   "pearson_correlation"
+  ],
+  "rows": [
+   [
+    0.1400200523481467
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Across the 24 months of 2024 and 2025, the Pearson correlation between total monthly marketing spend and monthly completed revenue is 0.14.",
+ "key_numbers": [
+  "0.1400200523481467",
+  "24"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "9dfa205a6d92033138d1d76d429e6f08e9659cfe99f0904a8f7539a0b9166621",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2847,
+   "output_tokens": 556,
+   "original_latency_ms": 2070.9,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "1553b34fe0cb7c438fdd3d8a30b4b119d69f7146cdb2e793ad1187845e62d5c1",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 806,
+   "output_tokens": 91,
+   "original_latency_ms": 866.1,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "65bf56f6c8d5b98119e0126d496ddea0eb53d9d34b95edea4428506c35aca716",
+   "cache_hit": false,
+   "latency_ms": 887.0,
+   "input_tokens": 694,
+   "output_tokens": 47,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.934,
+ "latency_live_s": 3.871,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

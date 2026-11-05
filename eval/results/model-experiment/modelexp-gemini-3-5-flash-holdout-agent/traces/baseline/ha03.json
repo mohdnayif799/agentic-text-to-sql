@@ -1,0 +1,106 @@
+{
+ "question_id": "ha03",
+ "type": "multi_hop",
+ "arch": "baseline",
+ "question": "Which product category had the lowest gross margin percentage in 2025, and which product in that category sold the most units in 2025? Give the product's ID, name and units sold in 2025.",
+ "model": "gemini-3.5-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH category_gm AS (SELECT p.category, SUM(oi.quantity * (oi.unit_price * (1 - oi.discount) - p.unit_cost)) * 1.0 / SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS gm_pct FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.category ORDER BY gm_pct ASC LIMIT 1) SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND p.category = (SELECT category FROM category_gm) GROUP BY p.product_id, p.product_name ORDER BY units_sold DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "product_id | product_name | units_sold\n25 | Anchor Prism | 1075"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH category_gm AS (SELECT p.category, SUM(oi.quantity * (oi.unit_price * (1 - oi.discount) - p.unit_cost)) * 1.0 / SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS gm_pct FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.category ORDER BY gm_pct ASC LIMIT 1) SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND p.category = (SELECT category FROM category_gm) GROUP BY p.product_id, p.product_name ORDER BY units_sold DESC LIMIT 1"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH category_gm AS (SELECT p.category, SUM(oi.quantity * (oi.unit_price * (1 - oi.discount) - p.unit_cost)) * 1.0 / SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS gm_pct FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.category ORDER BY gm_pct ASC LIMIT 1) SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND p.category = (SELECT category FROM category_gm) GROUP BY p.product_id, p.product_name ORDER BY units_sold DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "product_id",
+   "product_name",
+   "units_sold"
+  ],
+  "rows": [
+   [
+    25,
+    "Anchor Prism",
+    1075
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Assuming the analysis is based on completed orders, the top-selling product in the category with the lowest gross margin percentage is Anchor Prism (ID 25), which had 1075 units sold.",
+ "key_numbers": [
+  "25",
+  "1075"
+ ],
+ "caveats": [
+  "The returned data identifies the top product but does not explicitly name the category itself."
+ ],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "9b27db4832136a98e1202f45f2af9ff97381f8262bd65a0edf901be8a47846bb",
+   "cache_hit": false,
+   "latency_ms": 10317.7,
+   "input_tokens": 3021,
+   "output_tokens": 323,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1721,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "8799eeefa83ce472a60ae2514a22fc1d58a92eb229557410fdb1f0e080e7bab4",
+   "cache_hit": false,
+   "latency_ms": 6962.9,
+   "input_tokens": 3451,
+   "output_tokens": 479,
+   "original_latency_ms": null,
+   "thoughts_tokens": 834,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "11300bf194b57577d023f78cc64de0ff31e76066538bd72e6fd23174e3ad7a5b",
+   "cache_hit": false,
+   "latency_ms": 7311.3,
+   "input_tokens": 787,
+   "output_tokens": 110,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1054,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 24.651,
+ "latency_live_s": 24.651,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "1 row(s) match; answer missing ['text: Accessories']"
+ }
+}

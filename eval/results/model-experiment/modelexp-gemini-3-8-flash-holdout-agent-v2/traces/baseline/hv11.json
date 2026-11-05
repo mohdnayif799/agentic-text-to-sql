@@ -1,0 +1,111 @@
+{
+ "question_id": "hv11",
+ "type": "recovery",
+ "arch": "baseline",
+ "question": "For each sales channel, what was marketing spend per completed order in the first half of 2024?",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH spend AS (SELECT channel, SUM(amount) AS total_spend FROM marketing_spend WHERE month >= '2024-01' AND month <= '2024-06' GROUP BY channel), ord AS (SELECT channel, COUNT(*) AS completed_orders FROM orders WHERE status = 'completed' AND order_date >= '2024-01-01' AND order_date <= '2024-06-30' GROUP BY channel) SELECT s.channel, s.total_spend / ord.completed_orders AS spend_per_completed_order FROM spend AS s JOIN ord ON s.channel = ord.channel ORDER BY s.channel LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "channel | spend_per_completed_order\nDirect | 939.0929177718833\nOnline | 553.7508716323296\nPartner | 1178.338051575931"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH spend AS (SELECT channel, SUM(amount) AS total_spend FROM marketing_spend WHERE month >= '2024-01' AND month <= '2024-06' GROUP BY channel), ord AS (SELECT channel, COUNT(*) AS completed_orders FROM orders WHERE status = 'completed' AND order_date >= '2024-01-01' AND order_date <= '2024-06-30' GROUP BY channel) SELECT s.channel, s.total_spend / ord.completed_orders AS spend_per_completed_order FROM spend AS s JOIN ord ON s.channel = ord.channel ORDER BY s.channel LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH spend AS (SELECT channel, SUM(amount) AS total_spend FROM marketing_spend WHERE month >= '2024-01' AND month <= '2024-06' GROUP BY channel), ord AS (SELECT channel, COUNT(*) AS completed_orders FROM orders WHERE status = 'completed' AND order_date >= '2024-01-01' AND order_date <= '2024-06-30' GROUP BY channel) SELECT s.channel, s.total_spend / ord.completed_orders AS spend_per_completed_order FROM spend AS s JOIN ord ON s.channel = ord.channel ORDER BY s.channel LIMIT 500",
+  "ok": true,
+  "columns": [
+   "channel",
+   "spend_per_completed_order"
+  ],
+  "rows": [
+   [
+    "Direct",
+    939.0929177718833
+   ],
+   [
+    "Online",
+    553.7508716323296
+   ],
+   [
+    "Partner",
+    1178.338051575931
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "In the first half of 2024, marketing spend per completed order was approximately 939.09 for Direct, 553.75 for Online, and 1,178.34 for Partner.",
+ "key_numbers": [
+  "939.0929177718833",
+  "553.7508716323296",
+  "1178.338051575931"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "8b4f4d0229a1b0ff3e2573b948f69ea5ac16347302cc80254c4bb7a1bbec2aec",
+   "cache_hit": false,
+   "latency_ms": 16246.0,
+   "input_tokens": 2836,
+   "output_tokens": 261,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1783,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "9fcf1f0f0ba8d50b2bd53517253b2407604c081250ea47dfe4b00c6259525294",
+   "cache_hit": false,
+   "latency_ms": 6961.2,
+   "input_tokens": 3208,
+   "output_tokens": 268,
+   "original_latency_ms": null,
+   "thoughts_tokens": 457,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "e313c160d4339345c42697a9b2f3e88034919ea235e5d399e615c383c13a2e31",
+   "cache_hit": false,
+   "latency_ms": 3019.2,
+   "input_tokens": 653,
+   "output_tokens": 122,
+   "original_latency_ms": null,
+   "thoughts_tokens": 137,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 26.257,
+ "latency_live_s": 26.257,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "3 row(s) match"
+ }
+}

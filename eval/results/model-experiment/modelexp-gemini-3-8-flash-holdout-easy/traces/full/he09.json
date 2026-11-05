@@ -1,0 +1,128 @@
+{
+ "question_id": "he09",
+ "type": "easy",
+ "arch": "full",
+ "question": "How many completed orders were placed in each month of the first half of 2025? Label months as YYYY-MM.",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT STRFTIME('%Y-%m', order_date) AS month, COUNT(*) AS completed_orders FROM orders WHERE status = 'completed' AND order_date >= '2025-01-01' AND order_date < '2025-07-01' GROUP BY month ORDER BY month LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 6,
+   "preview": "month | completed_orders\n2025-01 | 387\n2025-02 | 305\n2025-03 | 385\n2025-04 | 383\n2025-05 | 406\n... 1 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT STRFTIME('%Y-%m', order_date) AS month, COUNT(*) AS completed_orders FROM orders WHERE status = 'completed' AND order_date >= '2025-01-01' AND order_date < '2025-07-01' GROUP BY month ORDER BY month LIMIT 500",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT STRFTIME('%Y-%m', order_date) AS month, COUNT(*) AS completed_orders FROM orders WHERE status = 'completed' AND order_date >= '2025-01-01' AND order_date < '2025-07-01' GROUP BY month ORDER BY month LIMIT 500",
+  "ok": true,
+  "columns": [
+   "month",
+   "completed_orders"
+  ],
+  "rows": [
+   [
+    "2025-01",
+    387
+   ],
+   [
+    "2025-02",
+    305
+   ],
+   [
+    "2025-03",
+    385
+   ],
+   [
+    "2025-04",
+    383
+   ],
+   [
+    "2025-05",
+    406
+   ],
+   [
+    "2025-06",
+    417
+   ]
+  ],
+  "row_count": 6
+ },
+ "answer": "In the first half of 2025, the number of completed orders placed each month was 387 in 2025-01, 305 in 2025-02, 385 in 2025-03, 383 in 2025-04, 406 in 2025-05, and 417 in 2025-06.",
+ "key_numbers": [
+  "387",
+  "305",
+  "385",
+  "383",
+  "406",
+  "417"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "8f9f82cce84a2c0ea5348453a3d0c9db0423d0f5d73e7b80ff0f4184ba388885",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2865,
+   "output_tokens": 182,
+   "original_latency_ms": 9530.7,
+   "thoughts_tokens": 1048,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "4fdd87cad8973257b9790891f88665f216004f3af7ba5fe905acf6aeeae7a18c",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 592,
+   "output_tokens": 179,
+   "original_latency_ms": 4972.4,
+   "thoughts_tokens": 222,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "ce3c2a5456b51833288cfd804ed9897d49e0d44ddb8d28796218649cbe054e93",
+   "cache_hit": false,
+   "latency_ms": 3988.5,
+   "input_tokens": 480,
+   "output_tokens": 48,
+   "original_latency_ms": null,
+   "thoughts_tokens": 131,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.011,
+ "latency_live_s": 18.514,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "6 row(s) match"
+ }
+}

@@ -54,6 +54,11 @@ METRIC_TOOLS = ("decompose_change", "contribution_by_dimension")
 COMPUTE_FUNCTIONS = tuple(FUNCTIONS) + METRIC_TOOLS
 SEARCHABLE_DISTINCT = 5000
 MATCH_CUTOFF = 0.5
+#: Rows tied with the best match are all returned, up to this many. A row limit must
+#: not choose between equally good matches ("Nadia ..." has more than 5).
+MAX_TIED_MATCHES = 50
+#: A value at least this close is taken to be what the user meant.
+NEAR_MATCH = 0.75
 
 
 class NextAction(BaseModel):
@@ -276,9 +281,8 @@ class ValueIndex:
                         continue  # dates
                     self.values += [(table, col.name, str(v)) for v in values]
 
-    def search(self, term: str, table: str | None = None,
-               column: str | None = None, limit: int = 5) -> list[list[Any]]:
-        needle = " ".join(term.lower().split())
+    def _scored(self, needle: str, table: str | None,
+                column: str | None) -> list[tuple[float, str, str, str]]:
         scored = []
         for t, c, value in self.values:
             if (table and t != table) or (column and c != column):
@@ -287,10 +291,41 @@ class ValueIndex:
             score = difflib.SequenceMatcher(None, needle, hay).ratio()
             if needle in hay or hay in needle:
                 score = max(score, 0.9)
+            if " " not in needle:
+                # One word against a longer value: compare it with each of the
+                # value's words, or a short value outranks a longer one that holds
+                # the same word ("Kai Popescu" over "Nadia Popescu").
+                score = max(score, *(difflib.SequenceMatcher(None, needle, w).ratio()
+                                     for w in hay.split() or [hay]))
             if score >= MATCH_CUTOFF:
-                scored.append((score, t, c, value))
+                scored.append((round(score, 3), t, c, value))
+        return scored
+
+    def search(self, term: str, table: str | None = None,
+               column: str | None = None, limit: int = 5) -> list[list[Any]]:
+        """Closest values, best first: the whole phrase, and its words only if the
+        phrase matches nothing. At least `limit` rows, and every row tied with the
+        best one (up to MAX_TIED_MATCHES), so the limit cannot cut off a best match."""
+        needle = " ".join(term.lower().split())
+        scored = self._scored(needle, table, column)
+        if not scored and " " in needle:
+            best: dict[tuple[str, str, str], float] = {}
+            for word in needle.split():
+                for score, t, c, value in self._scored(word, table, column):
+                    best[(t, c, value)] = max(best.get((t, c, value), 0.0), score)
+            scored = [(score, *key) for key, score in best.items()]
         scored.sort(key=lambda s: (-s[0], s[1], s[2], s[3]))
-        return [[t, c, v, round(s, 3)] for s, t, c, v in scored[:limit]]
+        if not scored:
+            return []
+        tied = sum(1 for s in scored if s[0] == scored[0][0])
+        keep = max(limit, min(tied, MAX_TIED_MATCHES))
+        return [[t, c, v, s] for s, t, c, v in scored[:keep]]
+
+    def values_of(self, table: str, column: str) -> list[str] | None:
+        """The column's distinct values, or None if the column is not indexed (not
+        text, a date, or too many values)."""
+        found = [v for t, c, v in self.values if t == table and c == column]
+        return found or None
 
 
 _INDEXES: dict[str, ValueIndex] = {}

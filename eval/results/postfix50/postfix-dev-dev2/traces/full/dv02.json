@@ -1,0 +1,180 @@
+{
+ "question_id": "dv02",
+ "type": "term_matching",
+ "arch": "full",
+ "question": "How many completed orders placed in 2024 included at least one Professional Services item?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The query filters by category = 'Services', but the question specifically asks for 'Professional Services' items."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT COUNT(DISTINCT o.order_id) FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' AND p.category = 'Services'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "COUNT(DISTINCT o.order_id)\n1269"
+  },
+  {
+   "sql": "SELECT DISTINCT product_name, category FROM products WHERE category = 'Services' OR product_name LIKE '%Services%' LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 9,
+   "preview": "product_name | category\nSummit Cascade | Services\nOnyx Cobalt | Services\nVertex Nimbus | Services\nPivot Lumen | Services\nMeridian Cascade | Services\n... 4 more row(s)"
+  },
+  {
+   "sql": "SELECT DISTINCT product_name, category FROM products WHERE category = 'Services' OR product_name LIKE '%Professional%' LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 9,
+   "preview": "product_name | category\nSummit Cascade | Services\nOnyx Cobalt | Services\nVertex Nimbus | Services\nPivot Lumen | Services\nMeridian Cascade | Services\n... 4 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT COUNT(DISTINCT o.order_id) FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' AND p.category = 'Services'",
+   "reason": "",
+   "signal": null
+  },
+  {
+   "step": 2,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT DISTINCT product_name, category FROM products WHERE category = 'Services' OR product_name LIKE '%Services%' LIMIT 500",
+   "reason": "Check the actual product names or categories in the products table to see if 'Professional Services' exists as a product name or category value.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT DISTINCT product_name, category FROM products WHERE category = 'Services' OR product_name LIKE '%Professional%' LIMIT 500",
+   "reason": "Check all product names under the 'Services' category or search for 'Professional' across the database to locate the exact product or category requested.",
+   "signal": null
+  },
+  {
+   "step": "final",
+   "tools": [
+    "assemble"
+   ],
+   "plan": {
+    "base_step": 1,
+    "columns": []
+   }
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "-- assembled: rows from step 1\nSELECT COUNT(DISTINCT o.order_id) FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31' AND p.category = 'Services'",
+  "ok": true,
+  "columns": [
+   "COUNT(DISTINCT o.order_id)"
+  ],
+  "rows": [
+   [
+    1269
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "There were 1,269 completed orders placed in 2024 that included at least one Professional Services item.",
+ "key_numbers": [
+  "1269"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You plan the next step of an analysis of a read-only SQLite database. Choose exa",
+   "prompt_hash": "d0fd28822e2d37aa1fba98d65c9f1a4be539a655407a8764077f229abb49cbec",
+   "cache_hit": false,
+   "latency_ms": 902.8,
+   "input_tokens": 4380,
+   "output_tokens": 81,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You plan the next step of an analysis of a read-only SQLite database. Choose exa",
+   "prompt_hash": "eaab11ca2dd1596f18e6ca63d01ce91d9a4e17dce3a6b07b098d8ed6b0b9e7b4",
+   "cache_hit": false,
+   "latency_ms": 1014.0,
+   "input_tokens": 4510,
+   "output_tokens": 82,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "Several queries were run to answer one question. Choose the final result table t",
+   "prompt_hash": "84972d0f047d2c2c1bca555f974bdab359d2d694ca66fcd22370efd704b690ae",
+   "cache_hit": false,
+   "latency_ms": 711.4,
+   "input_tokens": 733,
+   "output_tokens": 24,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "46d3eafefc81fd8f649a3e0851e6101fe96a3bc9b9a61f928fc672e36a2a35ea",
+   "cache_hit": false,
+   "latency_ms": 758.5,
+   "input_tokens": 551,
+   "output_tokens": 59,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "da00c0b2c813de42f1dccb6b3779f7c4d3bbee7680a7bb065ad2705f5f049dbc",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2931,
+   "output_tokens": 169,
+   "original_latency_ms": 1226.0,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "165e9fce9a36e8cdea920698a44a7df56bc160e8f2428bc9b29790c01d2008a1",
+   "cache_hit": false,
+   "latency_ms": 816.1,
+   "input_tokens": 430,
+   "output_tokens": 45,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.274,
+ "latency_live_s": 5.5,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

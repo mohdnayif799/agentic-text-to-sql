@@ -470,7 +470,7 @@ def render_arch_run(run: AppRun, slot: int) -> None:
     final table, and the steps collapsed under STEPS_LABEL. The line
     replaces five st.metric tiles that were louder than the answer."""
     outcome = run.outcome
-    if outcome.status == "done":
+    if outcome.status in ("done", "refused"):
         render_answer(outcome.answer or "", slot)
     else:
         st.error(outcome.answer or "The agent stopped without an answer.")

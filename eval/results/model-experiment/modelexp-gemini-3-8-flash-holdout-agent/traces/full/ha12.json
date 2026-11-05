@@ -1,0 +1,57 @@
+{
+ "question_id": "ha12",
+ "type": "statistics",
+ "arch": "full",
+ "question": "Using a straight-line trend fitted to monthly completed revenue from January 2024 to December 2025, what is the forecast for January 2026?",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "failed",
+ "path": "direct",
+ "stop_reason": "error",
+ "error": "cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: EOF while parsing a value at line 2 column 869 [type=json_invalid, input_value='{\\n  \"sql\": \"WITH monthl...ry_2026\\\\nFROM model;\",', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "plan": [],
+ "sql_attempts": [],
+ "steps": [],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": null,
+ "answer": "Could not complete the analysis: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: EOF while parsing a value at line 2 column 869 [type=json_invalid, input_value='{\\n  \"sql\": \"WITH monthl...ry_2026\\\\nFROM model;\",', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "2783dcff12030f037228bc2506310927ef688b461104a70c3da8c45d618ccff1",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2957,
+   "output_tokens": 78,
+   "original_latency_ms": 16243.6,
+   "thoughts_tokens": 1966,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "bd294e8fb3ddb409caf33cad30a76d324f946f08dbd9b15c53d58444ae081847",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 3144,
+   "output_tokens": 378,
+   "original_latency_ms": 17200.7,
+   "thoughts_tokens": 1666,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.029,
+ "latency_live_s": 33.474,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "no selected result; answer missing ['number: 1220726.8511123192']"
+ }
+}

@@ -1,0 +1,293 @@
+{
+ "question_id": "hv06",
+ "type": "why",
+ "arch": "full",
+ "question": "Why was APAC's marketing spend so much lower in 2025 than in 2024?",
+ "model": "gemini-3.5-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The result shows which channels experienced spend cuts, but it does not explain the underlying cause or reason for the reduction."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT m.channel, SUM(CASE WHEN m.month >= '2024-01' AND m.month <= '2024-12' THEN m.amount ELSE 0 END) AS spend_2024, SUM(CASE WHEN m.month >= '2025-01' AND m.month <= '2025-12' THEN m.amount ELSE 0 END) AS spend_2025, SUM(CASE WHEN m.month >= '2025-01' AND m.month <= '2025-12' THEN m.amount ELSE 0 END) - SUM(CASE WHEN m.month >= '2024-01' AND m.month <= '2024-12' THEN m.amount ELSE 0 END) AS change_amount FROM marketing_spend AS m JOIN regions AS r ON m.region_id = r.region_id WHERE r.region_name = 'APAC' AND m.month >= '2024-01' AND m.month <= '2025-12' GROUP BY m.channel ORDER BY change_amount ASC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "channel | spend_2024 | spend_2025 | change_amount\nDirect | 217971.33 | 148340.93 | -69630.4\nPartner | 199937.33000000002 | 162944.59 | -36992.74000000002\nOnline | 199580.97 | 196312.83000000002 | -3268.139999999985"
+  },
+  {
+   "sql": "-- compute: contribution_by_dimension\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2024-01' AND '2024-12' AND r.region_name = 'APAC' GROUP BY 1 ORDER BY 1\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2025-01' AND '2025-12' AND r.region_name = 'APAC' GROUP BY 1 ORDER BY 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "side_a | side_b | analysis | item | value_a | value_b | change | pct_change | share_of_change_pct | comparison | largest_contributor\n2024-01-01..2024-12-31 | 2025-01-01..2025-12-31 | marketing_spend by channel | Direct | 217971.33 | 148340.93 | -69630.4 | -31.94475163316203 | 63.362989310889816 | lower | True\n2024-01-01..2024-12-31 | 2025-01-01..2025-12-31 | marketing_spend by channel | Partner | 199937.33000000002 | 162944.59 | -36992.74000000002 | -18.502167654234462 | 33.663034956003806 | lower | False\n2024-01-01..2024-12-31 | 2025-01-01..2025-12-31 | marketing_spend by channel | Online | 199580.97 | 196312.83000000002 | -3268.139999999985 | -1.6375008098216903 | 2.97397573310638 | about the same | False"
+  },
+  {
+   "sql": "SELECT m.month, SUM(m.amount) AS total_spend, SUM(CASE WHEN m.channel = 'Direct' THEN m.amount ELSE 0 END) AS direct_spend, SUM(CASE WHEN m.channel = 'Partner' THEN m.amount ELSE 0 END) AS partner_spend, SUM(CASE WHEN m.channel = 'Online' THEN m.amount ELSE 0 END) AS online_spend FROM marketing_spend AS m JOIN regions AS r ON r.region_id = m.region_id WHERE r.region_name = 'APAC' GROUP BY m.month ORDER BY m.month LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 24,
+   "preview": "month | total_spend | direct_spend | partner_spend | online_spend\n2024-01 | 35240.63 | 11944.73 | 14688.82 | 8607.08\n2024-02 | 60763.18 | 19826.06 | 23821.44 | 17115.68\n2024-03 | 43949.96 | 14894.33 | 17634.28 | 11421.35\n2024-04 | 41382.27 | 14198.75 | 10783.85 | 16399.67\n2024-05 | 27648.77 | 10446.93 | 9157.54 | 8044.3\n... 19 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT m.channel, SUM(CASE WHEN m.month >= '2024-01' AND m.month <= '2024-12' THEN m.amount ELSE 0 END) AS spend_2024, SUM(CASE WHEN m.month >= '2025-01' AND m.month <= '2025-12' THEN m.amount ELSE 0 END) AS spend_2025, SUM(CASE WHEN m.month >= '2025-01' AND m.month <= '2025-12' THEN m.amount ELSE 0 END) - SUM(CASE WHEN m.month >= '2024-01' AND m.month <= '2024-12' THEN m.amount ELSE 0 END) AS change_amount FROM marketing_spend AS m JOIN regions AS r ON m.region_id = r.region_id WHERE r.region_name = 'APAC' AND m.month >= '2024-01' AND m.month <= '2025-12' GROUP BY m.channel ORDER BY change_amount ASC LIMIT 500",
+   "reason": "",
+   "signal": null
+  },
+  {
+   "step": 2,
+   "tools": [
+    "compute:contribution_by_dimension"
+   ],
+   "sql": "-- compute: contribution_by_dimension\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2024-01' AND '2024-12' AND r.region_name = 'APAC' GROUP BY 1 ORDER BY 1\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2025-01' AND '2025-12' AND r.region_name = 'APAC' GROUP BY 1 ORDER BY 1",
+   "reason": "Examine how each marketing channel contributed to the decline in APAC's overall spend from 2024 to 2025.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT m.month, SUM(m.amount) AS total_spend, SUM(CASE WHEN m.channel = 'Direct' THEN m.amount ELSE 0 END) AS direct_spend, SUM(CASE WHEN m.channel = 'Partner' THEN m.amount ELSE 0 END) AS partner_spend, SUM(CASE WHEN m.channel = 'Online' THEN m.amount ELSE 0 END) AS online_spend FROM marketing_spend AS m JOIN regions AS r ON r.region_id = m.region_id WHERE r.region_name = 'APAC' GROUP BY m.month ORDER BY m.month LIMIT 500",
+   "reason": "Examine monthly marketing spend alongside revenue and order trends for APAC across 2024 and 2025 to understand what drove the budget reduction.",
+   "signal": null
+  },
+  {
+   "step": "final",
+   "tools": [
+    "stack"
+   ],
+   "plan": {
+    "stacked_steps": [
+     2
+    ]
+   },
+   "driver_sentence_added": false
+  }
+ ],
+ "repairs": [],
+ "selected_step": 2,
+ "selected_result": {
+  "sql": "-- stacked: rows from step(s) 2\n-- compute: contribution_by_dimension\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2024-01' AND '2024-12' AND r.region_name = 'APAC' GROUP BY 1 ORDER BY 1\nSELECT m.channel AS channel, SUM(m.amount) AS marketing_spend FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id WHERE m.month BETWEEN '2025-01' AND '2025-12' AND r.region_name = 'APAC' GROUP BY 1 ORDER BY 1",
+  "ok": true,
+  "columns": [
+   "side_a",
+   "side_b",
+   "analysis",
+   "item",
+   "value_a",
+   "value_b",
+   "change",
+   "pct_change",
+   "share_of_change_pct",
+   "comparison",
+   "largest_contributor"
+  ],
+  "rows": [
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "marketing_spend by channel",
+    "Direct",
+    217971.33,
+    148340.93,
+    -69630.4,
+    -31.94475163316203,
+    63.362989310889816,
+    "lower",
+    true
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "marketing_spend by channel",
+    "Partner",
+    199937.33000000002,
+    162944.59,
+    -36992.74000000002,
+    -18.502167654234462,
+    33.663034956003806,
+    "lower",
+    false
+   ],
+   [
+    "2024-01-01..2024-12-31",
+    "2025-01-01..2025-12-31",
+    "marketing_spend by channel",
+    "Online",
+    199580.97,
+    196312.83000000002,
+    -3268.139999999985,
+    -1.6375008098216903,
+    2.97397573310638,
+    "about the same",
+    false
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "Assuming the change in APAC's marketing spend is evaluated by marketing channel, the decline was primarily driven by the Direct channel, which dropped from 217,971.33 in 2024 to 148,340.93 in 2025 (accounting for 63.36% of the total decrease). Spend on the Partner channel was also lower, falling from 199,937.33 in 2024 to 162,944.59 in 2025. Meanwhile, spend on the Online channel remained about the same, going from 199,580.97 in 2024 to 196,312.83 in 2025.",
+ "key_numbers": [
+  "217971.33",
+  "148340.93",
+  "63.36%",
+  "199937.33",
+  "162944.59",
+  "199580.97",
+  "196312.83"
+ ],
+ "caveats": [],
+ "judge": {
+  "verdict": "pass",
+  "reason": "all required facts stated; no disqualifying claim",
+  "facts": [
+   {
+    "fact": "The Direct channel was the largest part of the cut: APAC's Direct spend fell from about 218,000 in 2024 to about 148,000 in 2025 (about -32%), which is about 63% of APAC's decrease.",
+    "verdict": "yes",
+    "quote": "Assuming the change in APAC's marketing spend is evaluated by marketing channel, the decline was primarily driven by the Direct channel, which dropped from 217,971.33 in 2024 to 148,340.93 in 2025 (accounting for 63.36% of the total decrease).",
+    "quote_verified": true,
+    "counts_as_yes": true,
+    "reason": "The answer directly states that the decline was driven by the Direct channel, gives the specific 2024 and 2025 spend figures for Direct (217,971.33 and 148,340.93, which round to about 218,000 and 148,000), and states that it accounted for about 63.36% (approx 63%) of the decrease."
+   },
+   {
+    "fact": "Online spend in APAC was nearly unchanged (about 200,000 to 196,000), so it does not explain the decrease.",
+    "verdict": "yes",
+    "quote": "Meanwhile, spend on the Online channel remained about the same, going from 199,580.97 in 2024 to 196,312.83 in 2025.",
+    "quote_verified": true,
+    "counts_as_yes": true,
+    "reason": "The answer explicitly states that Online spend in APAC was nearly unchanged (providing the exact figures around 200,000 to 196,000) and notes that it does not explain the decrease by showing it remained about the same while the others dropped."
+   }
+  ],
+  "disqualifying": {
+   "verdict": "no",
+   "quote": "",
+   "quote_verified": false,
+   "counts_as_yes": false,
+   "reason": "The answer correctly identifies the Direct channel as the main reason for the decrease (which is allowed and supported by the evidence) and accurately cites the figures from the evidence table without making any disqualifying claims."
+  }
+ },
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question that asks why. A first query has been run. ",
+   "prompt_hash": "1ee968354ca5090036ade72fd1f08e030421ab1d32de9e73a8e968ff80022578",
+   "cache_hit": false,
+   "latency_ms": 7828.4,
+   "input_tokens": 4832,
+   "output_tokens": 177,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1209,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You plan the next step of an analysis of a read-only SQLite database. Choose exa",
+   "prompt_hash": "fa7f5db77cb31c567fb7f7586f61f76f2b3837a529a10cd7540b2728f004fe99",
+   "cache_hit": false,
+   "latency_ms": 4176.8,
+   "input_tokens": 5197,
+   "output_tokens": 193,
+   "original_latency_ms": null,
+   "thoughts_tokens": 403,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "fa29106eaccddffc158528fc9e75a68b85b6f8aa92916cbf504c64a0fc764e7b",
+   "cache_hit": false,
+   "latency_ms": 8516.7,
+   "input_tokens": 1321,
+   "output_tokens": 294,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1215,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "b1089945bfcb02f1c71f0afd4f7f9d7a2a814ddd6e567cc639912a6b273407a0",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2770,
+   "output_tokens": 82,
+   "original_latency_ms": 11532.1,
+   "thoughts_tokens": 1962,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "86d6e089c31f013bd75c6487f02eb87b8ade593b79f94b9db4fc64f9c1379ec9",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2956,
+   "output_tokens": 345,
+   "original_latency_ms": 5378.5,
+   "thoughts_tokens": 525,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "98b44484923d8dd01a5f4af354e712d08f3d954e097438f29875c0138639715a",
+   "cache_hit": false,
+   "latency_ms": 6534.7,
+   "input_tokens": 735,
+   "output_tokens": 46,
+   "original_latency_ms": null,
+   "thoughts_tokens": 509,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "689e3c421eddbf9e35766552ef0b3f11a63f31e94a88c7385a0a92633b5d351f",
+   "cache_hit": false,
+   "latency_ms": 1165.6,
+   "input_tokens": 833,
+   "output_tokens": 210,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  },
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "59624c2e1359877da02d86d9d24172f51562e6b40521e9c241e2d639271fcc9d",
+   "cache_hit": false,
+   "latency_ms": 1083.7,
+   "input_tokens": 800,
+   "output_tokens": 136,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  },
+  {
+   "role": "You are a strict checker grading an analytics assistant's answer. You receive a ",
+   "prompt_hash": "c033e6c5b4531a80a5817055b46a2b875e904eea815d2b68d4937d00f2625748",
+   "cache_hit": false,
+   "latency_ms": 811.9,
+   "input_tokens": 793,
+   "output_tokens": 69,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  }
+ ],
+ "latency_s": 27.253,
+ "latency_live_s": 44.163,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "driver named; judge pass"
+ }
+}

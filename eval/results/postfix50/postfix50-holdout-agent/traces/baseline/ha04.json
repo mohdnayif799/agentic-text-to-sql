@@ -1,0 +1,88 @@
+{
+ "question_id": "ha04",
+ "type": "term_matching",
+ "arch": "baseline",
+ "question": "How many sev-1 support tickets did our European customers open in 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT COUNT(*) AS sev1_tickets_count FROM support_tickets AS t JOIN customers AS c ON c.customer_id = t.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE r.region_name = 'EMEA' AND t.severity = 'critical' AND t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "sev1_tickets_count\n24"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT COUNT(*) AS sev1_tickets_count FROM support_tickets AS t JOIN customers AS c ON c.customer_id = t.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE r.region_name = 'EMEA' AND t.severity = 'critical' AND t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31'"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT COUNT(*) AS sev1_tickets_count FROM support_tickets AS t JOIN customers AS c ON c.customer_id = t.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE r.region_name = 'EMEA' AND t.severity = 'critical' AND t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31'",
+  "ok": true,
+  "columns": [
+   "sev1_tickets_count"
+  ],
+  "rows": [
+   [
+    24
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Assuming European customers are represented by the EMEA region and sev-1 tickets correspond to critical severity, customers opened 24 support tickets in 2025.",
+ "key_numbers": [
+  "24"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "5b37b9891c4bfea5c7064e275c242145a751722dc92ab40ade032de2ade411f1",
+   "cache_hit": false,
+   "latency_ms": 1118.3,
+   "input_tokens": 2716,
+   "output_tokens": 203,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "e69abd56666fb74802b3ebc5eda193379aab94f1b6deb29a5b7581f250777534",
+   "cache_hit": false,
+   "latency_ms": 812.0,
+   "input_tokens": 538,
+   "output_tokens": 64,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 1.94,
+ "latency_live_s": 1.94,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

@@ -70,7 +70,9 @@ import re
 from agentcrew.archs import progress
 from agentcrew.archs.assemble import stack
 from agentcrew.archs.baseline import SQL_SYSTEM, SQL_USER
+from agentcrew.archs.checks import WRONG_FIGURES
 from agentcrew.archs.explore import (
+    MAX_TIED_MATCHES,
     METRIC_TOOLS,
     TREND_FUNCTIONS,
     BranchPlan,
@@ -88,6 +90,7 @@ from agentcrew.archs.router import (
     FollowupDecision,
     Router,
     StepRun,
+    WriteAttempt,
 )
 from agentcrew.archs.verify import verify
 from agentcrew.compute.concentration import concentrating_dimension
@@ -458,10 +461,13 @@ class Full(Router):
                       forecast=self.forecast)
 
     def _explore_history(self, steps: list[StepRun]) -> str:
+        # A lookup's rows are all shown: a preview must not hide the value it found.
         return "\n\n".join(
             f"Step {s.number} [{s.tool}]"
             + (f" - {s.reason}" if s.reason else "")
-            + f"\n{s.sql}\nResult:\n{s.result.preview(limit=PREVIEW_ROWS)}"
+            + f"\n{s.sql}\nResult:\n"
+            + s.result.preview(limit=MAX_TIED_MATCHES if s.kind == "lookup"
+                               else PREVIEW_ROWS)
             for s in steps
         )
 
@@ -549,7 +555,7 @@ class Full(Router):
             return []
         series = self.run_step(number, plan.series_sql, plan.reason,
                                verify=self._verify)
-        if not (series.result.ok and series.result.rows):
+        if not (series.result.ok and series.result.rows) or self._figures_wrong(series):
             return [series]
         return [series, self._act(number + 1, plan.compute_action(number),
                                   [*steps, series])]
@@ -582,6 +588,12 @@ class Full(Router):
         if branch.result.ok and branch.result.rows:
             self.condition_taken = (condition, branch, chosen.branch)
         return [condition, branch]
+
+    @staticmethod
+    def _figures_wrong(step: StepRun) -> bool:
+        """A repair could not clear a signal that means the figures are wrong, so
+        nothing is computed from this step."""
+        return step.signal is not None and step.signal.kind in WRONG_FIGURES
 
     def _guidance(self, selected: ExecutionResult, stacked: bool) -> str:
         if stacked and GROUP_GAP_PREFIX in " ".join(
@@ -634,7 +646,8 @@ class Full(Router):
             return step
         if action.action == "compute":
             result, _ = compute(
-                action, {s.number: s.result for s in steps},
+                action, {s.number: s.result for s in steps
+                         if not self._figures_wrong(s)},
                 lambda sql: execute_readonly_sql(self.tools, sql),
             )
             step = StepRun(number, result.sql, result, None, action.reason,
@@ -701,6 +714,10 @@ class Full(Router):
             if selected is None:
                 failed = self._failed(steps, decision, "every query failed")
                 return self._as_full(failed)
+            untracked = self._untracked(selected, steps)
+            if untracked:
+                return self._as_full(self._untracked_outcome(
+                    selected, steps, escalated, untracked))
             stacked = bool(plan_used and "stacked_steps" in plan_used)
             final, selected, selected_step, fell_back = self._answer(
                 selected, selected_step, steps, escalated,
@@ -713,6 +730,8 @@ class Full(Router):
             sentence = driver_sentence(selected) if stacked else None
             if sentence and not names_driver(answer, selected):
                 answer, added = f"{sentence} {answer}", True
+        except WriteAttempt as write:
+            return self._as_full(self._refused(write, bool(steps)))
         except StructuredOutputError as exc:
             return ArchOutcome(
                 arch="full", question=self.question, status="failed",

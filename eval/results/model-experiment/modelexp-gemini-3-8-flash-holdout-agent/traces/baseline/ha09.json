@@ -1,0 +1,57 @@
+{
+ "question_id": "ha09",
+ "type": "why",
+ "arch": "baseline",
+ "question": "Why did Hardware revenue drop so sharply from Q2 to Q3 2025?",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "failed",
+ "path": "direct",
+ "stop_reason": "error",
+ "error": "Could not produce a query: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: EOF while parsing a string at line 4 column 141 [type=json_invalid, input_value='{\\n  \"sql\": \"SELECT p.pr...orted from largest drop', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "plan": [],
+ "sql_attempts": [],
+ "steps": [],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": null,
+ "answer": "Could not produce a query: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: EOF while parsing a string at line 4 column 141 [type=json_invalid, input_value='{\\n  \"sql\": \"SELECT p.pr...orted from largest drop', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "b0ebd614f484b15375b23e009e2d9544e0dd00a55dba064fbdb2e004bf13c8c5",
+   "cache_hit": false,
+   "latency_ms": 17407.8,
+   "input_tokens": 2938,
+   "output_tokens": 81,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1963,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "4733d6d8669154b64422b2e72c618d95c7a58fe651f0405bafa81e541b477206",
+   "cache_hit": false,
+   "latency_ms": 13831.3,
+   "input_tokens": 3131,
+   "output_tokens": 516,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1528,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 31.243,
+ "latency_live_s": 31.243,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "driver not named: ['pattern: \\\\b(units?|volume|quantit(y|ies))\\\\b|fewer\\\\s+(hardware\\\\s+)?(items|products|sales)']"
+ }
+}

@@ -1,0 +1,90 @@
+{
+ "question_id": "hv13",
+ "type": "ambiguous",
+ "arch": "baseline",
+ "question": "Which product category is growing the fastest? Give the category and its growth as a percentage.",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH category_revenue AS (SELECT p.category, SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2025 FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' GROUP BY p.category) SELECT category, ((rev_2025 - rev_2024) * 100.0 / rev_2024) AS growth_percentage FROM category_revenue ORDER BY growth_percentage DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "category | growth_percentage\nAccessories | 59.820446957906206"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH category_revenue AS (SELECT p.category, SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2025 FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' GROUP BY p.category) SELECT category, ((rev_2025 - rev_2024) * 100.0 / rev_2024) AS growth_percentage FROM category_revenue ORDER BY growth_percentage DESC LIMIT 1"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH category_revenue AS (SELECT p.category, SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS rev_2025 FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN products AS p ON p.product_id = oi.product_id WHERE o.status = 'completed' GROUP BY p.category) SELECT category, ((rev_2025 - rev_2024) * 100.0 / rev_2024) AS growth_percentage FROM category_revenue ORDER BY growth_percentage DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "category",
+   "growth_percentage"
+  ],
+  "rows": [
+   [
+    "Accessories",
+    59.820446957906206
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Assuming growth is measured by revenue from completed orders comparing pre-2025 to 2025 onwards, the fastest-growing category is Accessories with a growth rate of approximately 59.82%.",
+ "key_numbers": [
+  "59.820446957906206%"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "ef5d9779c246d6dc6232f9cbe3c267099dcd4fbc26c4f9b35742762ffee3f565",
+   "cache_hit": false,
+   "latency_ms": 15410.8,
+   "input_tokens": 2852,
+   "output_tokens": 334,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1409,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "7c19fe18ff5cf886f186e069b508afc7a7580eb7e9d3ae5f49b4947e5e218369",
+   "cache_hit": false,
+   "latency_ms": 4128.7,
+   "input_tokens": 668,
+   "output_tokens": 92,
+   "original_latency_ms": null,
+   "thoughts_tokens": 169,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 19.563,
+ "latency_live_s": 19.563,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "matched interpretation revenue_growth_2024_2025"
+ }
+}

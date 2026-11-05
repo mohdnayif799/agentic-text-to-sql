@@ -1,0 +1,118 @@
+{
+ "question_id": "hv12",
+ "type": "recovery",
+ "arch": "full",
+ "question": "Of the customers who signed up in 2024, how many had no completed order during 2024? Break the count down by region.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT r.region_name, COUNT(c.customer_id) AS customer_count FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id WHERE c.signup_date >= '2024-01-01' AND c.signup_date <= '2024-12-31' AND NOT c.customer_id IN (SELECT DISTINCT o.customer_id FROM orders AS o WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31') GROUP BY r.region_name ORDER BY customer_count DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "region_name | customer_count\nNorth America | 50\nEMEA | 36\nAPAC | 32\nLATAM | 18"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT r.region_name, COUNT(c.customer_id) AS customer_count FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id WHERE c.signup_date >= '2024-01-01' AND c.signup_date <= '2024-12-31' AND NOT c.customer_id IN (SELECT DISTINCT o.customer_id FROM orders AS o WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31') GROUP BY r.region_name ORDER BY customer_count DESC LIMIT 500",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT r.region_name, COUNT(c.customer_id) AS customer_count FROM customers AS c JOIN regions AS r ON c.region_id = r.region_id WHERE c.signup_date >= '2024-01-01' AND c.signup_date <= '2024-12-31' AND NOT c.customer_id IN (SELECT DISTINCT o.customer_id FROM orders AS o WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2024-12-31') GROUP BY r.region_name ORDER BY customer_count DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "region_name",
+   "customer_count"
+  ],
+  "rows": [
+   [
+    "North America",
+    50
+   ],
+   [
+    "EMEA",
+    36
+   ],
+   [
+    "APAC",
+    32
+   ],
+   [
+    "LATAM",
+    18
+   ]
+  ],
+  "row_count": 4
+ },
+ "answer": "Of the customers who signed up in 2024, the number who had no completed order during 2024 broken down by region is 50 in North America, 36 in EMEA, 32 in APAC, and 18 in LATAM.",
+ "key_numbers": [
+  "50",
+  "36",
+  "32",
+  "18"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "fe32e4a5bf700e1d18433b75cef017b316ed32444e5abb5166910da24f6725d7",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2852,
+   "output_tokens": 292,
+   "original_latency_ms": 1427.3,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "b8d4ad97fe3fcb071adf91feeda8b79c637594dd5a68f971792240d1d685ba31",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 633,
+   "output_tokens": 107,
+   "original_latency_ms": 847.1,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "97d4f6f9baa8697c06f9cba1915414c925e4c15b79432eb56c544724523fa4bc",
+   "cache_hit": false,
+   "latency_ms": 824.8,
+   "input_tokens": 521,
+   "output_tokens": 57,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.853,
+ "latency_live_s": 3.127,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "4 row(s) match"
+ }
+}

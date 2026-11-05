@@ -1,0 +1,57 @@
+{
+ "question_id": "hv12",
+ "type": "recovery",
+ "arch": "baseline",
+ "question": "Of the customers who signed up in 2024, how many had no completed order during 2024? Break the count down by region.",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "failed",
+ "path": "direct",
+ "stop_reason": "error",
+ "error": "Could not produce a query: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: expected value at line 1 column 1 [type=json_invalid, input_value='```json\\n{\\n  \"sql\": \"SE...ate >= \\'2024-01-01\\'\\\\', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "plan": [],
+ "sql_attempts": [],
+ "steps": [],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": null,
+ "answer": "Could not produce a query: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: expected value at line 1 column 1 [type=json_invalid, input_value='```json\\n{\\n  \"sql\": \"SE...ate >= \\'2024-01-01\\'\\\\', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "fe32e4a5bf700e1d18433b75cef017b316ed32444e5abb5166910da24f6725d7",
+   "cache_hit": false,
+   "latency_ms": 15518.3,
+   "input_tokens": 2852,
+   "output_tokens": 81,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1963,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "87ce6f1ea0452d36b135a7d364cd5d25d0324c8a795f67a59f9753bad2a0cadc",
+   "cache_hit": false,
+   "latency_ms": 15013.5,
+   "input_tokens": 3040,
+   "output_tokens": 82,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1962,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 30.538,
+ "latency_live_s": 30.538,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "no selected result; answer missing ['text: APAC', 'text: EMEA', 'text: LATAM', 'text: North America']"
+ }
+}

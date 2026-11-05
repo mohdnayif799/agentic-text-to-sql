@@ -1,0 +1,106 @@
+{
+ "question_id": "sc05",
+ "type": "recovery",
+ "arch": "full",
+ "question": "What were LATAM's total completed revenue and total marketing spend in 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT r.region_name, COALESCE(rev.completed_revenue, 0) AS completed_revenue, COALESCE(mkt.total_marketing_spend, 0) AS total_marketing_spend FROM regions AS r LEFT JOIN (SELECT c.region_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON c.customer_id = o.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.region_id) AS rev ON r.region_id = rev.region_id LEFT JOIN (SELECT m.region_id, SUM(m.amount) AS total_marketing_spend FROM marketing_spend AS m WHERE m.month >= '2025-01' AND m.month <= '2025-12' GROUP BY m.region_id) AS mkt ON r.region_id = mkt.region_id WHERE r.region_name = 'LATAM' LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "region_name | completed_revenue | total_marketing_spend\nLATAM | 1736364.8625 | 583742.2"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT r.region_name, COALESCE(rev.completed_revenue, 0) AS completed_revenue, COALESCE(mkt.total_marketing_spend, 0) AS total_marketing_spend FROM regions AS r LEFT JOIN (SELECT c.region_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON c.customer_id = o.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.region_id) AS rev ON r.region_id = rev.region_id LEFT JOIN (SELECT m.region_id, SUM(m.amount) AS total_marketing_spend FROM marketing_spend AS m WHERE m.month >= '2025-01' AND m.month <= '2025-12' GROUP BY m.region_id) AS mkt ON r.region_id = mkt.region_id WHERE r.region_name = 'LATAM' LIMIT 500",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT r.region_name, COALESCE(rev.completed_revenue, 0) AS completed_revenue, COALESCE(mkt.total_marketing_spend, 0) AS total_marketing_spend FROM regions AS r LEFT JOIN (SELECT c.region_id, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id JOIN customers AS c ON c.customer_id = o.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.region_id) AS rev ON r.region_id = rev.region_id LEFT JOIN (SELECT m.region_id, SUM(m.amount) AS total_marketing_spend FROM marketing_spend AS m WHERE m.month >= '2025-01' AND m.month <= '2025-12' GROUP BY m.region_id) AS mkt ON r.region_id = mkt.region_id WHERE r.region_name = 'LATAM' LIMIT 500",
+  "ok": true,
+  "columns": [
+   "region_name",
+   "completed_revenue",
+   "total_marketing_spend"
+  ],
+  "rows": [
+   [
+    "LATAM",
+    1736364.8625,
+    583742.2
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "In 2025, LATAM achieved a total completed revenue of $1,736,364.86 and had a total marketing spend of $583,742.20.",
+ "key_numbers": [
+  "1736364.8625",
+  "583742.2"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "636072884da2b488e614bbc3585b8061cd88e4d5c9453f0bcc8172bf83c005ce",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2833,
+   "output_tokens": 388,
+   "original_latency_ms": 1550.8,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "73d5226538f3faab192bdfa049ab8402d1a67591e3fc69d311078c3a37c8fed0",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 751,
+   "output_tokens": 100,
+   "original_latency_ms": 941.5,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "a380399a662169d91c89a56095c9f62d5c72294f5320eac71769ecf00dad31d3",
+   "cache_hit": false,
+   "latency_ms": 791.3,
+   "input_tokens": 639,
+   "output_tokens": 49,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 0.829,
+ "latency_live_s": 3.322,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

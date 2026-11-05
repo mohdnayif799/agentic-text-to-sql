@@ -1,0 +1,123 @@
+{
+ "question_id": "hv05",
+ "type": "why",
+ "arch": "baseline",
+ "question": "Why did LATAM's completed revenue grow so much from 2024 to 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.category, SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_2025, SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_growth FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE r.region_name = 'LATAM' AND o.status = 'completed' GROUP BY p.category ORDER BY revenue_growth DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "category | revenue_2024 | revenue_2025 | revenue_growth\nHardware | 847572.887 | 1065821.3325 | 218248.44550000003\nServices | 198246.4725 | 326030.175 | 127783.70249999998\nSoftware | 210263.5005 | 297429.3515 | 87165.851\nAccessories | 26011.0115 | 47084.0035 | 21072.992"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.category, SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_2025, SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_growth FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE r.region_name = 'LATAM' AND o.status = 'completed' GROUP BY p.category ORDER BY revenue_growth DESC LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT p.category, SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_2024, SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_2025, SUM(CASE WHEN o.order_date >= '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS revenue_growth FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE r.region_name = 'LATAM' AND o.status = 'completed' GROUP BY p.category ORDER BY revenue_growth DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "category",
+   "revenue_2024",
+   "revenue_2025",
+   "revenue_growth"
+  ],
+  "rows": [
+   [
+    "Hardware",
+    847572.887,
+    1065821.3325,
+    218248.44550000003
+   ],
+   [
+    "Services",
+    198246.4725,
+    326030.175,
+    127783.70249999998
+   ],
+   [
+    "Software",
+    210263.5005,
+    297429.3515,
+    87165.851
+   ],
+   [
+    "Accessories",
+    26011.0115,
+    47084.0035,
+    21072.992
+   ]
+  ],
+  "row_count": 4
+ },
+ "answer": "Assuming growth is measured by category, LATAM's completed revenue grew across all categories from 2024 to 2025, led by Hardware with a revenue growth of 218248.45 (from 847572.89 in 2024 to 1065821.33 in 2025). Services also grew significantly by 127783.70 (from 198246.47 to 326030.18), Software grew by 87165.85 (from 210263.50 to 297429.35), and Accessories grew by 21072.99 (from 26011.01 to 47084.00).",
+ "key_numbers": [
+  "218248.45",
+  "847572.89",
+  "1065821.33",
+  "127783.70",
+  "198246.47",
+  "326030.18",
+  "87165.85",
+  "210263.50",
+  "297429.35",
+  "21072.99",
+  "26011.01",
+  "47084.00"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "830d741e5c174cbf6a2b5b4b18b05d6a37f95827451c489aa5be3fffa3edb2f7",
+   "cache_hit": false,
+   "latency_ms": 1576.2,
+   "input_tokens": 2943,
+   "output_tokens": 436,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "4446d74fdb35d8ca7ed26ba6b313522af547be14f5e4130c65791a66b95ec129",
+   "cache_hit": false,
+   "latency_ms": 1468.1,
+   "input_tokens": 930,
+   "output_tokens": 381,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 3.057,
+ "latency_live_s": 3.057,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "driver not named: [\"any_of: [{'text': 'SMB'}, {'pattern': 'small[-\\\\\\\\s]+(and[-\\\\\\\\s]+medium[-\\\\\\\\s]+)?business'}]\"]"
+ }
+}

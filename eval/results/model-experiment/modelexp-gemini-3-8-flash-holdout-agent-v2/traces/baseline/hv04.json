@@ -1,0 +1,85 @@
+{
+ "question_id": "hv04",
+ "type": "term_matching",
+ "arch": "baseline",
+ "question": "How much completed revenue did our customer Nadia Popesku bring in during 2025, and how many support tickets were opened by that customer in the same year? Give the customer's ID and name with both figures.",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT c.customer_id, c.customer_name, COALESCE((SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.customer_id = c.customer_id AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31'), 0.0) AS completed_revenue, (SELECT COUNT(*) FROM support_tickets AS st WHERE st.customer_id = c.customer_id AND st.created_date >= '2025-01-01' AND st.created_date <= '2025-12-31') AS support_tickets_opened FROM customers AS c WHERE c.customer_name = 'Nadia Popesku' LIMIT 500",
+   "ok": true,
+   "failure": "empty",
+   "error": null,
+   "row_count": 0,
+   "preview": "0 rows returned."
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT c.customer_id, c.customer_name, COALESCE((SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.customer_id = c.customer_id AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31'), 0.0) AS completed_revenue, (SELECT COUNT(*) FROM support_tickets AS st WHERE st.customer_id = c.customer_id AND st.created_date >= '2025-01-01' AND st.created_date <= '2025-12-31') AS support_tickets_opened FROM customers AS c WHERE c.customer_name = 'Nadia Popesku' LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT c.customer_id, c.customer_name, COALESCE((SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.customer_id = c.customer_id AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31'), 0.0) AS completed_revenue, (SELECT COUNT(*) FROM support_tickets AS st WHERE st.customer_id = c.customer_id AND st.created_date >= '2025-01-01' AND st.created_date <= '2025-12-31') AS support_tickets_opened FROM customers AS c WHERE c.customer_name = 'Nadia Popesku' LIMIT 500",
+  "ok": true,
+  "columns": [
+   "customer_id",
+   "customer_name",
+   "completed_revenue",
+   "support_tickets_opened"
+  ],
+  "rows": [],
+  "row_count": 0
+ },
+ "answer": "No matching data was found for customer Nadia Popesku.",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "729c201097bd046148ea55d9b988c23810bc8c28a5f2c1439c1a70c60cc2dae0",
+   "cache_hit": false,
+   "latency_ms": 11665.4,
+   "input_tokens": 2902,
+   "output_tokens": 346,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1188,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "cbc14cdf11c3a217099801441aaa1e5fc3b2e10c40446b980675ee730962719d",
+   "cache_hit": false,
+   "latency_ms": 2554.8,
+   "input_tokens": 672,
+   "output_tokens": 27,
+   "original_latency_ms": null,
+   "thoughts_tokens": 79,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 14.229,
+ "latency_live_s": 14.229,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "expected 1 row(s), got 0; answer missing ['text: Nadia Popescu', 'number: 13490.8825', 'number: 5']"
+ }
+}

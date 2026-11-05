@@ -1,0 +1,1132 @@
+{
+ "set": "holdout_agent_v2",
+ "archs": [
+  "baseline",
+  "full"
+ ],
+ "provider": "gemini",
+ "model": "gemini-3.8-flash",
+ "temperature": 0.0,
+ "today": "2026-10-04",
+ "max_steps": 3,
+ "max_attempts_per_step": 3,
+ "questions_sha256": "f3130f0b877470e8f4ac319df046e57f4a0ad15b92ed4ce190f37935da3e30a2",
+ "code_commit": "7b13955",
+ "started_utc": "2026-11-05T18:02:28+00:00",
+ "planned_calls": {
+  "per_arch": {
+   "baseline": {
+    "typical": 34,
+    "max": 51
+   },
+   "full": {
+    "typical": 51,
+    "max": 221
+   }
+  },
+  "judge_max": 18,
+  "typical": 103,
+  "max": 290
+ },
+ "judge_model": "gemini-3.5-flash-lite",
+ "note": "secondary model experiment: not a primary result",
+ "finished_utc": "2026-11-05T18:13:33+00:00",
+ "complete": false,
+ "stopped_reason": "DailyLimitReached: rate limit persisted through 6 retries: Gemini quota/rate limit: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'Your project has exceeded its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage your project spend cap. Learn more at https:",
+ "summary": {
+  "baseline": {
+   "primary": "5/13",
+   "wilson95": [
+    0.177,
+    0.645
+   ],
+   "pending": 0,
+   "errors": 0,
+   "not_evaluated": 4,
+   "answer_ok": 7,
+   "end_to_end": 5,
+   "avg_llm_calls": 2.31,
+   "avg_latency_s": 27.42,
+   "avg_latency_live_s": 27.42,
+   "by_type": {
+    "ambiguous": "1/1",
+    "multi_hop": "1/2",
+    "recovery": "1/2",
+    "statistics": "1/3",
+    "term_matching": "1/2",
+    "why": "0/3"
+   }
+  },
+  "full": {
+   "primary": "5/12",
+   "wilson95": [
+    0.193,
+    0.68
+   ],
+   "pending": 0,
+   "errors": 0,
+   "not_evaluated": 5,
+   "answer_ok": 7,
+   "end_to_end": 5,
+   "avg_llm_calls": 3.42,
+   "avg_latency_s": 8.8,
+   "avg_latency_live_s": 36.0,
+   "by_type": {
+    "multi_hop": "1/2",
+    "recovery": "1/2",
+    "statistics": "1/3",
+    "term_matching": "2/2",
+    "why": "0/3"
+   }
+  }
+ },
+ "escalation": {
+  "full": {
+   "helped": 1,
+   "harmed": 0,
+   "no change": 1,
+   "unknown": 0,
+   "questions": [
+    {
+     "id": "hv04",
+     "baseline": false,
+     "full": true,
+     "effect": "helped"
+    },
+    {
+     "id": "hv06",
+     "baseline": false,
+     "full": false,
+     "effect": "no change"
+    }
+   ]
+  }
+ },
+ "missed_escalations": {
+  "baseline_failed": 8,
+  "router": {
+   "escalated": 0,
+   "not_escalated": 0,
+   "error": 0,
+   "not_run": 8
+  },
+  "full": {
+   "escalated": 2,
+   "not_escalated": 6,
+   "error": 0,
+   "not_run": 0
+  },
+  "questions": [
+   {
+    "id": "hv02",
+    "router": "not run",
+    "full": "direct (fail)"
+   },
+   {
+    "id": "hv04",
+    "router": "not run",
+    "full": "escalated (pass)"
+   },
+   {
+    "id": "hv05",
+    "router": "not run",
+    "full": "direct (fail)"
+   },
+   {
+    "id": "hv06",
+    "router": "not run",
+    "full": "escalated (fail)"
+   },
+   {
+    "id": "hv07",
+    "router": "not run",
+    "full": "direct (fail)"
+   },
+   {
+    "id": "hv08",
+    "router": "not run",
+    "full": "direct (fail)"
+   },
+   {
+    "id": "hv09",
+    "router": "not run",
+    "full": "direct (fail)"
+   },
+   {
+    "id": "hv12",
+    "router": "not run",
+    "full": "direct (fail)"
+   }
+  ]
+ },
+ "provider_resumes": [],
+ "retries": [
+  {
+   "id": "hv13",
+   "arch": "router",
+   "kind": "rate_limit",
+   "message": "Gemini quota/rate limit: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'Your project has exceeded its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage you"
+  },
+  {
+   "id": "hv13",
+   "arch": "router",
+   "kind": "rate_limit",
+   "message": "Gemini quota/rate limit: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'Your project has exceeded its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage you"
+  },
+  {
+   "id": "hv13",
+   "arch": "router",
+   "kind": "rate_limit",
+   "message": "Gemini quota/rate limit: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'Your project has exceeded its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage you"
+  },
+  {
+   "id": "hv13",
+   "arch": "router",
+   "kind": "rate_limit",
+   "message": "Gemini quota/rate limit: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'Your project has exceeded its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage you"
+  },
+  {
+   "id": "hv13",
+   "arch": "router",
+   "kind": "rate_limit",
+   "message": "Gemini quota/rate limit: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'Your project has exceeded its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage you"
+  },
+  {
+   "id": "hv13",
+   "arch": "router",
+   "kind": "rate_limit",
+   "message": "Gemini quota/rate limit: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'Your project has exceeded its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage you"
+  }
+ ],
+ "items": [
+  {
+   "id": "hv01",
+   "type": "multi_hop",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 16.324,
+   "latency_live_s": 16.324,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv01.json"
+  },
+  {
+   "id": "hv01",
+   "type": "multi_hop",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 3.043,
+   "latency_live_s": 18.739,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/hv01.json"
+  },
+  {
+   "id": "hv02",
+   "type": "multi_hop",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "no selected result; answer missing ['text: Marco Kim']",
+   "detail": "no selected result; answer missing ['text: Marco Kim']",
+   "status": "failed",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 31.645,
+   "latency_live_s": 31.645,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [],
+   "trace": "traces/baseline/hv02.json"
+  },
+  {
+   "id": "hv02",
+   "type": "multi_hop",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "no selected result; answer missing ['text: Marco Kim']",
+   "detail": "no selected result; answer missing ['text: Marco Kim']",
+   "status": "failed",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 0,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.01,
+   "latency_live_s": 31.649,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [],
+   "trace": "traces/full/hv02.json"
+  },
+  {
+   "id": "hv03",
+   "type": "term_matching",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 16.252,
+   "latency_live_s": 16.252,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv03.json"
+  },
+  {
+   "id": "hv03",
+   "type": "term_matching",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 1,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 4.438,
+   "latency_live_s": 20.675,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/hv03.json"
+  },
+  {
+   "id": "hv04",
+   "type": "term_matching",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "expected 1 row(s), got 0; answer missing ['text: Nadia Popescu', 'number: 13490.8825', 'number: 5']",
+   "detail": "expected 1 row(s), got 0; answer missing ['text: Nadia Popescu', 'number: 13490.8825', 'number: 5']",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 14.229,
+   "latency_live_s": 14.229,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv04.json"
+  },
+  {
+   "id": "hv04",
+   "type": "term_matching",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "1 row(s) match",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": null,
+   "llm_calls": 4,
+   "live_calls": 3,
+   "cache_hits": 1,
+   "judge_calls": 0,
+   "latency_s": 22.121,
+   "latency_live_s": 33.786,
+   "latency_unmeasured_calls": 0,
+   "repairs": 1,
+   "repair_fixes": 1,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql",
+     "repair"
+    ]
+   ],
+   "trace": "traces/full/hv04.json"
+  },
+  {
+   "id": "hv05",
+   "type": "why",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "driver not named: [\"any_of: [{'text': 'SMB'}, {'pattern': 'small[-\\\\\\\\s]+(and[-\\\\\\\\s]+medium[-\\\\\\\\s]+)?business'}]\"]",
+   "detail": "driver not named: [\"any_of: [{'text': 'SMB'}, {'pattern': 'small[-\\\\\\\\s]+(and[-\\\\\\\\s]+medium[-\\\\\\\\s]+)?business'}]\"]",
+   "status": "failed",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 34.702,
+   "latency_live_s": 34.702,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [],
+   "trace": "traces/baseline/hv05.json"
+  },
+  {
+   "id": "hv05",
+   "type": "why",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "driver not named: [\"any_of: [{'text': 'SMB'}, {'pattern': 'small[-\\\\\\\\s]+(and[-\\\\\\\\s]+medium[-\\\\\\\\s]+)?business'}]\"]",
+   "detail": "driver not named: [\"any_of: [{'text': 'SMB'}, {'pattern': 'small[-\\\\\\\\s]+(and[-\\\\\\\\s]+medium[-\\\\\\\\s]+)?business'}]\"]",
+   "status": "failed",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 0,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.033,
+   "latency_live_s": 34.73,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [],
+   "trace": "traces/full/hv05.json"
+  },
+  {
+   "id": "hv06",
+   "type": "why",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": true,
+   "end_to_end": false,
+   "first_failing_check": "driver named; judge fail",
+   "detail": "driver named; judge fail",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": {
+    "verdict": "fail",
+    "reason": "required fact(s) not stated: [2]",
+    "facts": [
+     {
+      "fact": "The Direct channel was the largest part of the cut: APAC's Direct spend fell from about 218,000 in 2024 to about 148,000 in 2025 (about -32%), which is about 63% of APAC's decrease.",
+      "verdict": "yes",
+      "quote": "APAC's marketing spend decreased across all channels in 2025, driven primarily by a reduction of 69,630.40 in Direct spend (from 217,971.33 in 2024 to 148,340.93 in 2025) and a reduction of 36,992.74 in Partner spend (from 199,937.33 in 2024 to 162,944.59 in 2025).",
+      "quote_verified": true,
+      "counts_as_yes": true,
+      "reason": "The answer states that Direct spend fell from 217,971.33 in 2024 to 148,340.93 in 2025 (matching 'about 218,000' and 'about 148,000'), identifies it as the primary driver (largest part of the cut), and provides the quantitative details required by the fact."
+     },
+     {
+      "fact": "Online spend in APAC was nearly unchanged (about 200,000 to 196,000), so it does not explain the decrease.",
+      "verdict": "no",
+      "quote": "",
+      "quote_verified": false,
+      "counts_as_yes": false,
+      "reason": "The required fact states that Online spend was nearly unchanged and therefore does not explain the decrease, whereas the answer claims that Online marketing spend also declined."
+     }
+    ],
+    "disqualifying": {
+     "verdict": "no",
+     "quote": "",
+     "quote_verified": false,
+     "counts_as_yes": false,
+     "reason": "The answer correctly attributes the primary reduction to the Direct channel (which had the largest drop of 69,630.40), mentions Partner spend as a secondary factor (allowed per allowed mentions), and accurately states all figures from the evidence table."
+    }
+   },
+   "llm_calls": 3,
+   "live_calls": 3,
+   "cache_hits": 0,
+   "judge_calls": 3,
+   "latency_s": 34.799,
+   "latency_live_s": 34.799,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv06.json"
+  },
+  {
+   "id": "hv06",
+   "type": "why",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": true,
+   "end_to_end": false,
+   "first_failing_check": "driver named; judge fail",
+   "detail": "driver named; judge fail",
+   "status": "done",
+   "path": "escalated",
+   "error": null,
+   "judge": {
+    "verdict": "fail",
+    "reason": "required fact(s) not stated: [1]",
+    "facts": [
+     {
+      "fact": "The Direct channel was the largest part of the cut: APAC's Direct spend fell from about 218,000 in 2024 to about 148,000 in 2025 (about -32%), which is about 63% of APAC's decrease.",
+      "verdict": "no",
+      "quote": "",
+      "quote_verified": false,
+      "counts_as_yes": false,
+      "reason": "The answer mentions that Direct spend fell from 217,971.33 in 2024 to 148,340.93 in 2025 and states it was the largest reduction, but it does not state that this drop constitutes about 63% of APAC's total decrease."
+     },
+     {
+      "fact": "Online spend in APAC was nearly unchanged (about 200,000 to 196,000), so it does not explain the decrease.",
+      "verdict": "yes",
+      "quote": "while Online spend saw a smaller decrease of 3,268.14 (from 199,580.97 to 196,312.83).",
+      "quote_verified": true,
+      "counts_as_yes": true,
+      "reason": "The answer states the online spend figures for APAC in 2024 and 2025 (199,580.97 to 196,312.83, which is about 200,000 to 196,000) and explains that it saw a small decrease, thereby showing it does not explain the major decrease."
+     }
+    ],
+    "disqualifying": {
+     "verdict": "no",
+     "quote": "",
+     "quote_verified": false,
+     "counts_as_yes": false,
+     "reason": "The answer correctly identifies Direct spend as the main reason for the decrease (largest reduction), which aligns with the evidence where Direct dropped by ~69.6k compared to Partner (~37k) and Online (~3.3k). It does not attribute the main reason to Online or Partner, and all figures match the evidence table."
+    }
+   },
+   "llm_calls": 9,
+   "live_calls": 7,
+   "cache_hits": 2,
+   "judge_calls": 3,
+   "latency_s": 61.585,
+   "latency_live_s": 89.252,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ],
+    [
+     "run_sql"
+    ],
+    [
+     "run_sql"
+    ],
+    [
+     "assemble"
+    ]
+   ],
+   "trace": "traces/full/hv06.json"
+  },
+  {
+   "id": "hv07",
+   "type": "why",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": true,
+   "end_to_end": false,
+   "first_failing_check": "driver named; judge fail",
+   "detail": "driver named; judge fail",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": {
+    "verdict": "fail",
+    "reason": "required fact(s) not stated: [2]",
+    "facts": [
+     {
+      "fact": "North America had far more buying customers: about 361 against about 128 in 2024, about 2.8 times as many.",
+      "verdict": "yes",
+      "quote": "North America had nearly triple the customers (361 vs. 128), orders (1,229 vs. 434), and units sold (9,438 vs. 3,196).",
+      "quote_verified": true,
+      "counts_as_yes": true,
+      "reason": "The answer states that North America had 361 buying customers compared to LATAM's 128, which is nearly triple (about 2.8 times as many), fulfilling all parts of the required fact."
+     },
+     {
+      "fact": "Customers bought about as often in both regions (about 3.4 orders per buying customer), and average order value was only about 9% higher in North America (about 3,226 against 2,954), so neither explains most of the gap.",
+      "verdict": "no",
+      "quote": "",
+      "quote_verified": false,
+      "counts_as_yes": false,
+      "reason": "The answer does not state the required fact that order frequency was similar and that neither order frequency nor average order value explains most of the gap."
+     }
+    ],
+    "disqualifying": {
+     "verdict": "yes",
+     "quote": "In addition, North America had a higher average order value of $3,225.62 compared to LATAM's $2,954.13.",
+     "quote_verified": true,
+     "counts_as_yes": true,
+     "reason": "The answer violates the disqualifying claim that says order value, prices, discounts or product mix is the main reason for the gap (by stating 'In addition, North America had a higher average order value...')."
+    }
+   },
+   "llm_calls": 3,
+   "live_calls": 3,
+   "cache_hits": 0,
+   "judge_calls": 3,
+   "latency_s": 31.813,
+   "latency_live_s": 31.813,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv07.json"
+  },
+  {
+   "id": "hv07",
+   "type": "why",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": true,
+   "end_to_end": false,
+   "first_failing_check": "driver named; judge fail",
+   "detail": "driver named; judge fail",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": {
+    "verdict": "fail",
+    "reason": "required fact(s) not stated: [2]",
+    "facts": [
+     {
+      "fact": "North America had far more buying customers: about 361 against about 128 in 2024, about 2.8 times as many.",
+      "verdict": "yes",
+      "quote": "North America had nearly triple the customers (361 vs. 128), orders (1,229 vs. 434), and units sold (9,438 vs. 3,196).",
+      "quote_verified": true,
+      "counts_as_yes": true,
+      "reason": "The answer states that North America had 361 buying customers compared to LATAM's 128 (which is about 2.8 times as many, described as 'nearly triple'), successfully satisfying the required fact."
+     },
+     {
+      "fact": "Customers bought about as often in both regions (about 3.4 orders per buying customer), and average order value was only about 9% higher in North America (about 3,226 against 2,954), so neither explains most of the gap.",
+      "verdict": "no",
+      "quote": "",
+      "quote_verified": false,
+      "counts_as_yes": false,
+      "reason": "The answer does not state that customers bought about as often in both regions or that neither order frequency nor average order value explains most of the gap."
+     }
+    ],
+    "disqualifying": {
+     "verdict": "yes",
+     "quote": "In addition, North America had a higher average order value of $3,225.62 compared to LATAM's $2,954.13.",
+     "quote_verified": true,
+     "counts_as_yes": true,
+     "reason": "The answer violates the disqualifying claim that says order value, prices, discounts or product mix is the main reason for the gap (by attributing the gap to higher average order value in addition to sales volume)."
+    }
+   },
+   "llm_calls": 4,
+   "live_calls": 1,
+   "cache_hits": 3,
+   "judge_calls": 3,
+   "latency_s": 8.246,
+   "latency_live_s": 40.041,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/hv07.json"
+  },
+  {
+   "id": "hv08",
+   "type": "statistics",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "no selected result; answer missing ['number: 2642.607142857143']",
+   "detail": "no selected result; answer missing ['number: 2642.607142857143']",
+   "status": "failed",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 31.316,
+   "latency_live_s": 31.316,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [],
+   "trace": "traces/baseline/hv08.json"
+  },
+  {
+   "id": "hv08",
+   "type": "statistics",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "no selected result; answer missing ['number: 2642.607142857143']",
+   "detail": "no selected result; answer missing ['number: 2642.607142857143']",
+   "status": "failed",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 0,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.035,
+   "latency_live_s": 31.346,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [],
+   "trace": "traces/full/hv08.json"
+  },
+  {
+   "id": "hv09",
+   "type": "statistics",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "no selected result; answer missing ['text: Software', 'number: 22.09304347826087']",
+   "detail": "no selected result; answer missing ['text: Software', 'number: 22.09304347826087']",
+   "status": "failed",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 31.397,
+   "latency_live_s": 31.397,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [],
+   "trace": "traces/baseline/hv09.json"
+  },
+  {
+   "id": "hv09",
+   "type": "statistics",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "no selected result; answer missing ['text: Software', 'number: 22.09304347826087']",
+   "detail": "no selected result; answer missing ['text: Software', 'number: 22.09304347826087']",
+   "status": "failed",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 0,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.054,
+   "latency_live_s": 31.431,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [],
+   "trace": "traces/full/hv09.json"
+  },
+  {
+   "id": "hv10",
+   "type": "statistics",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "4 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 3,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 37.69,
+   "latency_live_s": 37.69,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv10.json"
+  },
+  {
+   "id": "hv10",
+   "type": "statistics",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "4 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 4,
+   "live_calls": 1,
+   "cache_hits": 3,
+   "judge_calls": 0,
+   "latency_s": 2.949,
+   "latency_live_s": 40.589,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/hv10.json"
+  },
+  {
+   "id": "hv11",
+   "type": "recovery",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "3 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 3,
+   "live_calls": 3,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 26.257,
+   "latency_live_s": 26.257,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv11.json"
+  },
+  {
+   "id": "hv11",
+   "type": "recovery",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "3 row(s) match",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 4,
+   "live_calls": 1,
+   "cache_hits": 3,
+   "judge_calls": 0,
+   "latency_s": 3.008,
+   "latency_live_s": 29.235,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/full/hv11.json"
+  },
+  {
+   "id": "hv12",
+   "type": "recovery",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "no selected result; answer missing ['text: APAC', 'text: EMEA', 'text: LATAM', 'text: North America']",
+   "detail": "no selected result; answer missing ['text: APAC', 'text: EMEA', 'text: LATAM', 'text: North America']",
+   "status": "failed",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 30.538,
+   "latency_live_s": 30.538,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [],
+   "trace": "traces/baseline/hv12.json"
+  },
+  {
+   "id": "hv12",
+   "type": "recovery",
+   "arch": "full",
+   "state": "evaluated",
+   "primary": false,
+   "answer_ok": false,
+   "end_to_end": false,
+   "first_failing_check": "no selected result; answer missing ['text: APAC', 'text: EMEA', 'text: LATAM', 'text: North America']",
+   "detail": "no selected result; answer missing ['text: APAC', 'text: EMEA', 'text: LATAM', 'text: North America']",
+   "status": "failed",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 0,
+   "cache_hits": 2,
+   "judge_calls": 0,
+   "latency_s": 0.027,
+   "latency_live_s": 30.559,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [],
+   "trace": "traces/full/hv12.json"
+  },
+  {
+   "id": "hv13",
+   "type": "ambiguous",
+   "arch": "baseline",
+   "state": "evaluated",
+   "primary": true,
+   "answer_ok": true,
+   "end_to_end": true,
+   "first_failing_check": "",
+   "detail": "matched interpretation revenue_growth_2024_2025",
+   "status": "done",
+   "path": "direct",
+   "error": null,
+   "judge": null,
+   "llm_calls": 2,
+   "live_calls": 2,
+   "cache_hits": 0,
+   "judge_calls": 0,
+   "latency_s": 19.563,
+   "latency_live_s": 19.563,
+   "latency_unmeasured_calls": 0,
+   "repairs": 0,
+   "repair_fixes": 0,
+   "repair_breaks": 0,
+   "tools": [
+    [
+     "run_sql"
+    ]
+   ],
+   "trace": "traces/baseline/hv13.json"
+  },
+  {
+   "id": "hv13",
+   "type": "ambiguous",
+   "arch": "full",
+   "state": "not_evaluated",
+   "primary": null,
+   "detail": "DailyLimitReached: rate limit persisted through 6 retries: Gemini quota/rate limit: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'Your project has exceeded its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage your project spend cap. Learn more at https:"
+  },
+  {
+   "id": "hv14",
+   "type": "ambiguous",
+   "arch": "baseline",
+   "state": "not_evaluated",
+   "primary": null,
+   "detail": "DailyLimitReached: rate limit persisted through 6 retries: Gemini quota/rate limit: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'Your project has exceeded its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage your project spend cap. Learn more at https:"
+  },
+  {
+   "id": "hv14",
+   "type": "ambiguous",
+   "arch": "full",
+   "state": "not_evaluated",
+   "primary": null,
+   "detail": "DailyLimitReached: rate limit persisted through 6 retries: Gemini quota/rate limit: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'Your project has exceeded its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage your project spend cap. Learn more at https:"
+  },
+  {
+   "id": "hv15",
+   "type": "segment_comparison",
+   "arch": "baseline",
+   "state": "not_evaluated",
+   "primary": null,
+   "detail": "DailyLimitReached: rate limit persisted through 6 retries: Gemini quota/rate limit: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'Your project has exceeded its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage your project spend cap. Learn more at https:"
+  },
+  {
+   "id": "hv15",
+   "type": "segment_comparison",
+   "arch": "full",
+   "state": "not_evaluated",
+   "primary": null,
+   "detail": "DailyLimitReached: rate limit persisted through 6 retries: Gemini quota/rate limit: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'Your project has exceeded its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage your project spend cap. Learn more at https:"
+  },
+  {
+   "id": "hv16",
+   "type": "segment_comparison",
+   "arch": "baseline",
+   "state": "not_evaluated",
+   "primary": null,
+   "detail": "DailyLimitReached: rate limit persisted through 6 retries: Gemini quota/rate limit: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'Your project has exceeded its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage your project spend cap. Learn more at https:"
+  },
+  {
+   "id": "hv16",
+   "type": "segment_comparison",
+   "arch": "full",
+   "state": "not_evaluated",
+   "primary": null,
+   "detail": "DailyLimitReached: rate limit persisted through 6 retries: Gemini quota/rate limit: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'Your project has exceeded its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage your project spend cap. Learn more at https:"
+  },
+  {
+   "id": "hv17",
+   "type": "segment_comparison",
+   "arch": "baseline",
+   "state": "not_evaluated",
+   "primary": null,
+   "detail": "DailyLimitReached: rate limit persisted through 6 retries: Gemini quota/rate limit: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'Your project has exceeded its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage your project spend cap. Learn more at https:"
+  },
+  {
+   "id": "hv17",
+   "type": "segment_comparison",
+   "arch": "full",
+   "state": "not_evaluated",
+   "primary": null,
+   "detail": "DailyLimitReached: rate limit persisted through 6 retries: Gemini quota/rate limit: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'Your project has exceeded its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage your project spend cap. Learn more at https:"
+  }
+ ]
+}

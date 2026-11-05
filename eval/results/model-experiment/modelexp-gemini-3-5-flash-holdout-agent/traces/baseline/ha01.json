@@ -1,0 +1,95 @@
+{
+ "question_id": "ha01",
+ "type": "multi_hop",
+ "arch": "baseline",
+ "question": "Which customer segment had the most customers churn in 2025, and who was that segment's top customer by completed revenue in 2025? Give the customer's ID, name and 2025 completed revenue.",
+ "model": "gemini-3.5-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH top_churn_segment AS (SELECT segment FROM customers WHERE churn_date >= '2025-01-01' AND churn_date <= '2025-12-31' GROUP BY segment ORDER BY COUNT(*) DESC LIMIT 1) SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM customers AS c JOIN orders AS o ON c.customer_id = o.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN top_churn_segment AS tcs ON c.segment = tcs.segment WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY completed_revenue DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "customer_id | customer_name | completed_revenue\n84 | Jonas Duarte | 34461.23"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH top_churn_segment AS (SELECT segment FROM customers WHERE churn_date >= '2025-01-01' AND churn_date <= '2025-12-31' GROUP BY segment ORDER BY COUNT(*) DESC LIMIT 1) SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM customers AS c JOIN orders AS o ON c.customer_id = o.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN top_churn_segment AS tcs ON c.segment = tcs.segment WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY completed_revenue DESC LIMIT 1"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH top_churn_segment AS (SELECT segment FROM customers WHERE churn_date >= '2025-01-01' AND churn_date <= '2025-12-31' GROUP BY segment ORDER BY COUNT(*) DESC LIMIT 1) SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM customers AS c JOIN orders AS o ON c.customer_id = o.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id JOIN top_churn_segment AS tcs ON c.segment = tcs.segment WHERE o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY completed_revenue DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "customer_id",
+   "customer_name",
+   "completed_revenue"
+  ],
+  "rows": [
+   [
+    84,
+    "Jonas Duarte",
+    34461.23
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Assuming the segment with the highest churn in 2025 is determined by the count of customers with a churn date in 2025, the top customer in that segment by 2025 completed revenue is Jonas Duarte (Customer ID 84) with 34,461.23 in completed revenue.",
+ "key_numbers": [
+  "84",
+  "34461.23"
+ ],
+ "caveats": [
+  "The query did not select the segment name itself in the final result, only the top customer's details within that segment."
+ ],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "321c7b9f88c65a57abf97e89367c813353e6e798365df199bc6e829216b228f9",
+   "cache_hit": false,
+   "latency_ms": 9809.0,
+   "input_tokens": 2996,
+   "output_tokens": 385,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1538,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "6b7d8d67f97c8687fcb984b306a1b96830d13c440f0fdc1ec4a494f6ab3fc8d0",
+   "cache_hit": false,
+   "latency_ms": 6797.1,
+   "input_tokens": 701,
+   "output_tokens": 151,
+   "original_latency_ms": null,
+   "thoughts_tokens": 966,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 17.415,
+ "latency_live_s": 17.415,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "1 row(s) match; answer missing ['text: Mid-Market']"
+ }
+}

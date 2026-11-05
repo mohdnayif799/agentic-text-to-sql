@@ -1,0 +1,108 @@
+{
+ "question_id": "ha06",
+ "type": "term_matching",
+ "arch": "full",
+ "question": "How many units of the 'Cobolt Nimbus' did we sell in completed orders in 2025? Give the product's ID and name with the unit count.",
+ "model": "gemini-3.8-flash",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM products AS p JOIN order_items AS oi ON p.product_id = oi.product_id JOIN orders AS o ON oi.order_id = o.order_id WHERE p.product_name = 'Cobalt Nimbus' AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.product_id, p.product_name LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "product_id | product_name | units_sold\n7 | Cobalt Nimbus | 913"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM products AS p JOIN order_items AS oi ON p.product_id = oi.product_id JOIN orders AS o ON oi.order_id = o.order_id WHERE p.product_name = 'Cobalt Nimbus' AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.product_id, p.product_name LIMIT 500",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT p.product_id, p.product_name, SUM(oi.quantity) AS units_sold FROM products AS p JOIN order_items AS oi ON p.product_id = oi.product_id JOIN orders AS o ON oi.order_id = o.order_id WHERE p.product_name = 'Cobalt Nimbus' AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY p.product_id, p.product_name LIMIT 500",
+  "ok": true,
+  "columns": [
+   "product_id",
+   "product_name",
+   "units_sold"
+  ],
+  "rows": [
+   [
+    7,
+    "Cobalt Nimbus",
+    913
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Assuming the question refers to the 'Cobalt Nimbus' (product ID 7), a total of 913 units were sold in completed orders in 2025.",
+ "key_numbers": [
+  "7",
+  "913"
+ ],
+ "caveats": [
+  "Assumed 'Cobolt Nimbus' refers to the product named 'Cobalt Nimbus'."
+ ],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "fb1c22d6eb71a2d64702528d8c3a9f0429fb4f3fea059cdd5025dac36d89a098",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2710,
+   "output_tokens": 226,
+   "original_latency_ms": 11661.6,
+   "thoughts_tokens": 1233,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "db9d72e0f0c5a9cc2160afd95c8135492c8659521916393d1e7945e670716117",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 599,
+   "output_tokens": 77,
+   "original_latency_ms": 3914.0,
+   "thoughts_tokens": 129,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "908d16ae38f9195ad66c509ed28c6ab5768571bedeb49b87c450ad2c8e39a605",
+   "cache_hit": false,
+   "latency_ms": 3886.7,
+   "input_tokens": 487,
+   "output_tokens": 41,
+   "original_latency_ms": null,
+   "thoughts_tokens": 108,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 3.911,
+ "latency_live_s": 19.486,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

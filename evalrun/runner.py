@@ -116,6 +116,10 @@ class RunConfig:
     max_steps: int
     max_attempts_per_step: int
     cache_dir: Path
+    judge_model: str | None = None
+    """Set by a model experiment: the judge stays on this model while `model` is
+    under test, so a change in the why-question scores is not a change of grader.
+    None means the judge uses `model`, as in every primary run."""
 
     @classmethod
     def load(cls, path: Path = RUN_CONFIG) -> RunConfig:
@@ -238,6 +242,8 @@ class Runner:
         self.secrets = secrets_of(self.settings)
         self._factory = live_factory
         self._live: LLMClient | None = None
+        self._judge_live: LLMClient | None = None
+        self.retries: list[dict[str, str]] = []
         self._sleep = sleep
         self._log = log
         engine = read_only_engine(self.settings.database_path)
@@ -257,11 +263,36 @@ class Runner:
             self._live = self._factory(self.settings)  # type: ignore[misc]
         return self._live
 
+    def _judge_live_client(self) -> LLMClient:
+        if self._judge_live is None:
+            self._judge_live = self._factory(  # type: ignore[misc]
+                self.cfg.settings(model=self.cfg.judge_model))
+        return self._judge_live
+
+    def _note_retry(self, arch: str, qid: str) -> Callable[[str, str], None]:
+        def note(kind: str, message: str) -> None:
+            self.retries.append({
+                "id": qid, "arch": arch, "kind": kind,
+                "message": redact_text(message, self.secrets)[:200]})
+        return note
+
     def _client(self, arch: str, qid: str) -> CachingClient:
         return CachingClient(
             self._live_client if self._factory else None,
             cache_dir=self.cfg.cache_dir, arch=arch, qid=qid,
             model=self.cfg.model, sleep=self._sleep,
+            on_retry=self._note_retry(arch, qid),
+        )
+
+    def _judge_client(self, arch: str, qid: str) -> CachingClient:
+        name = f"judge-{arch}"
+        if self.cfg.judge_model is None:
+            return self._client(name, qid)
+        return CachingClient(
+            self._judge_live_client if self._factory else None,
+            cache_dir=self.cfg.cache_dir, arch=name, qid=qid,
+            model=self.cfg.judge_model, sleep=self._sleep,
+            on_retry=self._note_retry(name, qid),
         )
 
     def run_one(self, q: dict[str, Any], arch: str, gold_entry: dict[str, Any],
@@ -312,7 +343,7 @@ class Runner:
             outcome.answer, q["driver_checks"]
         ).passed
         if named:
-            judge_client = self._client(f"judge-{arch}", q["id"])
+            judge_client = self._judge_client(arch, q["id"])
             judge = _judge(q, gold_entry, outcome.answer, judge_client,
                            self.cfg.temperature)
         judge_pass = None if not judge or judge["verdict"] is None else (
@@ -401,7 +432,7 @@ class Runner:
             trace = json.loads(trace_path.read_text("utf-8"))
             judge, client = None, None
             if check_answer(trace["answer"], q["driver_checks"]).passed:
-                client = self._client(f"judge-{item['arch']}", q["id"])
+                client = self._judge_client(item["arch"], q["id"])
                 try:
                     judge = _judge(q, gold[q["id"]], trace["answer"], client,
                                    self.cfg.temperature)
@@ -471,6 +502,9 @@ class Runner:
             **({"force_escalation": True,
                 "note": "development smoke test: results do not count"}
                if self.force_escalation else {}),
+            **({"judge_model": self.cfg.judge_model,
+                "note": "secondary model experiment: not a primary result"}
+               if self.cfg.judge_model else {}),
         }
         items: list[dict[str, Any]] = []
         stopped = None
@@ -532,6 +566,7 @@ class Runner:
             "escalation": escalation_effects(items),
             "missed_escalations": missed_escalations(items),
             "provider_resumes": provider_resumes(items),
+            "retries": self.retries,
             "items": items,
         }
         path.parent.mkdir(parents=True, exist_ok=True)

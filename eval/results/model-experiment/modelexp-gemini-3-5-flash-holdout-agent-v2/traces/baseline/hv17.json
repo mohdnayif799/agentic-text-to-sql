@@ -1,0 +1,57 @@
+{
+ "question_id": "hv17",
+ "type": "segment_comparison",
+ "arch": "baseline",
+ "question": "In each region, which customer segment grew its completed revenue the fastest from 2024 to 2025? Give the region, the segment and its growth as a percentage.",
+ "model": "gemini-3.5-flash",
+ "today": "2026-10-04",
+ "status": "failed",
+ "path": "direct",
+ "stop_reason": "error",
+ "error": "Could not produce a query: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: expected value at line 1 column 1 [type=json_invalid, input_value='```json\\n{\\n  \"sql\": \"WI...nd customer segment for', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "plan": [],
+ "sql_attempts": [],
+ "steps": [],
+ "repairs": [],
+ "selected_step": null,
+ "selected_result": null,
+ "answer": "Could not produce a query: cache could not produce valid SqlDraft: 1 validation error for SqlDraft\n  Invalid JSON: expected value at line 1 column 1 [type=json_invalid, input_value='```json\\n{\\n  \"sql\": \"WI...nd customer segment for', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/json_invalid",
+ "key_numbers": [],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "757a656a7e477f84983de3d9591345f6ac9ee9035ad2f7088a21bda06bc179f7",
+   "cache_hit": false,
+   "latency_ms": 10583.5,
+   "input_tokens": 2926,
+   "output_tokens": 80,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1964,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "95ae8a1eaf272a5b1bfb8230ff7be62e1602d6f9bb0fd2ac217e2bcfca5aca7b",
+   "cache_hit": false,
+   "latency_ms": 10256.3,
+   "input_tokens": 3115,
+   "output_tokens": 414,
+   "original_latency_ms": null,
+   "thoughts_tokens": 1630,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 20.844,
+ "latency_live_s": 20.844,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "no selected result; answer missing ['text: APAC', 'text: EMEA', 'text: LATAM', 'text: North America']"
+ }
+}

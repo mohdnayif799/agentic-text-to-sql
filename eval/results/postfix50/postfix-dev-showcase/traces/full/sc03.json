@@ -1,0 +1,381 @@
+{
+ "question_id": "sc03",
+ "type": "why",
+ "arch": "full",
+ "question": "Why does the Online channel bring in so much more completed revenue than the Direct and Partner channels over 2024 and 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The question asks why the Online channel brings in more revenue, but the current results only show totals without explaining the underlying cause, such as differences in order volume or average order size."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "SELECT o.channel, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue, COUNT(DISTINCT o.order_id) AS completed_orders, AVG(oi.quantity * oi.unit_price * (1 - oi.discount)) AS avg_item_value FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY o.channel ORDER BY completed_revenue DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "channel | completed_revenue | completed_orders | avg_item_value\nOnline | 10195563.464 | 3458 | 1189.9583874883285\nDirect | 7106104.9285 | 2366 | 1185.5363577744413\nPartner | 5831252.8015 | 1922 | 1197.874445665571"
+  },
+  {
+   "sql": "-- compute: decompose_change\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31' AND o.channel = 'Online'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31' AND o.channel = 'Direct'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31' AND o.channel = 'Partner'",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 12,
+   "preview": "side_a | side_b | analysis | item | value_a | value_b | change | pct_change | share_of_change_pct | comparison | largest_contributor\nDirect | Online | metric | revenue | 7106104.9285 | 10195563.464 | 3089458.5354999993 | 43.47611760008363 | NULL | higher | False\nDirect | Online | orders x average order value | number of orders | 2366.0 | 3458.0 | 1092.0 | 46.15384615384615 | 105.12224260120175 | higher | True\nDirect | Online | orders x average order value | average order value | 3003.4255826289095 | 2948.398919606709 | -55.02666302220041 | -1.83213006310066 | -5.122242601201717 | about the same | False\nDirect | Online | units x average price x (1 - average discount) | units sold | 17902.0 | 25661.0 | 7759.0 | 43.341526086470786 | 99.74002202592723 | higher | True\nDirect | Online | units x average price x (1 - average discount) | average unit price | 418.230787062898 | 418.23862865827516 | 0.007841595377158228 | 0.001874944556862316 | 0.00519372645725231 | about the same | False\n... 7 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT o.channel, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue, COUNT(DISTINCT o.order_id) AS completed_orders, AVG(oi.quantity * oi.unit_price * (1 - oi.discount)) AS avg_item_value FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY o.channel ORDER BY completed_revenue DESC LIMIT 500",
+   "reason": "",
+   "signal": null
+  },
+  {
+   "step": 2,
+   "tools": [
+    "compute:decompose_change"
+   ],
+   "sql": "-- compute: decompose_change\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31' AND o.channel = 'Online'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31' AND o.channel = 'Direct'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31' AND o.channel = 'Partner'",
+   "reason": "Compare the revenue across channels by order volume and order value to explain why Online brings in the most completed revenue.",
+   "signal": null
+  },
+  {
+   "step": "final",
+   "tools": [
+    "stack"
+   ],
+   "plan": {
+    "stacked_steps": [
+     2
+    ]
+   },
+   "driver_sentence_added": false
+  }
+ ],
+ "repairs": [],
+ "selected_step": 2,
+ "selected_result": {
+  "sql": "-- stacked: rows from step(s) 2\n-- compute: decompose_change\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31' AND o.channel = 'Online'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31' AND o.channel = 'Direct'\nSELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue, COUNT(DISTINCT o.order_id) AS order_count, SUM(oi.quantity) AS units_sold, SUM(oi.quantity * oi.unit_price) AS gross_sales FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id JOIN customers c ON c.customer_id = o.customer_id JOIN regions r ON r.region_id = c.region_id WHERE o.status = 'completed' AND o.order_date BETWEEN '2024-01-01' AND '2025-12-31' AND o.channel = 'Partner'",
+  "ok": true,
+  "columns": [
+   "side_a",
+   "side_b",
+   "analysis",
+   "item",
+   "value_a",
+   "value_b",
+   "change",
+   "pct_change",
+   "share_of_change_pct",
+   "comparison",
+   "largest_contributor"
+  ],
+  "rows": [
+   [
+    "Direct",
+    "Online",
+    "metric",
+    "revenue",
+    7106104.9285,
+    10195563.464,
+    3089458.5354999993,
+    43.47611760008363,
+    null,
+    "higher",
+    false
+   ],
+   [
+    "Direct",
+    "Online",
+    "orders x average order value",
+    "number of orders",
+    2366.0,
+    3458.0,
+    1092.0,
+    46.15384615384615,
+    105.12224260120175,
+    "higher",
+    true
+   ],
+   [
+    "Direct",
+    "Online",
+    "orders x average order value",
+    "average order value",
+    3003.4255826289095,
+    2948.398919606709,
+    -55.02666302220041,
+    -1.83213006310066,
+    -5.122242601201717,
+    "about the same",
+    false
+   ],
+   [
+    "Direct",
+    "Online",
+    "units x average price x (1 - average discount)",
+    "units sold",
+    17902.0,
+    25661.0,
+    7759.0,
+    43.341526086470786,
+    99.74002202592723,
+    "higher",
+    true
+   ],
+   [
+    "Direct",
+    "Online",
+    "units x average price x (1 - average discount)",
+    "average unit price",
+    418.230787062898,
+    418.23862865827516,
+    0.007841595377158228,
+    0.001874944556862316,
+    0.00519372645725231,
+    "about the same",
+    false
+   ],
+   [
+    "Direct",
+    "Online",
+    "units x average price x (1 - average discount)",
+    "1 - average discount",
+    0.9491045687230547,
+    0.9499779254382523,
+    0.0008733567151976152,
+    0.09201901918696354,
+    0.25478424761550567,
+    "about the same",
+    false
+   ],
+   [
+    "Partner",
+    "Online",
+    "metric",
+    "revenue",
+    5831252.8015,
+    10195563.464,
+    4364310.6625,
+    74.8434480730684,
+    null,
+    "higher",
+    false
+   ],
+   [
+    "Partner",
+    "Online",
+    "orders x average order value",
+    "number of orders",
+    1922.0,
+    3458.0,
+    1536.0,
+    79.91675338189386,
+    105.11942124453464,
+    "higher",
+    true
+   ],
+   [
+    "Partner",
+    "Online",
+    "orders x average order value",
+    "average order value",
+    3033.950469042664,
+    2948.398919606709,
+    -85.55154943595471,
+    -2.819807057132009,
+    -5.119421244534641,
+    "about the same",
+    false
+   ],
+   [
+    "Partner",
+    "Online",
+    "units x average price x (1 - average discount)",
+    "units sold",
+    14593.0,
+    25661.0,
+    11068.0,
+    75.84458301925581,
+    101.0218990833023,
+    "higher",
+    true
+   ],
+   [
+    "Partner",
+    "Online",
+    "units x average price x (1 - average discount)",
+    "average unit price",
+    420.33407044473375,
+    418.23862865827516,
+    -2.0954417864585935,
+    -0.4985181867940219,
+    -0.8944806231702946,
+    "about the same",
+    false
+   ],
+   [
+    "Partner",
+    "Online",
+    "units x average price x (1 - average discount)",
+    "1 - average discount",
+    0.9506544682884801,
+    0.9499779254382523,
+    -0.0006765428502277793,
+    -0.07116600960660288,
+    -0.12741846013203614,
+    "about the same",
+    false
+   ]
+  ],
+  "row_count": 12
+ },
+ "answer": "Comparing Direct and Online channels, the Online channel brings in more revenue primarily due to having a higher number of orders, with 3,458 orders compared to 2,366 for Direct. The average order value for Direct was 3,003.43 and for Online was 2,948.40, which are about the same and do not explain the difference. Similarly, comparing Partner and Online channels, the Online channel brings in more revenue primarily due to a higher number of orders at 3,458 compared to 1,922 for Partner. The average order value for Partner was 3,033.95 and for Online was 2,948.40, which are about the same and do not explain the difference.",
+ "key_numbers": [
+  "3458.0",
+  "2366.0",
+  "3003.43",
+  "2948.40",
+  "1922.0",
+  "3033.95"
+ ],
+ "caveats": [],
+ "judge": {
+  "verdict": "fail",
+  "reason": "required fact(s) not stated: [1]",
+  "facts": [
+   {
+    "fact": "Online has far more completed orders than the other channels: about 3,458 versus about 2,366 (Direct) and 1,922 (Partner).",
+    "verdict": "no",
+    "quote": "",
+    "quote_verified": false,
+    "counts_as_yes": false,
+    "reason": "The answer mentions the order counts for Online vs Direct and Online vs Partner separately, but it never combines them into a single statement that compares all three channels together as requested by the fact ('about 3,458 versus about 2,366 (Direct) and 1,922 (Partner)')."
+   },
+   {
+    "fact": "The average completed order value is about the same in every channel (roughly 2,950 to 3,030), so order size does not explain the gap.",
+    "verdict": "yes",
+    "quote": "The average order value for Direct was 3,003.43 and for Online was 2,948.40, which are about the same and do not explain the difference.",
+    "quote_verified": true,
+    "counts_as_yes": true,
+    "reason": "The answer states that the average order values across the channels are about the same and do not explain the difference in revenue, referencing the specific figures which match the evidence."
+   }
+  ],
+  "disqualifying": {
+   "verdict": "no",
+   "quote": "",
+   "quote_verified": false,
+   "counts_as_yes": false,
+   "reason": "The answer correctly identifies that the higher revenue in the Online channel is due to a higher number of orders, and does not attribute the gap to larger orders, higher prices, or smaller discounts. All stated figures match the evidence table."
+  }
+ },
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question that asks why. A first query has been run. ",
+   "prompt_hash": "d4a5367d143a64bf77d98be92dc3963ee2770101b986d85f97c8195bd8b8d1be",
+   "cache_hit": false,
+   "latency_ms": 1056.3,
+   "input_tokens": 4815,
+   "output_tokens": 130,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You plan the next step of an analysis of a read-only SQLite database. Choose exa",
+   "prompt_hash": "1e1c777c54433e73c5d7ec056a55bea9eab5f24a596d06e4130ae8f84507e4e5",
+   "cache_hit": false,
+   "latency_ms": 782.0,
+   "input_tokens": 5917,
+   "output_tokens": 16,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "da6270e80958aea692ba8de41fc74aa73880e3e113ba2aba85e7f2749fd7b804",
+   "cache_hit": false,
+   "latency_ms": 1425.8,
+   "input_tokens": 2527,
+   "output_tokens": 262,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "89dc318d68caefef8967c0f135faec82336dbe27f51a49efcd031dada29f723a",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2865,
+   "output_tokens": 249,
+   "original_latency_ms": 1238.9,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "bf78a704b4093c0806f7eb32f1a36642d9ebb7e8dae6a04d6d5961ef2073ac7c",
+   "cache_hit": false,
+   "latency_ms": 871.4,
+   "input_tokens": 617,
+   "output_tokens": 60,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "1bd76891d19568dafa402d3f00d7c35f677a9fda261c711ae2532459390feb67",
+   "cache_hit": false,
+   "latency_ms": 1537.6,
+   "input_tokens": 763,
+   "output_tokens": 95,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  },
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "1266c1b8e96dde094e9472f61d06c9ec11a785b04cad9acf5a3b04d258fe1b2d",
+   "cache_hit": false,
+   "latency_ms": 1019.5,
+   "input_tokens": 761,
+   "output_tokens": 104,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  },
+  {
+   "role": "You are a strict checker grading an analytics assistant's answer. You receive a ",
+   "prompt_hash": "261637cde9908bcd8069448e5be7db6a76f7aea8082cf6631293e2951ba7b108",
+   "cache_hit": false,
+   "latency_ms": 1010.8,
+   "input_tokens": 712,
+   "output_tokens": 75,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  }
+ ],
+ "latency_s": 4.295,
+ "latency_live_s": 5.534,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": true,
+  "end_to_end": false,
+  "detail": "driver named; judge fail"
+ }
+}
