@@ -134,6 +134,65 @@ class TestRepairOfAHollowRow:
         assert any(row[0] == "all channels" for row in out.selected.rows)
 
 
+CLEAN = "SELECT status, COUNT(*) AS n FROM orders GROUP BY status"
+ANOTHER_CLEAN = "SELECT region_name, COUNT(*) AS n FROM regions GROUP BY region_name"
+
+
+class Exploring(Script):
+    """Repairs that keep the hollow row, then follow-up queries that run clean."""
+
+    def __init__(self, followups, plan=None):
+        super().__init__(repairs=[WITH_EMPTY_BRANCH + " LIMIT 400",
+                                  WITH_EMPTY_BRANCH + " LIMIT 300"])
+        self.followups = list(followups)
+        self.plan = plan or {"base_step": 1, "columns": []}
+        self.assembly_prompt = ""
+
+    def __call__(self, system, user):
+        if "You check whether one query result" in system:
+            self.calls.append("decision")
+            return {"needs_followup": True, "reason": "more is needed"}
+        if "You plan the next step" in system:
+            self.calls.append("decide")
+            if self.followups:
+                return {"action": "run_sql", "sql": self.followups.pop(0), "reason": "x"}
+            return {"action": "answer"}
+        if "continuing an analysis" in system:
+            self.calls.append("followup")
+            if self.followups:
+                return {"done": False, "sql": self.followups.pop(0), "reason": "x"}
+            return {"done": True, "sql": "", "reason": ""}
+        if "Several queries were run" in system:
+            self.calls.append("assemble")
+            self.assembly_prompt = user
+            return self.plan
+        return super().__call__(system, user)
+
+
+@pytest.mark.parametrize("arch", ["router", "full"])
+class TestSelectionAvoidsAHollowTable:
+    """Added after a repair kept the row and assembly then chose that table,
+    although a later step had run clean."""
+
+    def test_a_clean_table_wins_with_no_assembly_call(self, run, arch):
+        script = Exploring([CLEAN])
+        out = run(arch, script)
+        assert "assemble" not in script.calls
+        assert out.selected.columns == ["status", "n"]
+        assert out.selected_step == 2
+
+    def test_assembly_sees_only_the_clean_tables(self, run, arch):
+        script = Exploring([CLEAN, ANOTHER_CLEAN], plan={"base_step": 1, "columns": []})
+        out = run(arch, script)
+        assert "assemble" in script.calls
+        assert "all channels" not in script.assembly_prompt
+        assert not any(row[0] == "all channels" for row in out.selected.rows)
+
+    def test_the_hollow_table_stays_when_nothing_else_exists(self, run, arch):
+        out = run(arch, Exploring([]))
+        assert any(row[0] == "all channels" for row in out.selected.rows)
+
+
 def test_a_is_not_changed_by_the_signal(run):
     """A has no repair path: its table keeps the row, which is the baseline."""
     script = Script()

@@ -59,6 +59,7 @@ from agentcrew.archs.checks import (
     Schema,
     Signal,
     classify,
+    hollow_rows,
     question_signal,
     schema_error,
     schema_of,
@@ -509,6 +510,10 @@ class Router:
         selectable = [s for s in steps if s.kind in ("sql", "compute")]
         usable = {s.number: s.result for s in selectable
                   if s.result.ok and s.result.rows}
+        # A table with a known hollow row is only a last resort: a repair can
+        # keep the row, and the assembly call could still choose that table.
+        clean = {n: r for n, r in usable.items() if not hollow_rows(r)}
+        usable = clean or usable
         if not usable:
             ran = [s for s in selectable if s.result.ok]
             if not ran:
