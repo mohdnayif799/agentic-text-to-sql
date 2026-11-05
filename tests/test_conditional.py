@@ -40,6 +40,9 @@ class TestSignal:
         "segment; if not, break Online down by segment.",
         "If the gap is more than 5 points, show the rate by region.",
         "Compare the rates. if the gap is above 2, show them by month.",
+        "Compare the rates. If the gap is more than 1.5 points, show them by month.",
+        "If it rose by 2.5% or 3.75%, show it by region.",
+        "If the average is above $1,000.50, show it by segment.",
     ])
     def test_a_condition_on_the_answer(self, question):
         signal = conditional_signal(question)
@@ -50,6 +53,7 @@ class TestSignal:
         "What if we only count completed orders in 2025?",
         "Which region, if any, lost customers in 2025?",
         "Show revenue by region for orders that have a discount.",
+        "If revenue rose. Then, show it by region.",
     ])
     def test_other_questions_do_not_signal(self, question):
         assert conditional_signal(question) is None
@@ -154,6 +158,16 @@ class TestArchitectureD:
         assert any(r.signal == "null_row" and r.accepted for r in out.repairs)
         assert out.selected.columns == ["status", "orders"]
         assert all(row[1] is not None for row in out.selected.rows)
+
+
+def test_a_condition_with_a_decimal_takes_the_conditional_path(run):
+    """Added after the pattern stopped at the '.' in '1.5', which sent such
+    questions down the ordinary path without any error."""
+    question = QUESTION.replace("more than twice Direct's", "more than 1.5 times Direct's")
+    script = Script()
+    out = run("full", script, question=question)
+    assert out.steps[0]["escalation_signal"] == "conditional"
+    assert script.calls == ["step0", "condition_plan", "branch_plan", "answer"]
 
 
 class TestFallbacks:

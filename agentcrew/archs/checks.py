@@ -161,7 +161,9 @@ def forecast_signal(question: str) -> Signal | None:
     return Signal("forecast", FORECAST_DETAIL) if _FORECAST.search(question) else None
 
 
-_CONDITIONAL = re.compile(r"(?:^|[.?!;:]\s+)if\b(?!\s+any\b)[^.?!;]*,", re.IGNORECASE)
+#: A "." followed by a digit is a decimal ("1.5 points"), not the end of a sentence.
+_CONDITIONAL = re.compile(
+    r"(?:^|[.?!;:]\s+)if\b(?!\s+any\b)(?:[^.?!;]|\.(?=\d))*,", re.IGNORECASE)
 CONDITIONAL_DETAIL = (
     "The answer depends on a condition: evaluate the condition first with its own "
     "query, then answer only the branch that applies."
