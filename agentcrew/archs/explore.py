@@ -386,6 +386,11 @@ def compute(
             else:
                 df, queries = contribution_by_dimension(
                     run_sql, metric, params.get("dimension", ""), comparison)
+                if params.get("also_dimension"):
+                    more, extra = contribution_by_dimension(
+                        run_sql, metric, params["also_dimension"], comparison)
+                    df, queries = (pd.concat([df, more], ignore_index=True),
+                                   [*queries, *extra])
             return frame_result(df, label + "\n" + "\n".join(queries)), queries
         step = params.pop("step", None)
         if step not in step_results:

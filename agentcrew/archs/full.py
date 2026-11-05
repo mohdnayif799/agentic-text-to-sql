@@ -20,7 +20,9 @@ When the run escalates, D adds:
   give two periods together with groups, and decompose_change then compares each
   component's change across the groups, so the answer names what differs, not
   what fell most. Choosing that comparison is the planner's call; no wording of
-  the question decides it. If it asks
+  the question decides it. For a breakdown, the dimension that concentrates the
+  change most comes first (compute.concentration, no LLM call), and the planner's
+  own dimension stays as the second analysis. If it asks
   about a sudden change (is_spike_question), the next step reads the same metric
   over the periods before it (compute.history.period_history, no LLM call), so the
   answer can say what is normal. Added after a holdout failure (ha08: an answer
@@ -88,6 +90,7 @@ from agentcrew.archs.router import (
     StepRun,
 )
 from agentcrew.archs.verify import verify
+from agentcrew.compute.concentration import concentrating_dimension
 from agentcrew.compute.history import MAX_HISTORY_ROWS, has_dimension
 from agentcrew.compute.metrics import GROUP_GAP_PREFIX, SIMILAR_PCT, catalog
 from agentcrew.config import Settings
@@ -301,6 +304,12 @@ in every group does not explain the difference, however large its own change.
 figures (whole numbers for counts, at most two decimals otherwise).
 """
 
+#: Added to METRIC_GUIDANCE when the concentration check put another breakdown first.
+CONCENTRATION_GUIDANCE = """\
+Several breakdowns are shown, and the first breakdown concentrates the change most, \
+so its largest contributor is the main driver.
+"""
+
 #: Added to METRIC_GUIDANCE when the question asks about a sudden change.
 BASELINE_GUIDANCE = """\
 ## What is normal
@@ -435,6 +444,8 @@ class Full(Router):
         self.condition_taken: tuple[StepRun, StepRun, str] | None = None
         """(condition step, branch step, which branch), once a branch ran."""
         self.metric_plan: MetricPlan | None = None
+        self.concentrated = False
+        """The concentration check put another breakdown before the planner's."""
         self.history: StepRun | None = None
         """The earlier periods of a spike or dip question, once they were read."""
         # replace(), not format(): the prompts contain literal JSON braces.
@@ -479,8 +490,29 @@ class Full(Router):
                 MetricPlan, self.metric_system, self._decide_prompt(steps, reason))
         except StructuredOutputError:
             return None
-        self.metric_plan = plan
-        return self._act(number, plan.to_action(), steps)
+        self.metric_plan, action = self._concentrated(plan)
+        return self._act(number, action, steps)
+
+    def _concentrated(self, plan: MetricPlan) -> tuple[MetricPlan, NextAction]:
+        """A breakdown leads with the dimension that concentrates the change most.
+        The planner's dimension stays as the second analysis, so a question that
+        asks about it still gets it. Other plans are left as they are."""
+        action = plan.to_action()
+        if action.function != "contribution_by_dimension":
+            return plan, action
+        best = concentrating_dimension(
+            lambda sql: execute_readonly_sql(self.tools, sql), plan.metric,
+            plan.comparison, preferred=plan.dimension)
+        if best is None or best.dimension == plan.dimension:
+            return plan, action
+        self.concentrated = True
+        chosen = plan.model_copy(update={"dimension": best.dimension, "reason": (
+            f"{plan.reason} Broken down first by {best.dimension}: one value "
+            f"({best.item}) holds the largest share of the change "
+            f"({best.share_pct:.0f}%).").strip()})
+        action = chosen.to_action()
+        return chosen, action.model_copy(update={
+            "params": {**action.params, "also_dimension": plan.dimension}})
 
     def _history_step(self, number: int) -> StepRun | None:
         """The metric over the periods before the one the question asks about.
@@ -555,11 +587,14 @@ class Full(Router):
         if stacked and GROUP_GAP_PREFIX in " ".join(
                 str(row[selected.columns.index("analysis")]) for row in selected.rows):
             return ACROSS_GROUPS_GUIDANCE
-        if stacked and self.history:
-            table = self.history.result.preview(limit=MAX_HISTORY_ROWS + 1)
-            return METRIC_GUIDANCE + BASELINE_GUIDANCE.format(table=table)
         if stacked:
-            return METRIC_GUIDANCE
+            guidance = METRIC_GUIDANCE
+            if self.concentrated:
+                guidance += CONCENTRATION_GUIDANCE
+            if self.history:
+                table = self.history.result.preview(limit=MAX_HISTORY_ROWS + 1)
+                guidance += BASELINE_GUIDANCE.format(table=table)
+            return guidance
         if self.condition_taken and selected is self.condition_taken[1].result:
             condition, _, branch = self.condition_taken
             return CONDITION_GUIDANCE.format(
