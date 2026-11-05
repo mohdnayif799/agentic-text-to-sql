@@ -74,8 +74,10 @@ class CachingClient(LLMClient):
         qid: str,
         model: str,
         sleep: Callable[[float], None] = time.sleep,
+        on_retry: Callable[[str, str], None] | None = None,
     ) -> None:
         self._live = live
+        self._on_retry = on_retry
         self._dir = cache_dir / _UNSAFE.sub("_", model) / _UNSAFE.sub("_", arch) / qid
         self._model = model
         self._sleep = sleep
@@ -126,7 +128,7 @@ class CachingClient(LLMClient):
         response, slept = call_with_backoff(
             lambda: live.complete(system=system, user=user, max_tokens=max_tokens,
                                   temperature=temperature),
-            sleep=self._sleep,
+            sleep=self._sleep, on_retry=self._on_retry,
         )
         self.slept_seconds += slept
         latency_ms = (time.perf_counter() - started - slept) * 1000

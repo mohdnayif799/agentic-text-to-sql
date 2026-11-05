@@ -84,9 +84,12 @@ def call_with_backoff(
     sleep: Callable[[float], None] = time.sleep,
     delays: tuple[float, ...] = DELAYS,
     transient_delays: tuple[float, ...] = TRANSIENT_DELAYS,
+    on_retry: Callable[[str, str], None] | None = None,
 ) -> tuple[T, float]:
     """Run `fn`, waiting out per-minute rate limits and transient overloads.
-    Returns (value, seconds slept)."""
+    Returns (value, seconds slept). `on_retry(kind, message)`, with kind
+    "rate_limit" or "provider", is told about every wait, so a run can report
+    errors that a retry then hid."""
     slept = 0.0
     quota_tries = transient_tries = 0
     while True:
@@ -102,6 +105,8 @@ def call_with_backoff(
                 ) from exc
             wait = max(delays[quota_tries], (retry_hint(message) or 0.0) + 1.0)
             quota_tries += 1
+            if on_retry:
+                on_retry("rate_limit", message)
         except LLMError as exc:
             if not is_provider_error(exc):
                 raise
@@ -111,5 +116,7 @@ def call_with_backoff(
                     f"{exc}") from exc
             wait = transient_delays[transient_tries]
             transient_tries += 1
+            if on_retry:
+                on_retry("provider", str(exc))
         sleep(wait)
         slept += wait

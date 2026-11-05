@@ -13,6 +13,11 @@
                                    # use this response cache instead of the one
                                    # in eval/run_config.yaml; an empty folder
                                    # means every call is live
+    python scripts/run_eval_v2.py --set holdout_agent --arch baseline full \\
+        --run NAME --cache-dir eval/runs/NAME-cache --model gemini-3.8-flash
+                                   # secondary model experiment: this model runs
+                                   # the architectures, the judge stays on the
+                                   # configured model; never a primary result
 
 Configuration (provider, model, fixed "today", budgets) comes from
 eval/run_config.yaml. Results: eval/runs/<run>/results.json; traces:
@@ -42,12 +47,20 @@ from evalrun.runner import (  # noqa: E402
 from evalrun.sets import ALL_SET_FILES, load_questions  # noqa: E402
 
 
-def run_config(cache_dir: str | None) -> RunConfig:
+def run_config(cache_dir: str | None, model: str | None = None) -> RunConfig:
     """eval/run_config.yaml, with its cache folder replaced if one is given. A
     relative folder is under the repo. Only where replies are stored changes:
-    the provider, model, "today" and budgets stay fixed."""
+    the provider, model, "today" and budgets stay fixed. `model` is the one
+    exception, for a labelled experiment: it must come with a new cache folder,
+    and the judge keeps the configured model, so the grader does not change."""
     cfg = RunConfig.load()
-    return replace(cfg, cache_dir=ROOT / cache_dir) if cache_dir else cfg
+    if cache_dir:
+        cfg = replace(cfg, cache_dir=ROOT / cache_dir)
+    if model:
+        if not cache_dir:
+            raise ValueError("--model needs its own --cache-dir")
+        cfg = replace(cfg, model=model, judge_model=cfg.model)
+    return cfg
 
 
 def _print_summary(payload: dict) -> None:
@@ -90,6 +103,8 @@ def main() -> int:
                          "(refused on holdout sets; results do not count)")
     ap.add_argument("--cache-dir", help="response cache folder, instead of the one "
                                         "in eval/run_config.yaml")
+    ap.add_argument("--model", help="secondary model experiment: run the "
+                                    "architectures on this model (judge unchanged)")
     args = ap.parse_args()
     if not args.rejudge and not args.arch:
         ap.error("--arch is required unless --rejudge is given")
@@ -99,7 +114,10 @@ def main() -> int:
         except ValueError as exc:
             ap.error(str(exc))
 
-    cfg = run_config(args.cache_dir)
+    try:
+        cfg = run_config(args.cache_dir, args.model)
+    except ValueError as exc:
+        ap.error(str(exc))
     if args.plan_only:
         plan = planned_calls(load_questions(args.set), args.arch)
         print(f"Planned LLM calls: typical {plan['typical']}, at most {plan['max']} "
