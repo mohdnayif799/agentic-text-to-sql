@@ -65,6 +65,7 @@ from agentcrew.presentation import (  # noqa: E402
     step_label,
     summary,
 )
+from agentcrew.refusal import WRITE_REFUSAL, is_write_request  # noqa: E402
 from agentcrew.schemas import ExecutionResult  # noqa: E402
 
 # One line per run on stderr (Cloud Run sends stderr to Cloud Logging).
@@ -760,7 +761,12 @@ def answer(
     state: MutableMapping[str, Any],
     show_progress: Callable[[str, float], None] | None = None,
 ) -> Turn:
-    """Choose the key for this run, enforce the demo allowance, and run."""
+    """Choose the key for this run, enforce the demo allowance, and run. A request
+    to change the data is refused first: no model call, no SQL, no run counted."""
+    if is_write_request(question):
+        _log_run({"provider": provider, "model": model}, "refused",
+                 time.perf_counter(), 0)
+        return Turn(question=question, notice=WRITE_REFUSAL)
     spec = PROVIDERS[provider]
     own_key = own_key.strip()
     if not model:
