@@ -1,0 +1,103 @@
+{
+ "question_id": "hv13",
+ "type": "ambiguous",
+ "arch": "full",
+ "question": "Which product category is growing the fastest? Give the category and its growth as a percentage.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT p.category, (SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date < '2026-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END)) * 100.0 / SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS growth_pct FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' GROUP BY p.category ORDER BY growth_pct DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "category | growth_pct\nAccessories | 59.820446957906206"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT p.category, (SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date < '2026-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END)) * 100.0 / SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS growth_pct FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' GROUP BY p.category ORDER BY growth_pct DESC LIMIT 1",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT p.category, (SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date < '2026-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) - SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END)) * 100.0 / SUM(CASE WHEN o.order_date >= '2024-01-01' AND o.order_date < '2025-01-01' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS growth_pct FROM orders AS o JOIN order_items AS oi ON o.order_id = oi.order_id JOIN products AS p ON oi.product_id = p.product_id WHERE o.status = 'completed' GROUP BY p.category ORDER BY growth_pct DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "category",
+   "growth_pct"
+  ],
+  "rows": [
+   [
+    "Accessories",
+    59.820446957906206
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The fastest-growing product category is Accessories, with a growth of 59.82%.",
+ "key_numbers": [
+  "59.820446957906206"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "ef5d9779c246d6dc6232f9cbe3c267099dcd4fbc26c4f9b35742762ffee3f565",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2852,
+   "output_tokens": 393,
+   "original_latency_ms": 1642.5,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "f8c238ba43c5fdd2771fd97f38922e6786b9a667e47f73f8a54299fffdb2ad4c",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 721,
+   "output_tokens": 68,
+   "original_latency_ms": 1163.9,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "220fb6bfa6c26927d643dbef046810ac37aa9bc5b5f327b14031d57a47c5b882",
+   "cache_hit": false,
+   "latency_ms": 1138.9,
+   "input_tokens": 609,
+   "output_tokens": 42,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 1.173,
+ "latency_live_s": 3.98,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "no interpretation matched (assumption stated: False; answer fits: none)"
+ }
+}

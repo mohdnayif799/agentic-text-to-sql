@@ -1,0 +1,159 @@
+{
+ "question_id": "hv10",
+ "type": "statistics",
+ "arch": "full",
+ "question": "For support tickets opened in 2025 that have been resolved, what was the median number of days to resolve a ticket in each region?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH resolved_2025 AS (SELECT r.region_name, (JULIANDAY(t.resolved_date) - JULIANDAY(t.created_date)) AS days_to_resolve FROM support_tickets AS t JOIN customers AS c ON t.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND NOT t.resolved_date IS NULL), ranked AS (SELECT region_name, days_to_resolve, ROW_NUMBER() OVER (PARTITION BY region_name ORDER BY days_to_resolve ASC, ticket_id ASC) AS rn, COUNT(*) OVER (PARTITION BY region_name) AS cnt FROM resolved_2025) SELECT region_name, AVG(days_to_resolve) AS median_resolution_days FROM resolved_2025 GROUP BY region_name LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "region_name | median_resolution_days\nAPAC | 11.481967213114753\nEMEA | 11.341614906832298\nLATAM | 11.61025641025641\nNorth America | 10.920454545454545"
+  },
+  {
+   "sql": "WITH resolved_2025 AS (SELECT r.region_name, t.ticket_id, (JULIANDAY(t.resolved_date) - JULIANDAY(t.created_date)) AS days_to_resolve FROM support_tickets AS t JOIN customers AS c ON t.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND NOT t.resolved_date IS NULL), ranked AS (SELECT region_name, days_to_resolve, ROW_NUMBER() OVER (PARTITION BY region_name ORDER BY days_to_resolve ASC, ticket_id ASC) AS rn, COUNT(*) OVER (PARTITION BY region_name) AS cnt FROM resolved_2025) SELECT region_name, AVG(days_to_resolve) AS median_resolution_days FROM ranked WHERE rn BETWEEN cnt / 2.0 AND cnt / 2.0 + 1 GROUP BY region_name LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 4,
+   "preview": "region_name | median_resolution_days\nAPAC | 12.0\nEMEA | 11.0\nLATAM | 12.0\nNorth America | 11.0"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql",
+    "repair"
+   ],
+   "sql": "WITH resolved_2025 AS (SELECT r.region_name, t.ticket_id, (JULIANDAY(t.resolved_date) - JULIANDAY(t.created_date)) AS days_to_resolve FROM support_tickets AS t JOIN customers AS c ON t.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND NOT t.resolved_date IS NULL), ranked AS (SELECT region_name, days_to_resolve, ROW_NUMBER() OVER (PARTITION BY region_name ORDER BY days_to_resolve ASC, ticket_id ASC) AS rn, COUNT(*) OVER (PARTITION BY region_name) AS cnt FROM resolved_2025) SELECT region_name, AVG(days_to_resolve) AS median_resolution_days FROM ranked WHERE rn BETWEEN cnt / 2.0 AND cnt / 2.0 + 1 GROUP BY region_name LIMIT 500",
+   "reason": "",
+   "signal": "schema"
+  }
+ ],
+ "repairs": [
+  {
+   "step": 1,
+   "signal": "schema",
+   "detail": "Schema check: Column 'ticket_id' could not be resolved. Line: 1, Col: 475",
+   "via": "repair",
+   "accepted": true,
+   "attempts": 1,
+   "before": {
+    "sql": "WITH resolved_2025 AS (SELECT r.region_name, (JULIANDAY(t.resolved_date) - JULIANDAY(t.created_date)) AS days_to_resolve FROM support_tickets AS t JOIN customers AS c ON t.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND NOT t.resolved_date IS NULL), ranked AS (SELECT region_name, days_to_resolve, ROW_NUMBER() OVER (PARTITION BY region_name ORDER BY days_to_resolve ASC, ticket_id ASC) AS rn, COUNT(*) OVER (PARTITION BY region_name) AS cnt FROM resolved_2025) SELECT region_name, AVG(days_to_resolve) AS median_resolution_days FROM resolved_2025 GROUP BY region_name LIMIT 500",
+    "ok": true,
+    "rows": 4,
+    "error": null
+   },
+   "after": {
+    "sql": "WITH resolved_2025 AS (SELECT r.region_name, t.ticket_id, (JULIANDAY(t.resolved_date) - JULIANDAY(t.created_date)) AS days_to_resolve FROM support_tickets AS t JOIN customers AS c ON t.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND NOT t.resolved_date IS NULL), ranked AS (SELECT region_name, days_to_resolve, ROW_NUMBER() OVER (PARTITION BY region_name ORDER BY days_to_resolve ASC, ticket_id ASC) AS rn, COUNT(*) OVER (PARTITION BY region_name) AS cnt FROM resolved_2025) SELECT region_name, AVG(days_to_resolve) AS median_resolution_days FROM ranked WHERE rn BETWEEN cnt / 2.0 AND cnt / 2.0 + 1 GROUP BY region_name LIMIT 500",
+    "ok": true,
+    "rows": 4,
+    "error": null
+   },
+   "effect": "fix"
+  }
+ ],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH resolved_2025 AS (SELECT r.region_name, t.ticket_id, (JULIANDAY(t.resolved_date) - JULIANDAY(t.created_date)) AS days_to_resolve FROM support_tickets AS t JOIN customers AS c ON t.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND NOT t.resolved_date IS NULL), ranked AS (SELECT region_name, days_to_resolve, ROW_NUMBER() OVER (PARTITION BY region_name ORDER BY days_to_resolve ASC, ticket_id ASC) AS rn, COUNT(*) OVER (PARTITION BY region_name) AS cnt FROM resolved_2025) SELECT region_name, AVG(days_to_resolve) AS median_resolution_days FROM ranked WHERE rn BETWEEN cnt / 2.0 AND cnt / 2.0 + 1 GROUP BY region_name LIMIT 500",
+  "ok": true,
+  "columns": [
+   "region_name",
+   "median_resolution_days"
+  ],
+  "rows": [
+   [
+    "APAC",
+    12.0
+   ],
+   [
+    "EMEA",
+    11.0
+   ],
+   [
+    "LATAM",
+    12.0
+   ],
+   [
+    "North America",
+    11.0
+   ]
+  ],
+  "row_count": 4
+ },
+ "answer": "For support tickets opened and resolved in 2025, the median number of days to resolve a ticket was 12.0 in APAC, 11.0 in EMEA, 12.0 in LATAM, and 11.0 in North America.",
+ "key_numbers": [
+  "2025",
+  "12.0",
+  "11.0"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "a9cfda90ac91f2c927e8de9248f2b07f1d621c46e4a5d567a117b5029900686b",
+   "cache_hit": false,
+   "latency_ms": 1269.4,
+   "input_tokens": 731,
+   "output_tokens": 107,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "1536e2d178366f90266c2a9f007b3b9de06956d2f82296bc7ee2ed397c9c424c",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2817,
+   "output_tokens": 352,
+   "original_latency_ms": 1744.2,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You fix one SQLite query. A concrete problem was detected and is described below",
+   "prompt_hash": "74d6f280676fa1dc78ad0802978faa917be5ba0fd007dd9bf268e8b7ff730f3a",
+   "cache_hit": false,
+   "latency_ms": 1774.0,
+   "input_tokens": 3024,
+   "output_tokens": 313,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "d71638992e0036146a7ece2caf7f686cfbbbcd9c7137228fbd19c390654c74f6",
+   "cache_hit": false,
+   "latency_ms": 1049.5,
+   "input_tokens": 619,
+   "output_tokens": 48,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 4.133,
+ "latency_live_s": 5.877,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "4 row(s) match"
+ }
+}

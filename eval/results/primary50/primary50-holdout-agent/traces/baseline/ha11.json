@@ -1,0 +1,100 @@
+{
+ "question_id": "ha11",
+ "type": "statistics",
+ "arch": "baseline",
+ "question": "Fit a straight-line trend to monthly completed revenue from January 2024 to December 2025, using month number 1 to 24 as x. Which months fell more than 1.5 standard deviations below the trend line, using the standard deviation of the residuals, and what was each month's residual (actual minus trend, in dollars)? Label months as YYYY-MM.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH monthly_rev AS (SELECT STRFTIME('%Y-%m', o.order_date) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY STRFTIME('%Y-%m', o.order_date)), indexed_months AS (SELECT month, rev, (ROW_NUMBER() OVER (ORDER BY month)) AS x FROM monthly_rev), stats AS (SELECT AVG(x) AS mean_x, AVG(rev) AS mean_y, SUM((x - (SELECT AVG(x) FROM indexed_months)) * (rev - (SELECT AVG(rev) FROM indexed_months))) / SUM((x - (SELECT AVG(x) FROM indexed_months)) * (x - (SELECT AVG(x) FROM indexed_months))) AS slope, AVG(rev) - (SUM((x - (SELECT AVG(x) FROM indexed_months)) * (rev - (SELECT AVG(rev) FROM indexed_months))) / SUM((x - (SELECT AVG(x) FROM indexed_months)) * (x - (SELECT AVG(x) FROM indexed_months)))) * AVG(x) AS intercept FROM indexed_months), calculated AS (SELECT im.month, im.rev, (s.intercept + s.slope * im.x) AS trend_rev, (im.rev - (s.intercept + s.slope * im.x)) AS residual FROM indexed_months AS im CROSS JOIN stats AS s), stddev_calc AS (SELECT SQRT(SUM(residual * residual) / COUNT(*)) AS sd_residuals FROM calculated) SELECT c.month, c.residual FROM calculated AS c CROSS JOIN stddev_calc AS sd WHERE c.residual < -1.5 * sd.sd_residuals ORDER BY c.month LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "month | residual\n2025-07 | -348547.3194584057\n2025-08 | -425181.9997340579\n2025-09 | -452444.7145097101"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH monthly_rev AS (SELECT STRFTIME('%Y-%m', o.order_date) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY STRFTIME('%Y-%m', o.order_date)), indexed_months AS (SELECT month, rev, (ROW_NUMBER() OVER (ORDER BY month)) AS x FROM monthly_rev), stats AS (SELECT AVG(x) AS mean_x, AVG(rev) AS mean_y, SUM((x - (SELECT AVG(x) FROM indexed_months)) * (rev - (SELECT AVG(rev) FROM indexed_months))) / SUM((x - (SELECT AVG(x) FROM indexed_months)) * (x - (SELECT AVG(x) FROM indexed_months))) AS slope, AVG(rev) - (SUM((x - (SELECT AVG(x) FROM indexed_months)) * (rev - (SELECT AVG(rev) FROM indexed_months))) / SUM((x - (SELECT AVG(x) FROM indexed_months)) * (x - (SELECT AVG(x) FROM indexed_months)))) * AVG(x) AS intercept FROM indexed_months), calculated AS (SELECT im.month, im.rev, (s.intercept + s.slope * im.x) AS trend_rev, (im.rev - (s.intercept + s.slope * im.x)) AS residual FROM indexed_months AS im CROSS JOIN stats AS s), stddev_calc AS (SELECT SQRT(SUM(residual * residual) / COUNT(*)) AS sd_residuals FROM calculated) SELECT c.month, c.residual FROM calculated AS c CROSS JOIN stddev_calc AS sd WHERE c.residual < -1.5 * sd.sd_residuals ORDER BY c.month LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH monthly_rev AS (SELECT STRFTIME('%Y-%m', o.order_date) AS month, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND o.order_date >= '2024-01-01' AND o.order_date <= '2025-12-31' GROUP BY STRFTIME('%Y-%m', o.order_date)), indexed_months AS (SELECT month, rev, (ROW_NUMBER() OVER (ORDER BY month)) AS x FROM monthly_rev), stats AS (SELECT AVG(x) AS mean_x, AVG(rev) AS mean_y, SUM((x - (SELECT AVG(x) FROM indexed_months)) * (rev - (SELECT AVG(rev) FROM indexed_months))) / SUM((x - (SELECT AVG(x) FROM indexed_months)) * (x - (SELECT AVG(x) FROM indexed_months))) AS slope, AVG(rev) - (SUM((x - (SELECT AVG(x) FROM indexed_months)) * (rev - (SELECT AVG(rev) FROM indexed_months))) / SUM((x - (SELECT AVG(x) FROM indexed_months)) * (x - (SELECT AVG(x) FROM indexed_months)))) * AVG(x) AS intercept FROM indexed_months), calculated AS (SELECT im.month, im.rev, (s.intercept + s.slope * im.x) AS trend_rev, (im.rev - (s.intercept + s.slope * im.x)) AS residual FROM indexed_months AS im CROSS JOIN stats AS s), stddev_calc AS (SELECT SQRT(SUM(residual * residual) / COUNT(*)) AS sd_residuals FROM calculated) SELECT c.month, c.residual FROM calculated AS c CROSS JOIN stddev_calc AS sd WHERE c.residual < -1.5 * sd.sd_residuals ORDER BY c.month LIMIT 500",
+  "ok": true,
+  "columns": [
+   "month",
+   "residual"
+  ],
+  "rows": [
+   [
+    "2025-07",
+    -348547.3194584057
+   ],
+   [
+    "2025-08",
+    -425181.9997340579
+   ],
+   [
+    "2025-09",
+    -452444.7145097101
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "The months that fell more than 1.5 standard deviations below the trend line are 2025-07 with a residual of -$348,547.32, 2025-08 with a residual of -$425,182.00, and 2025-09 with a residual of -$452,444.71.",
+ "key_numbers": [
+  "-348547.3194584057",
+  "-425181.9997340579",
+  "-452444.7145097101"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "42b6b4421ea9c4559b2111419205eadf5818020eaa7db107408f4748a65c68b0",
+   "cache_hit": false,
+   "latency_ms": 2456.9,
+   "input_tokens": 3005,
+   "output_tokens": 742,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "9eaaea018e80e306ee3cdbe95b85127a6a27cd6f7896ae7758b61d7cced6e969",
+   "cache_hit": false,
+   "latency_ms": 1347.9,
+   "input_tokens": 1031,
+   "output_tokens": 178,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 3.847,
+ "latency_live_s": 3.847,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "3 row(s) match"
+ }
+}

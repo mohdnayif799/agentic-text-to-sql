@@ -1,0 +1,139 @@
+{
+ "question_id": "ha08",
+ "type": "why",
+ "arch": "baseline",
+ "question": "Why did customer churn spike in Q3 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT SUBSTRING(c.churn_date, 1, 4) AS churn_year, CASE WHEN SUBSTRING(c.churn_date, 6, 2) IN ('01', '02', '03') THEN 'Q1' WHEN SUBSTRING(c.churn_date, 6, 2) IN ('04', '05', '06') THEN 'Q2' WHEN SUBSTRING(c.churn_date, 6, 2) IN ('07', '08', '09') THEN 'Q3' ELSE 'Q4' END AS churn_quarter, COUNT(*) AS churned_count FROM customers AS c WHERE NOT c.churn_date IS NULL GROUP BY churn_year, churn_quarter ORDER BY churn_year DESC, churn_quarter DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 10,
+   "preview": "churn_year | churn_quarter | churned_count\n2025 | Q4 | 31\n2025 | Q3 | 67\n2025 | Q2 | 19\n2025 | Q1 | 19\n2024 | Q4 | 14\n... 5 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT SUBSTRING(c.churn_date, 1, 4) AS churn_year, CASE WHEN SUBSTRING(c.churn_date, 6, 2) IN ('01', '02', '03') THEN 'Q1' WHEN SUBSTRING(c.churn_date, 6, 2) IN ('04', '05', '06') THEN 'Q2' WHEN SUBSTRING(c.churn_date, 6, 2) IN ('07', '08', '09') THEN 'Q3' ELSE 'Q4' END AS churn_quarter, COUNT(*) AS churned_count FROM customers AS c WHERE NOT c.churn_date IS NULL GROUP BY churn_year, churn_quarter ORDER BY churn_year DESC, churn_quarter DESC LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT SUBSTRING(c.churn_date, 1, 4) AS churn_year, CASE WHEN SUBSTRING(c.churn_date, 6, 2) IN ('01', '02', '03') THEN 'Q1' WHEN SUBSTRING(c.churn_date, 6, 2) IN ('04', '05', '06') THEN 'Q2' WHEN SUBSTRING(c.churn_date, 6, 2) IN ('07', '08', '09') THEN 'Q3' ELSE 'Q4' END AS churn_quarter, COUNT(*) AS churned_count FROM customers AS c WHERE NOT c.churn_date IS NULL GROUP BY churn_year, churn_quarter ORDER BY churn_year DESC, churn_quarter DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "churn_year",
+   "churn_quarter",
+   "churned_count"
+  ],
+  "rows": [
+   [
+    "2025",
+    "Q4",
+    31
+   ],
+   [
+    "2025",
+    "Q3",
+    67
+   ],
+   [
+    "2025",
+    "Q2",
+    19
+   ],
+   [
+    "2025",
+    "Q1",
+    19
+   ],
+   [
+    "2024",
+    "Q4",
+    14
+   ],
+   [
+    "2024",
+    "Q3",
+    15
+   ],
+   [
+    "2024",
+    "Q2",
+    9
+   ],
+   [
+    "2024",
+    "Q1",
+    7
+   ],
+   [
+    "2023",
+    "Q4",
+    5
+   ],
+   [
+    "2023",
+    "Q3",
+    3
+   ]
+  ],
+  "row_count": 10
+ },
+ "answer": "In Q3 2025, customer churn reached 67 churned customers, which is higher than the previous quarters of 2025 (19 in Q1 and 19 in Q2) and Q4 2025 (31).",
+ "key_numbers": [
+  "67",
+  "19",
+  "31"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "594c458744008a66dbb83f417debb6e304d982828b5eb2521fd1a44630bf16f9",
+   "cache_hit": false,
+   "latency_ms": 1635.6,
+   "input_tokens": 2757,
+   "output_tokens": 232,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "52f5088d97e91547cb83958fbcada5107de42c6cd3b584b0941cc6131ed5a6f3",
+   "cache_hit": false,
+   "latency_ms": 1164.2,
+   "input_tokens": 728,
+   "output_tokens": 102,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 2.811,
+ "latency_live_s": 2.811,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "driver not named: ['text: APAC']"
+ }
+}

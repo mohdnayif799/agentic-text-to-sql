@@ -1,0 +1,209 @@
+{
+ "question_id": "ha21",
+ "type": "segment_comparison",
+ "arch": "full",
+ "question": "Compare how many support tickets APAC and EMEA customers opened in 2025. If APAC opened more than 1.5 times as many as EMEA, break APAC's 2025 tickets down by month (label months as YYYY-MM); otherwise, break both regions' 2025 tickets down by severity.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "escalated",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [
+  "The answer depends on a condition: evaluate the condition first with its own query, then answer only the branch that applies."
+ ],
+ "sql_attempts": [
+  {
+   "sql": "WITH region_counts AS (SELECT r.region_name, COUNT(t.ticket_id) AS ticket_count FROM support_tickets AS t JOIN customers AS c ON c.customer_id = t.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND r.region_name IN ('APAC', 'EMEA') GROUP BY r.region_name), apac_count AS (SELECT COALESCE((SELECT ticket_count FROM region_counts WHERE region_name = 'APAC'), 0) AS cnt), emea_count AS (SELECT COALESCE((SELECT ticket_count FROM region_counts WHERE region_name = 'EMEA'), 0) AS cnt) SELECT CASE WHEN (SELECT cnt FROM apac_count) > 1.5 * (SELECT cnt FROM emea_count) THEN SUBSTRING(t.created_date, 1, 7) ELSE r.region_name END AS group_key, CASE WHEN (SELECT cnt FROM apac_count) > 1.5 * (SELECT cnt FROM emea_count) THEN 'APAC (by month)' ELSE 'Region (by severity)' END AS breakdown_type, CASE WHEN (SELECT cnt FROM apac_count) > 1.5 * (SELECT cnt FROM emea_count) THEN NULL ELSE r.region_name END AS region_name, CASE WHEN (SELECT cnt FROM apac_count) > 1.5 * (SELECT cnt FROM emea_count) THEN NULL ELSE t.severity END AS severity, COUNT(t.ticket_id) AS ticket_count FROM support_tickets AS t JOIN customers AS c ON c.customer_id = t.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND ((SELECT cnt FROM apac_count) > 1.5 * (SELECT cnt FROM emea_count) AND r.region_name = 'APAC' OR (SELECT cnt FROM apac_count) <= 1.5 * (SELECT cnt FROM emea_count) AND r.region_name IN ('APAC', 'EMEA')) GROUP BY CASE WHEN (SELECT cnt FROM apac_count) > 1.5 * (SELECT cnt FROM emea_count) THEN SUBSTRING(t.created_date, 1, 7) ELSE r.region_name END, CASE WHEN (SELECT cnt FROM apac_count) > 1.5 * (SELECT cnt FROM emea_count) THEN NULL ELSE t.severity END ORDER BY group_key LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 12,
+   "preview": "group_key | breakdown_type | region_name | severity | ticket_count\n2025-01 | APAC (by month) | NULL | NULL | 15\n2025-02 | APAC (by month) | NULL | NULL | 16\n2025-03 | APAC (by month) | NULL | NULL | 17\n2025-04 | APAC (by month) | NULL | NULL | 31\n2025-05 | APAC (by month) | NULL | NULL | 26\n... 7 more row(s)"
+  },
+  {
+   "sql": "SELECT SUM(CASE WHEN r.region_name = 'APAC' THEN 1 ELSE 0 END) AS apac_tickets, SUM(CASE WHEN r.region_name = 'EMEA' THEN 1 ELSE 0 END) AS emea_collectibles, CASE WHEN SUM(CASE WHEN r.region_name = 'APAC' THEN 1 ELSE 0 END) > 1.5 * SUM(CASE WHEN r.region_name = 'EMEA' THEN 1 ELSE 0 END) THEN 1 ELSE 0 END AS condition_st_met, CASE WHEN SUM(CASE WHEN r.region_name = 'APAC' THEN 1 ELSE 0 END) > 1.5 * SUM(CASE WHEN r.region_name = 'EMEA' THEN 1 ELSE 0 END) THEN 'APAC' ELSE 'EMEA' END AS condition_met FROM support_tickets AS t JOIN customers AS c ON c.customer_id = t.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND r.region_name IN ('APAC', 'EMEA')",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "apac_tickets | emea_collectibles | condition_st_met | condition_met\n741 | 397 | 1 | APAC"
+  },
+  {
+   "sql": "SELECT SUBSTRING(t.created_date, 1, 7) AS month, COUNT(t.ticket_id) AS ticket_count FROM support_tickets AS t JOIN customers AS c ON c.customer_id = t.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE r.region_name = 'APAC' AND t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' GROUP BY SUBSTRING(t.created_date, 1, 7) ORDER BY month LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 12,
+   "preview": "month | ticket_count\n2025-01 | 15\n2025-02 | 16\n2025-03 | 17\n2025-04 | 31\n2025-05 | 26\n... 7 more row(s)"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH region_counts AS (SELECT r.region_name, COUNT(t.ticket_id) AS ticket_count FROM support_tickets AS t JOIN customers AS c ON c.customer_id = t.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND r.region_name IN ('APAC', 'EMEA') GROUP BY r.region_name), apac_count AS (SELECT COALESCE((SELECT ticket_count FROM region_counts WHERE region_name = 'APAC'), 0) AS cnt), emea_count AS (SELECT COALESCE((SELECT ticket_count FROM region_counts WHERE region_name = 'EMEA'), 0) AS cnt) SELECT CASE WHEN (SELECT cnt FROM apac_count) > 1.5 * (SELECT cnt FROM emea_count) THEN SUBSTRING(t.created_date, 1, 7) ELSE r.region_name END AS group_key, CASE WHEN (SELECT cnt FROM apac_count) > 1.5 * (SELECT cnt FROM emea_count) THEN 'APAC (by month)' ELSE 'Region (by severity)' END AS breakdown_type, CASE WHEN (SELECT cnt FROM apac_count) > 1.5 * (SELECT cnt FROM emea_count) THEN NULL ELSE r.region_name END AS region_name, CASE WHEN (SELECT cnt FROM apac_count) > 1.5 * (SELECT cnt FROM emea_count) THEN NULL ELSE t.severity END AS severity, COUNT(t.ticket_id) AS ticket_count FROM support_tickets AS t JOIN customers AS c ON c.customer_id = t.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND ((SELECT cnt FROM apac_count) > 1.5 * (SELECT cnt FROM emea_count) AND r.region_name = 'APAC' OR (SELECT cnt FROM apac_count) <= 1.5 * (SELECT cnt FROM emea_count) AND r.region_name IN ('APAC', 'EMEA')) GROUP BY CASE WHEN (SELECT cnt FROM apac_count) > 1.5 * (SELECT cnt FROM emea_count) THEN SUBSTRING(t.created_date, 1, 7) ELSE r.region_name END, CASE WHEN (SELECT cnt FROM apac_count) > 1.5 * (SELECT cnt FROM emea_count) THEN NULL ELSE t.severity END ORDER BY group_key LIMIT 500",
+   "reason": "",
+   "signal": null,
+   "escalation_signal": "conditional"
+  },
+  {
+   "step": 2,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT SUM(CASE WHEN r.region_name = 'APAC' THEN 1 ELSE 0 END) AS apac_tickets, SUM(CASE WHEN r.region_name = 'EMEA' THEN 1 ELSE 0 END) AS emea_collectibles, CASE WHEN SUM(CASE WHEN r.region_name = 'APAC' THEN 1 ELSE 0 END) > 1.5 * SUM(CASE WHEN r.region_name = 'EMEA' THEN 1 ELSE 0 END) THEN 1 ELSE 0 END AS condition_st_met, CASE WHEN SUM(CASE WHEN r.region_name = 'APAC' THEN 1 ELSE 0 END) > 1.5 * SUM(CASE WHEN r.region_name = 'EMEA' THEN 1 ELSE 0 END) THEN 'APAC' ELSE 'EMEA' END AS condition_met FROM support_tickets AS t JOIN customers AS c ON c.customer_id = t.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' AND r.region_name IN ('APAC', 'EMEA')",
+   "reason": "Evaluate whether APAC opened more than 1.5 times as many support tickets as EMEA in 2025.",
+   "signal": null
+  },
+  {
+   "step": 3,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT SUBSTRING(t.created_date, 1, 7) AS month, COUNT(t.ticket_id) AS ticket_count FROM support_tickets AS t JOIN customers AS c ON c.customer_id = t.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE r.region_name = 'APAC' AND t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' GROUP BY SUBSTRING(t.created_date, 1, 7) ORDER BY month LIMIT 500",
+   "reason": "APAC opened 741 tickets in 2025, which is more than 1.5 times EMEA's 397 tickets (1.5 * 397 = 595.5), so we break APAC's 2025 tickets down by month.",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 3,
+ "selected_result": {
+  "sql": "SELECT SUBSTRING(t.created_date, 1, 7) AS month, COUNT(t.ticket_id) AS ticket_count FROM support_tickets AS t JOIN customers AS c ON c.customer_id = t.customer_id JOIN regions AS r ON r.region_id = c.region_id WHERE r.region_name = 'APAC' AND t.created_date >= '2025-01-01' AND t.created_date <= '2025-12-31' GROUP BY SUBSTRING(t.created_date, 1, 7) ORDER BY month LIMIT 500",
+  "ok": true,
+  "columns": [
+   "month",
+   "ticket_count"
+  ],
+  "rows": [
+   [
+    "2025-01",
+    15
+   ],
+   [
+    "2025-02",
+    16
+   ],
+   [
+    "2025-03",
+    17
+   ],
+   [
+    "2025-04",
+    31
+   ],
+   [
+    "2025-05",
+    26
+   ],
+   [
+    "2025-06",
+    146
+   ],
+   [
+    "2025-07",
+    156
+   ],
+   [
+    "2025-08",
+    143
+   ],
+   [
+    "2025-09",
+    92
+   ],
+   [
+    "2025-10",
+    35
+   ],
+   [
+    "2025-11",
+    23
+   ],
+   [
+    "2025-12",
+    41
+   ]
+  ],
+  "row_count": 12
+ },
+ "answer": "Assuming APAC opened more than 1.5 times as many support tickets as EMEA in 2025 (with APAC opening 741 tickets compared to EMEA's 397), APAC's tickets are broken down by month: 2025-01 had 15 tickets, 2025-02 had 16 tickets, 2025-03 had 17 tickets, 2025-04 had 31 tickets, 2025-05 had 26 tickets, 2025-06 had 146 tickets, 2025-07 had 156 tickets, 2025-08 had 143 tickets, 2025-09 had 92 tickets, 2025-10 had 35 tickets, 2025-11 had 23 tickets, and 2025-12 had 41 tickets.",
+ "key_numbers": [
+  "741",
+  "397",
+  "1.5",
+  "15",
+  "16",
+  "17",
+  "31",
+  "26",
+  "146",
+  "156",
+  "143",
+  "92",
+  "35",
+  "23",
+  "41"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You start the analysis of a question whose answer depends on a condition (for ex",
+   "prompt_hash": "c6570f1cf629e1297e4b15878069b8211b6205fd356c4be7a1ac79c2e084f295",
+   "cache_hit": false,
+   "latency_ms": 1697.6,
+   "input_tokens": 3753,
+   "output_tokens": 311,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "The condition of a question has been evaluated: its result is the last step belo",
+   "prompt_hash": "8ccddfa6b6191fd85a03ceddae0e818942e50e987cbb1b50536e7cf34de63768",
+   "cache_hit": false,
+   "latency_ms": 1696.9,
+   "input_tokens": 4127,
+   "output_tokens": 270,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "deb8a2d07f41bddeaa1ea4d061d2a58c10367f7907a4b99e70f8caa6cca023c3",
+   "cache_hit": false,
+   "latency_ms": 1747.0,
+   "input_tokens": 924,
+   "output_tokens": 344,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "full"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "4707cfbf6e6084eefe609b54691693c45898180d4a1e188cf5c81e9531062553",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2862,
+   "output_tokens": 893,
+   "original_latency_ms": 2797.0,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 5.252,
+ "latency_live_s": 8.049,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "12 row(s) match"
+ }
+}

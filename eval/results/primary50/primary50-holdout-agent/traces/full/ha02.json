@@ -1,0 +1,101 @@
+{
+ "question_id": "ha02",
+ "type": "multi_hop",
+ "arch": "full",
+ "question": "In the 2025 month with the lowest total marketing spend, what was our completed revenue?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND SUBSTRING(o.order_date, 1, 7) = (SELECT SUBSTRING(month, 1, 7) FROM marketing_spend WHERE month >= '2025-01' AND month <= '2025-12' GROUP BY month ORDER BY SUM(amount) ASC LIMIT 1)",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "completed_revenue\n748889.067"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND SUBSTRING(o.order_date, 1, 7) = (SELECT SUBSTRING(month, 1, 7) FROM marketing_spend WHERE month >= '2025-01' AND month <= '2025-12' GROUP BY month ORDER BY SUM(amount) ASC LIMIT 1)",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' AND SUBSTRING(o.order_date, 1, 7) = (SELECT SUBSTRING(month, 1, 7) FROM marketing_spend WHERE month >= '2025-01' AND month <= '2025-12' GROUP BY month ORDER BY SUM(amount) ASC LIMIT 1)",
+  "ok": true,
+  "columns": [
+   "completed_revenue"
+  ],
+  "rows": [
+   [
+    748889.067
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "In the 2025 month with the lowest total marketing spend, the completed revenue was $748,889.07.",
+ "key_numbers": [
+  "748889.067"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "fbb98bc8440bdc9d7c3a4af38316e97b79512c05c6f5238e00372e33ecb06eec",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2834,
+   "output_tokens": 223,
+   "original_latency_ms": 1540.2,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "1b6b754e181e8f289f3ac38f5003af1a688aedf8386048b2f61e529020bc32e2",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 566,
+   "output_tokens": 70,
+   "original_latency_ms": 1191.4,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "36c0a4db38d4314ec4b1f6f1ddefbc815e3fd30bc9a9083229cd379504457b2d",
+   "cache_hit": false,
+   "latency_ms": 1046.4,
+   "input_tokens": 454,
+   "output_tokens": 46,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 1.073,
+ "latency_live_s": 3.804,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "1 row(s) match; answer missing [\"any_of: [{'text': '2025-07'}, {'pattern': 'jul(y)?\\\\\\\\.?\\\\\\\\s+2025'}]\"]"
+ }
+}

@@ -1,0 +1,92 @@
+{
+ "question_id": "hv01",
+ "type": "multi_hop",
+ "arch": "baseline",
+ "question": "Which region had the highest refund rate in 2025, and within that region which sales channel had the most refunded orders? Give the region, the channel and the number of refunded orders.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH region_refund_rates AS (SELECT r.region_name, CAST(SUM(CASE WHEN o.status = 'refunded' THEN 1 ELSE 0 END) AS REAL) / COUNT(*) AS refund_rate FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY r.region_name ORDER BY refund_rate DESC LIMIT 1), top_region AS (SELECT region_name FROM region_refund_rates) SELECT r.region_name, o.channel, COUNT(*) AS refunded_orders FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.status = 'refunded' AND r.region_name = (SELECT region_name FROM top_region) GROUP BY r.region_name, o.channel ORDER BY refunded_orders DESC LIMIT 1",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "region_name | channel | refunded_orders\nLATAM | Online | 79"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH region_refund_rates AS (SELECT r.region_name, CAST(SUM(CASE WHEN o.status = 'refunded' THEN 1 ELSE 0 END) AS REAL) / COUNT(*) AS refund_rate FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY r.region_name ORDER BY refund_rate DESC LIMIT 1), top_region AS (SELECT region_name FROM region_refund_rates) SELECT r.region_name, o.channel, COUNT(*) AS refunded_orders FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.status = 'refunded' AND r.region_name = (SELECT region_name FROM top_region) GROUP BY r.region_name, o.channel ORDER BY refunded_orders DESC LIMIT 1"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH region_refund_rates AS (SELECT r.region_name, CAST(SUM(CASE WHEN o.status = 'refunded' THEN 1 ELSE 0 END) AS REAL) / COUNT(*) AS refund_rate FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY r.region_name ORDER BY refund_rate DESC LIMIT 1), top_region AS (SELECT region_name FROM region_refund_rates) SELECT r.region_name, o.channel, COUNT(*) AS refunded_orders FROM orders AS o JOIN customers AS c ON o.customer_id = c.customer_id JOIN regions AS r ON c.region_id = r.region_id WHERE o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.status = 'refunded' AND r.region_name = (SELECT region_name FROM top_region) GROUP BY r.region_name, o.channel ORDER BY refunded_orders DESC LIMIT 1",
+  "ok": true,
+  "columns": [
+   "region_name",
+   "channel",
+   "refunded_orders"
+  ],
+  "rows": [
+   [
+    "LATAM",
+    "Online",
+    79
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "In 2025, the region with the highest refund rate was LATAM, and within that region the sales channel with the most refunded orders was Online with 79 refunded orders.",
+ "key_numbers": [
+  "79"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "ce7b41c5317a80bad8fcee477f3db7ac69408c3262082b4c2310d31fc8a284d9",
+   "cache_hit": false,
+   "latency_ms": 1801.3,
+   "input_tokens": 2787,
+   "output_tokens": 447,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "4dae0077c4e7785a3176f511b1dc019c923760696ef00521ed7b265ab2b3cae2",
+   "cache_hit": false,
+   "latency_ms": 1199.8,
+   "input_tokens": 754,
+   "output_tokens": 70,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 3.733,
+ "latency_live_s": 3.733,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

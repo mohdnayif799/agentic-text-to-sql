@@ -1,0 +1,134 @@
+{
+ "question_id": "ha01",
+ "type": "multi_hop",
+ "arch": "baseline",
+ "question": "Which customer segment had the most customers churn in 2025, and who was that segment's top customer by completed revenue in 2025? Give the customer's ID, name and 2025 completed revenue.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH 2025_churn AS ( \n  SELECT segment, COUNT(customer_id) AS churned_count \n  FROM customers \n  WHERE churn_date >= '2025-01-01' AND churn_date <= '2025-12-31' \n  GROUP BY segment \n  ORDER BY churned_count DESC \n  LIMIT 1 \n), top_customer AS ( \n  SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev \n  FROM customers c \n  JOIN orders o ON o.customer_id = c.customer_id \n  JOIN order_items oi ON oi.order_id = o.order_id \n  WHERE c.segment = (SELECT segment FROM 2025_churn) \n    AND o.status = 'completed' \n    AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' \n  GROUP BY c.customer_id, c.customer_name \n  ORDER BY rev DESC \n  LIMIT 1 \n) \nSELECT tc.customer_id, tc.customer_name, tc.rev AS completed_revenue \nFROM top_customer tc",
+   "ok": false,
+   "failure": "blocked",
+   "error": "Could not parse SQL: Expected CTE to have alias. Line 1, Col: 9.\n  WITH \u001b[4m2025\u001b[0m_churn AS ( \n  SELECT segment, COUNT(customer_id) AS churned_count \n  FROM customers \n  WHERE churn_",
+   "row_count": 0,
+   "preview": "ERROR (blocked): Could not parse SQL: Expected CTE to have alias. Line 1, Col: 9.\n  WITH \u001b[4m2025\u001b[0m_churn AS ( \n  SELECT segment, COUNT(customer_id) AS churned_count \n  FROM customers \n  WHERE churn_"
+  },
+  {
+   "sql": "WITH churned_2025 AS (SELECT segment, COUNT(customer_id) AS churned_count FROM customers WHERE churn_date >= '2025-01-01' AND churn_date <= '2025-12-31' GROUP BY segment ORDER BY churned_count DESC LIMIT 1), top_customer AS (SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.segment = (SELECT segment FROM churned_2025) AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY rev DESC LIMIT 1) SELECT tc.customer_id, tc.customer_name, tc.rev AS completed_revenue FROM top_customer AS tc",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "customer_id | customer_name | completed_revenue\n84 | Jonas Duarte | 34461.23"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH churned_2025 AS (SELECT segment, COUNT(customer_id) AS churned_count FROM customers WHERE churn_date >= '2025-01-01' AND churn_date <= '2025-12-31' GROUP BY segment ORDER BY churned_count DESC LIMIT 1), top_customer AS (SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.segment = (SELECT segment FROM churned_2025) AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY rev DESC LIMIT 1) SELECT tc.customer_id, tc.customer_name, tc.rev AS completed_revenue FROM top_customer AS tc"
+  }
+ ],
+ "repairs": [
+  {
+   "step": 1,
+   "signal": "error",
+   "detail": "Could not parse SQL: Expected CTE to have alias. Line 1, Col: 9.\n  WITH \u001b[4m2025\u001b[0m_churn AS ( \n  SELECT segment, COUNT(customer_id) AS churned_count \n  FROM customers \n  WHERE churn_",
+   "via": "repair",
+   "accepted": true,
+   "attempts": 1,
+   "before": {
+    "sql": "WITH 2025_churn AS ( \n  SELECT segment, COUNT(customer_id) AS churned_count \n  FROM customers \n  WHERE churn_date >= '2025-01-01' AND churn_date <= '2025-12-31' \n  GROUP BY segment \n  ORDER BY churned_count DESC \n  LIMIT 1 \n), top_customer AS ( \n  SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev \n  FROM customers c \n  JOIN orders o ON o.customer_id = c.customer_id \n  JOIN order_items oi ON oi.order_id = o.order_id \n  WHERE c.segment = (SELECT segment FROM 2025_churn) \n    AND o.status = 'completed' \n    AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' \n  GROUP BY c.customer_id, c.customer_name \n  ORDER BY rev DESC \n  LIMIT 1 \n) \nSELECT tc.customer_id, tc.customer_name, tc.rev AS completed_revenue \nFROM top_customer tc",
+    "ok": false,
+    "rows": 0,
+    "error": "Could not parse SQL: Expected CTE to have alias. Line 1, Col: 9.\n  WITH \u001b[4m2025\u001b[0m_churn AS ( \n  SELECT segment, COUNT(customer_id) AS churned_count \n  FROM customers \n  WHERE churn_"
+   },
+   "after": {
+    "sql": "WITH churned_2025 AS (SELECT segment, COUNT(customer_id) AS churned_count FROM customers WHERE churn_date >= '2025-01-01' AND churn_date <= '2025-12-31' GROUP BY segment ORDER BY churned_count DESC LIMIT 1), top_customer AS (SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.segment = (SELECT segment FROM churned_2025) AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY rev DESC LIMIT 1) SELECT tc.customer_id, tc.customer_name, tc.rev AS completed_revenue FROM top_customer AS tc",
+    "ok": true,
+    "rows": 1,
+    "error": null
+   },
+   "effect": "fix"
+  }
+ ],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH churned_2025 AS (SELECT segment, COUNT(customer_id) AS churned_count FROM customers WHERE churn_date >= '2025-01-01' AND churn_date <= '2025-12-31' GROUP BY segment ORDER BY churned_count DESC LIMIT 1), top_customer AS (SELECT c.customer_id, c.customer_name, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS rev FROM customers AS c JOIN orders AS o ON o.customer_id = c.customer_id JOIN order_items AS oi ON oi.order_id = o.order_id WHERE c.segment = (SELECT segment FROM churned_2025) AND o.status = 'completed' AND o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' GROUP BY c.customer_id, c.customer_name ORDER BY rev DESC LIMIT 1) SELECT tc.customer_id, tc.customer_name, tc.rev AS completed_revenue FROM top_customer AS tc",
+  "ok": true,
+  "columns": [
+   "customer_id",
+   "customer_name",
+   "completed_revenue"
+  ],
+  "rows": [
+   [
+    84,
+    "Jonas Duarte",
+    34461.23
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "Assuming the segment with the most churned customers in 2025 is determined by the highest count of churned customers, that segment's top customer by completed revenue in 2025 was Jonas Duarte (customer ID 84), with a completed revenue of 34461.23.",
+ "key_numbers": [
+  "84",
+  "34461.23"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "321c7b9f88c65a57abf97e89367c813353e6e798365df199bc6e829216b228f9",
+   "cache_hit": false,
+   "latency_ms": 2111.8,
+   "input_tokens": 2996,
+   "output_tokens": 403,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "1480e8ad84656136703b76aa774b11f98177a4b62cefb16b82422dc43f2b94fa",
+   "cache_hit": false,
+   "latency_ms": 1958.4,
+   "input_tokens": 3393,
+   "output_tokens": 444,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "05a11441e52f19768466da0ccc767a9614e882094a7bffc0e014ef546f6ba519",
+   "cache_hit": false,
+   "latency_ms": 1276.0,
+   "input_tokens": 744,
+   "output_tokens": 109,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 6.071,
+ "latency_live_s": 6.071,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "1 row(s) match; answer missing ['text: Mid-Market']"
+ }
+}
