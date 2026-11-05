@@ -9,6 +9,34 @@ whether the fixes work as built. A clean number needs a new holdout.
 
 The frozen holdouts, gold answers, grader and Phase 5 result folders are unchanged.
 
+## Changes after this measurement
+
+**Everything below this section measures commit `f9e34a9` and was left as written.** These
+commits came later, and **none of them has been run on the holdouts**. The planned
+50-question evaluation is what will measure them.
+
+| Commit | Change | Effect on what this report describes |
+| --- | --- | --- |
+| `eca0692` | The conditional signal reads a decimal as part of the sentence | ha20 and ha21 should now take the conditional path, which they did not here |
+| `807a027` | A table with a hollow row is left out of selection when a clean one exists | Closes problem 2 below, on ha20's path |
+| `46a9aef` | Fix 6's keyword hint removed | The disclosure about the hint no longer applies; the planner now gets no wording-based help |
+| `1415a3f` | A breakdown leads with the dimension that concentrates the change most | Addresses problem 3 below; ha08's all-live answer should no longer lead with segment |
+| `43c7eab` | A request to change the data is refused before any LLM call or SQL (C and D, and the app) | No question in these sets is affected, as a test checks |
+
+They were checked on the dev sets and dev probes only, from a new empty cache: D 11/11 on
+`showcase` and `dev2`, A 8/11, no errors, and 63 live calls for about $0.07. Raw results
+are in [fixes-nonprimary/after-measurement/](fixes-nonprimary/after-measurement/).
+
+**That check does not exercise all of them.** No dev question has a decimal in a condition,
+a table with a hollow row or a request to change data, and on the spike probe the planner
+had already chosen the most concentrated dimension. Those paths are covered by offline
+tests only. The hint's removal was exercised: the planner still chose the across-groups
+mode on the probe, and `sc03` did not use it.
+
+Still open: across-groups answers can overstate how alike other components moved (the
+probe says average unit price changed similarly, at -13% against -7%), and the judge's false
+positives on ha07 and ha08, which are recorded as graded.
+
 ## Runs
 
 All on `gemini-3.5-flash-lite`, the pinned date and the same budgets. Raw results and

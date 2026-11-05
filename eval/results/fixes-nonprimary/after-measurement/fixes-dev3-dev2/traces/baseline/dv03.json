@@ -1,0 +1,100 @@
+{
+ "question_id": "dv03",
+ "type": "statistics",
+ "arch": "baseline",
+ "question": "Project new customer signups for January, February and March 2025 from a least-squares linear trend over the 24 monthly signup counts of 2023 and 2024, with x = 1 for January 2023 through x = 24 for December 2024. Label months as YYYY-MM.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH monthly_signups AS (SELECT STRFTIME('%Y-%m', signup_date) AS ym, COUNT(*) AS cnt FROM customers WHERE signup_date >= '2023-01-01' AND signup_date <= '2024-12-31' GROUP BY ym), numbered AS (SELECT ym, cnt, ROW_NUMBER() OVER (ORDER BY ym) AS x FROM monthly_signups), stats AS (SELECT AVG(x) AS mean_x, AVG(cnt) AS mean_y, SUM((x - (SELECT AVG(x) FROM numbered)) * (cnt - (SELECT AVG(cnt) FROM numbered))) / SUM((x - (SELECT AVG(x) FROM numbered)) * (x - (SELECT AVG(x) FROM numbered))) AS slope FROM numbered), proj AS (SELECT 25 AS x, '2025-01' AS month UNION ALL SELECT 26, '2025-02' UNION ALL SELECT 27, '2025-03') SELECT p.month, (SELECT mean_y + slope * (p.x - mean_x) FROM stats) AS projected_signups FROM proj AS p LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "month | projected_signups\n2025-01 | 46.03623188405797\n2025-02 | 46.155797101449274\n2025-03 | 46.27536231884058"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH monthly_signups AS (SELECT STRFTIME('%Y-%m', signup_date) AS ym, COUNT(*) AS cnt FROM customers WHERE signup_date >= '2023-01-01' AND signup_date <= '2024-12-31' GROUP BY ym), numbered AS (SELECT ym, cnt, ROW_NUMBER() OVER (ORDER BY ym) AS x FROM monthly_signups), stats AS (SELECT AVG(x) AS mean_x, AVG(cnt) AS mean_y, SUM((x - (SELECT AVG(x) FROM numbered)) * (cnt - (SELECT AVG(cnt) FROM numbered))) / SUM((x - (SELECT AVG(x) FROM numbered)) * (x - (SELECT AVG(x) FROM numbered))) AS slope FROM numbered), proj AS (SELECT 25 AS x, '2025-01' AS month UNION ALL SELECT 26, '2025-02' UNION ALL SELECT 27, '2025-03') SELECT p.month, (SELECT mean_y + slope * (p.x - mean_x) FROM stats) AS projected_signups FROM proj AS p LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH monthly_signups AS (SELECT STRFTIME('%Y-%m', signup_date) AS ym, COUNT(*) AS cnt FROM customers WHERE signup_date >= '2023-01-01' AND signup_date <= '2024-12-31' GROUP BY ym), numbered AS (SELECT ym, cnt, ROW_NUMBER() OVER (ORDER BY ym) AS x FROM monthly_signups), stats AS (SELECT AVG(x) AS mean_x, AVG(cnt) AS mean_y, SUM((x - (SELECT AVG(x) FROM numbered)) * (cnt - (SELECT AVG(cnt) FROM numbered))) / SUM((x - (SELECT AVG(x) FROM numbered)) * (x - (SELECT AVG(x) FROM numbered))) AS slope FROM numbered), proj AS (SELECT 25 AS x, '2025-01' AS month UNION ALL SELECT 26, '2025-02' UNION ALL SELECT 27, '2025-03') SELECT p.month, (SELECT mean_y + slope * (p.x - mean_x) FROM stats) AS projected_signups FROM proj AS p LIMIT 500",
+  "ok": true,
+  "columns": [
+   "month",
+   "projected_signups"
+  ],
+  "rows": [
+   [
+    "2025-01",
+    46.03623188405797
+   ],
+   [
+    "2025-02",
+    46.155797101449274
+   ],
+   [
+    "2025-03",
+    46.27536231884058
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "Based on the least-squares linear trend from 2023 and 2024, the projected new customer signups are 46.04 for 2025-01, 46.16 for 2025-02, and 46.28 for 2025-03.",
+ "key_numbers": [
+  "46.03623188405797",
+  "46.155797101449274",
+  "46.27536231884058"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "2407c50eefab0c72eea8e2f9f60aa9c687dd12d4bf407ac4ef5557f693058361",
+   "cache_hit": false,
+   "latency_ms": 1830.1,
+   "input_tokens": 2997,
+   "output_tokens": 394,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "e040a53dc81ef5475b63696af83a23187cba5a59ddde9003d89a73f3fb85b689",
+   "cache_hit": false,
+   "latency_ms": 1335.6,
+   "input_tokens": 837,
+   "output_tokens": 166,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 3.181,
+ "latency_live_s": 3.181,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "3 row(s) match"
+ }
+}

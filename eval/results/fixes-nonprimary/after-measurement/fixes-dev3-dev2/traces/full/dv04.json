@@ -1,0 +1,104 @@
+{
+ "question_id": "dv04",
+ "type": "statistics",
+ "arch": "full",
+ "question": "Which months stand out in how quickly we closed support tickets? Take tickets opened in 2024 and 2025 that have a resolved date, compute the mean days to close for each opening month, and flag months whose mean is more than 2 standard deviations from the average of those 24 monthly means. Give each flagged month (YYYY-MM) and its mean days to close.",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "WITH monthly_means AS (SELECT STRFTIME('%Y-%m', t.created_date) AS opening_month, AVG(JULIANDAY(t.resolved_date) - JULIANDAY(t.created_date)) AS mean_days FROM support_tickets AS t WHERE t.created_date >= '2024-01-01' AND t.created_date <= '2025-12-31' AND NOT t.resolved_date IS NULL GROUP BY opening_month), stats AS (SELECT AVG(mean_days) AS grand_mean, SQRT((SUM(mean_days * mean_days) - SUM(mean_days) * SUM(mean_days) / COUNT(*)) / (COUNT(*) - 1)) AS sd_days /* Sample or population SD? Standard SQL practice for a set of group means typically uses standard deviation over the set of 24 values. */ /* Let's use SQLite's standard deviation function if available, or compute via formulas. SQLite has stdev() in some extensions, but standard aggregate in standard SQLite doesn't always have stdev unless loaded. Wait, SQLite does support AVG, SUM, etc. Let's check if stdev/sd functions are available or compute manually. Actually, standard SQLite does NOT have STDEV() built in by default unless compiled with math extensions. Let's compute variance via SUM(x^2)/N - (SUM(x)/N)^2 or check if standard aggregates exist. */ /* Wait! SQLite doesn't have STDEV by default. Let's compute using standard SQL formulas: SQRT( (SUM(mean_days*mean_days) - SUM(mean_days)*SUM(mean_days)/COUNT(*)) / (COUNT(*) - 1) ) (sample SD) or COUNT(*) (pop SD). Let's use sample or population? Usually 'standard deviations from the average' refers to population or sample; let's check standard SQL definitions. */ /* Let's write the formula for sample standard deviation: */ /* SQRT((SUM(mean_days * mean_days) - SUM(mean_days) * SUM(mean_days) / COUNT(*)) / (COUNT(*) - 1)) AS sample_sd, */ /* SQRT((SUM(mean_days * mean_days) - SUM(mean_days) * SUM(mean_days) / COUNT(*)) / COUNT(*)) AS pop_sd */ /* Let's use sample standard deviation (N-1) or population (N). Usually N-1 is standard for sample standard deviation. */ /* Wait, let's look at the phrasing: \"the average of those 24 monthly means\". There are 24 months in 2024-2025, so COUNT(*) = 24. */ /* Let's compute both or use sample standard deviation (N-1). */ FROM monthly_means) SELECT m.opening_month, m.mean_days FROM monthly_means AS m CROSS JOIN stats AS s WHERE ABS(m.mean_days - s.grand_mean) > 2 * s.sd_days ORDER BY m.opening_month LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "opening_month | mean_days\n2024-08 | 9.150943396226415"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "WITH monthly_means AS (SELECT STRFTIME('%Y-%m', t.created_date) AS opening_month, AVG(JULIANDAY(t.resolved_date) - JULIANDAY(t.created_date)) AS mean_days FROM support_tickets AS t WHERE t.created_date >= '2024-01-01' AND t.created_date <= '2025-12-31' AND NOT t.resolved_date IS NULL GROUP BY opening_month), stats AS (SELECT AVG(mean_days) AS grand_mean, SQRT((SUM(mean_days * mean_days) - SUM(mean_days) * SUM(mean_days) / COUNT(*)) / (COUNT(*) - 1)) AS sd_days /* Sample or population SD? Standard SQL practice for a set of group means typically uses standard deviation over the set of 24 values. */ /* Let's use SQLite's standard deviation function if available, or compute via formulas. SQLite has stdev() in some extensions, but standard aggregate in standard SQLite doesn't always have stdev unless loaded. Wait, SQLite does support AVG, SUM, etc. Let's check if stdev/sd functions are available or compute manually. Actually, standard SQLite does NOT have STDEV() built in by default unless compiled with math extensions. Let's compute variance via SUM(x^2)/N - (SUM(x)/N)^2 or check if standard aggregates exist. */ /* Wait! SQLite doesn't have STDEV by default. Let's compute using standard SQL formulas: SQRT( (SUM(mean_days*mean_days) - SUM(mean_days)*SUM(mean_days)/COUNT(*)) / (COUNT(*) - 1) ) (sample SD) or COUNT(*) (pop SD). Let's use sample or population? Usually 'standard deviations from the average' refers to population or sample; let's check standard SQL definitions. */ /* Let's write the formula for sample standard deviation: */ /* SQRT((SUM(mean_days * mean_days) - SUM(mean_days) * SUM(mean_days) / COUNT(*)) / (COUNT(*) - 1)) AS sample_sd, */ /* SQRT((SUM(mean_days * mean_days) - SUM(mean_days) * SUM(mean_days) / COUNT(*)) / COUNT(*)) AS pop_sd */ /* Let's use sample standard deviation (N-1) or population (N). Usually N-1 is standard for sample standard deviation. */ /* Wait, let's look at the phrasing: \"the average of those 24 monthly means\". There are 24 months in 2024-2025, so COUNT(*) = 24. */ /* Let's compute both or use sample standard deviation (N-1). */ FROM monthly_means) SELECT m.opening_month, m.mean_days FROM monthly_means AS m CROSS JOIN stats AS s WHERE ABS(m.mean_days - s.grand_mean) > 2 * s.sd_days ORDER BY m.opening_month LIMIT 500",
+   "reason": "",
+   "signal": null
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "WITH monthly_means AS (SELECT STRFTIME('%Y-%m', t.created_date) AS opening_month, AVG(JULIANDAY(t.resolved_date) - JULIANDAY(t.created_date)) AS mean_days FROM support_tickets AS t WHERE t.created_date >= '2024-01-01' AND t.created_date <= '2025-12-31' AND NOT t.resolved_date IS NULL GROUP BY opening_month), stats AS (SELECT AVG(mean_days) AS grand_mean, SQRT((SUM(mean_days * mean_days) - SUM(mean_days) * SUM(mean_days) / COUNT(*)) / (COUNT(*) - 1)) AS sd_days /* Sample or population SD? Standard SQL practice for a set of group means typically uses standard deviation over the set of 24 values. */ /* Let's use SQLite's standard deviation function if available, or compute via formulas. SQLite has stdev() in some extensions, but standard aggregate in standard SQLite doesn't always have stdev unless loaded. Wait, SQLite does support AVG, SUM, etc. Let's check if stdev/sd functions are available or compute manually. Actually, standard SQLite does NOT have STDEV() built in by default unless compiled with math extensions. Let's compute variance via SUM(x^2)/N - (SUM(x)/N)^2 or check if standard aggregates exist. */ /* Wait! SQLite doesn't have STDEV by default. Let's compute using standard SQL formulas: SQRT( (SUM(mean_days*mean_days) - SUM(mean_days)*SUM(mean_days)/COUNT(*)) / (COUNT(*) - 1) ) (sample SD) or COUNT(*) (pop SD). Let's use sample or population? Usually 'standard deviations from the average' refers to population or sample; let's check standard SQL definitions. */ /* Let's write the formula for sample standard deviation: */ /* SQRT((SUM(mean_days * mean_days) - SUM(mean_days) * SUM(mean_days) / COUNT(*)) / (COUNT(*) - 1)) AS sample_sd, */ /* SQRT((SUM(mean_days * mean_days) - SUM(mean_days) * SUM(mean_days) / COUNT(*)) / COUNT(*)) AS pop_sd */ /* Let's use sample standard deviation (N-1) or population (N). Usually N-1 is standard for sample standard deviation. */ /* Wait, let's look at the phrasing: \"the average of those 24 monthly means\". There are 24 months in 2024-2025, so COUNT(*) = 24. */ /* Let's compute both or use sample standard deviation (N-1). */ FROM monthly_means) SELECT m.opening_month, m.mean_days FROM monthly_means AS m CROSS JOIN stats AS s WHERE ABS(m.mean_days - s.grand_mean) > 2 * s.sd_days ORDER BY m.opening_month LIMIT 500",
+  "ok": true,
+  "columns": [
+   "opening_month",
+   "mean_days"
+  ],
+  "rows": [
+   [
+    "2024-08",
+    9.150943396226415
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "The month that stands out with a mean days to close more than 2 standard deviations from the average of the monthly means is 2024-08, with a mean of 9.15 days.",
+ "key_numbers": [
+  "2024-08",
+  "9.150943396226415"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "2dd96bf6eadbc8c841732c73fb1f7326a1349e7951d5c6623259d4e593bed5ce",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 2874,
+   "output_tokens": 886,
+   "original_latency_ms": 3488.7,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "1ea21177da04289321e6968849cc3cfacd30e47f9e417c584f08344429e0a248",
+   "cache_hit": true,
+   "latency_ms": 0.0,
+   "input_tokens": 1207,
+   "output_tokens": 102,
+   "original_latency_ms": 1254.6,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline (step 0)"
+  },
+  {
+   "role": "You check whether one query result fully answers a user's question about a datab",
+   "prompt_hash": "239f405e4e2bca5455742911a14b96e02bb7b56aa9fa2ffd36c9df940e0fe428",
+   "cache_hit": false,
+   "latency_ms": 1065.7,
+   "input_tokens": 1095,
+   "output_tokens": 49,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "router (shared with C)"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 1.094,
+ "latency_live_s": 5.837,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": true,
+  "answer_ok": true,
+  "end_to_end": true,
+  "detail": "1 row(s) match"
+ }
+}

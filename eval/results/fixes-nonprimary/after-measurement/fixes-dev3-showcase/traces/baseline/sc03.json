@@ -1,0 +1,166 @@
+{
+ "question_id": "sc03",
+ "type": "why",
+ "arch": "baseline",
+ "question": "Why does the Online channel bring in so much more completed revenue than the Direct and Partner channels over 2024 and 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT o.channel, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue, COUNT(DISTINCT o.order_id) AS order_count FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' GROUP BY o.channel ORDER BY completed_revenue DESC LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 3,
+   "preview": "channel | completed_revenue | order_count\nOnline | 10195563.464 | 3458\nDirect | 7106104.9285 | 2366\nPartner | 5831252.8015 | 1922"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT o.channel, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue, COUNT(DISTINCT o.order_id) AS order_count FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' GROUP BY o.channel ORDER BY completed_revenue DESC LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT o.channel, SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS completed_revenue, COUNT(DISTINCT o.order_id) AS order_count FROM orders AS o JOIN order_items AS oi ON oi.order_id = o.order_id WHERE o.status = 'completed' GROUP BY o.channel ORDER BY completed_revenue DESC LIMIT 500",
+  "ok": true,
+  "columns": [
+   "channel",
+   "completed_revenue",
+   "order_count"
+  ],
+  "rows": [
+   [
+    "Online",
+    10195563.464,
+    3458
+   ],
+   [
+    "Direct",
+    7106104.9285,
+    2366
+   ],
+   [
+    "Partner",
+    5831252.8015,
+    1922
+   ]
+  ],
+  "row_count": 3
+ },
+ "answer": "Over 2024 and 2025, the Online channel brings in more completed revenue ($10,195,563.46 across 3,458 orders) because it handles a significantly higher volume of orders than the Direct channel ($7,106,104.93 from 2,366 orders) and the Partner channel ($5,831,252.80 from 1,922 orders).",
+ "key_numbers": [
+  "10195563.464",
+  "3458",
+  "7106104.9285",
+  "2366",
+  "5831252.8015",
+  "1922"
+ ],
+ "caveats": [],
+ "judge": {
+  "verdict": "fail",
+  "reason": "required fact(s) not stated: [2]",
+  "facts": [
+   {
+    "fact": "Online has far more completed orders than the other channels: about 3,458 versus about 2,366 (Direct) and 1,922 (Partner).",
+    "verdict": "yes",
+    "quote": "Over 2024 and 2025, the Online channel brings in more completed revenue ($10,195,563.46 across 3,458 orders) because it handles a significantly higher volume of orders than the Direct channel ($7,106,104.93 from 2,366 orders) and the Partner channel ($5,831,252.80 from 1,922 orders).",
+    "quote_verified": true,
+    "counts_as_yes": true,
+    "reason": "The answer directly states that Online has 3,458 orders, while Direct has 2,366 orders and Partner has 1,922 orders, which matches the required fact."
+   },
+   {
+    "fact": "The average completed order value is about the same in every channel (roughly 2,950 to 3,030), so order size does not explain the gap.",
+    "verdict": "no",
+    "quote": "",
+    "quote_verified": false,
+    "counts_as_yes": false,
+    "reason": "The required fact states that the average completed order value is about the same in every channel (roughly 2,950 to 3,030) and order size does not explain the gap. The answer explains the difference in revenue through order volume, but it never mentions the average order value or order size being similar across channels."
+   }
+  ],
+  "disqualifying": {
+   "verdict": "no",
+   "quote": "",
+   "quote_verified": false,
+   "counts_as_yes": false,
+   "reason": "The answer attributes the higher revenue to a higher volume of orders, which is supported by the evidence and does not violate the disqualifying claim about attributing it mainly to larger orders, higher prices, or smaller discounts."
+  }
+ },
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "89dc318d68caefef8967c0f135faec82336dbe27f51a49efcd031dada29f723a",
+   "cache_hit": false,
+   "latency_ms": 1504.5,
+   "input_tokens": 2865,
+   "output_tokens": 192,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "ee2136dd39cddf19255a1363e8370231371c979699e12ed3a0ba23eab1d811d1",
+   "cache_hit": false,
+   "latency_ms": 1513.0,
+   "input_tokens": 600,
+   "output_tokens": 203,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "0760f92dc67886a7e51753bc2edf35b34e1fd15eca60941adfbffbe5951531a6",
+   "cache_hit": false,
+   "latency_ms": 1215.7,
+   "input_tokens": 701,
+   "output_tokens": 177,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  },
+  {
+   "role": "You are a strict fact checker grading an analytics assistant's answer. You recei",
+   "prompt_hash": "ad8e5abb89495cea96ad8b1bdeb9434b4c96fd857bcfa10bfded126c668de18b",
+   "cache_hit": false,
+   "latency_ms": 1252.7,
+   "input_tokens": 699,
+   "output_tokens": 93,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  },
+  {
+   "role": "You are a strict checker grading an analytics assistant's answer. You receive a ",
+   "prompt_hash": "ab789c142e12ae289c057c5b0a9a26bcb5253e72e1746141f01054ca80d9e519",
+   "cache_hit": false,
+   "latency_ms": 978.3,
+   "input_tokens": 650,
+   "output_tokens": 71,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0
+  }
+ ],
+ "latency_s": 3.034,
+ "latency_live_s": 3.034,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": true,
+  "end_to_end": false,
+  "detail": "driver named; judge fail"
+ }
+}

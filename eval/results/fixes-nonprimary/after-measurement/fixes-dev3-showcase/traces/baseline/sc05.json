@@ -1,0 +1,93 @@
+{
+ "question_id": "sc05",
+ "type": "recovery",
+ "arch": "baseline",
+ "question": "What were LATAM's total completed revenue and total marketing spend in 2025?",
+ "model": "gemini-3.5-flash-lite",
+ "today": "2026-10-04",
+ "status": "done",
+ "path": "direct",
+ "stop_reason": "none",
+ "error": null,
+ "plan": [],
+ "sql_attempts": [
+  {
+   "sql": "SELECT r.region_name, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.status = 'completed' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS completed_revenue, SUM(CASE WHEN m.month >= '2025-01' AND m.month <= '2025-12' THEN m.amount ELSE 0 END) AS marketing_spend FROM regions AS r LEFT JOIN customers AS c ON c.region_id = r.region_id LEFT JOIN orders AS o ON o.customer_id = c.customer_id LEFT JOIN order_items AS oi ON oi.order_id = o.order_id LEFT JOIN marketing_spend AS m ON m.region_id = r.region_id WHERE r.region_name = 'LATAM' GROUP BY r.region_name LIMIT 500",
+   "ok": true,
+   "failure": "none",
+   "error": null,
+   "row_count": 1,
+   "preview": "region_name | completed_revenue | marketing_spend\nLATAM | 125018270.1 | 2301111752.4"
+  }
+ ],
+ "steps": [
+  {
+   "step": 1,
+   "tools": [
+    "run_sql"
+   ],
+   "sql": "SELECT r.region_name, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.status = 'completed' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS completed_revenue, SUM(CASE WHEN m.month >= '2025-01' AND m.month <= '2025-12' THEN m.amount ELSE 0 END) AS marketing_spend FROM regions AS r LEFT JOIN customers AS c ON c.region_id = r.region_id LEFT JOIN orders AS o ON o.customer_id = c.customer_id LEFT JOIN order_items AS oi ON oi.order_id = o.order_id LEFT JOIN marketing_spend AS m ON m.region_id = r.region_id WHERE r.region_name = 'LATAM' GROUP BY r.region_name LIMIT 500"
+  }
+ ],
+ "repairs": [],
+ "selected_step": 1,
+ "selected_result": {
+  "sql": "SELECT r.region_name, SUM(CASE WHEN o.order_date >= '2025-01-01' AND o.order_date <= '2025-12-31' AND o.status = 'completed' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) AS completed_revenue, SUM(CASE WHEN m.month >= '2025-01' AND m.month <= '2025-12' THEN m.amount ELSE 0 END) AS marketing_spend FROM regions AS r LEFT JOIN customers AS c ON c.region_id = r.region_id LEFT JOIN orders AS o ON o.customer_id = c.customer_id LEFT JOIN order_items AS oi ON oi.order_id = o.order_id LEFT JOIN marketing_spend AS m ON m.region_id = r.region_id WHERE r.region_name = 'LATAM' GROUP BY r.region_name LIMIT 500",
+  "ok": true,
+  "columns": [
+   "region_name",
+   "completed_revenue",
+   "marketing_spend"
+  ],
+  "rows": [
+   [
+    "LATAM",
+    125018270.1,
+    2301111752.4
+   ]
+  ],
+  "row_count": 1
+ },
+ "answer": "In 2025, LATAM generated a total completed revenue of 125,018,270.10 and had a total marketing spend of 2,301,111,752.40.",
+ "key_numbers": [
+  "125018270.1",
+  "2301111752.4"
+ ],
+ "caveats": [],
+ "judge": null,
+ "llm_calls": [
+  {
+   "role": "You are a SQL analyst with read-only access to a SQLite database. Write ONE SQLi",
+   "prompt_hash": "636072884da2b488e614bbc3585b8061cd88e4d5c9453f0bcc8172bf83c005ce",
+   "cache_hit": false,
+   "latency_ms": 1824.6,
+   "input_tokens": 2833,
+   "output_tokens": 320,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  },
+  {
+   "role": "You write the final answer of an analytics assistant. You are given the user's q",
+   "prompt_hash": "4e8aacb0b5a6762efd6f35b5bb329b8fdc5f6563a82f915510500f2bf7c7f605",
+   "cache_hit": false,
+   "latency_ms": 1165.2,
+   "input_tokens": 693,
+   "output_tokens": 111,
+   "original_latency_ms": null,
+   "thoughts_tokens": 0,
+   "cache_namespace": "baseline"
+  }
+ ],
+ "judge_calls": [],
+ "latency_s": 3.04,
+ "latency_live_s": 3.04,
+ "latency_unmeasured_calls": 0,
+ "error_detail": null,
+ "score": {
+  "primary": false,
+  "answer_ok": false,
+  "end_to_end": false,
+  "detail": "no result column matches gold column(s) [0, 1]; first gold row [1736364.8625, 583742.2]; answer missing ['number: 1736364.8625', 'number: 583742.2']"
+ }
+}
