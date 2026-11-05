@@ -4,3 +4,6 @@ scripts/run_eval.py text eol=lf
 scripts/score_eval.py text eol=lf
 evalkit/** text eol=lf
 scripts/build_gold.py text eol=lf
+scripts/build_holdout_v2_gold.py text eol=lf
+scripts/run_safety_set.py text eol=lf
+scripts/report_primary_50.py text eol=lf

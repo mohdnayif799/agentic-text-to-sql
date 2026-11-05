@@ -36,7 +36,17 @@ from agentcrew.config import Settings  # noqa: E402
 from agentcrew.context.examples import EXAMPLES_PATH, pairwise_similarity  # noqa: E402
 from evalkit.gold import connect_read_only  # noqa: E402
 from evalkit.grader import Gold, contains_gold  # noqa: E402
-from evalrun.sets import ALL_GOLD_FILES, ALL_SET_FILES, load_questions  # noqa: E402
+from evalrun.sets import (  # noqa: E402
+    ALL_GOLD_FILES,
+    ALL_SET_FILES,
+    V2_SET_FILES,
+    load_questions,
+)
+
+# The pool is part of the agent's context, which is frozen for the 50-question
+# evaluation, so the file is built from the sets that existed when it was fixed. A
+# test rebuilds it with the new holdout included and requires the same pool.
+POOL_SETS = [name for name in ALL_SET_FILES if name not in V2_SET_FILES]
 
 SOURCES = {
     "orig": "eval/questions.yaml",
@@ -162,15 +172,16 @@ def answer_overlap(rows, tables, names) -> list[str]:
     return sorted(hits)
 
 
-def build(conn: sqlite3.Connection) -> dict[str, Any]:
+def build(conn: sqlite3.Connection, sets: list[str] | None = None) -> dict[str, Any]:
+    sets = sets or POOL_SETS
     cands = candidates()
-    v2 = [q for name in ALL_SET_FILES for q in load_questions(name)]
+    v2 = [q for name in sets for q in load_questions(name)]
     sims = pairwise_similarity([c["question"] for c in cands],
                                [q["question"] for q in v2])
     names = {r[0] for r in conn.execute(
         "SELECT product_name FROM products UNION SELECT customer_name FROM customers"
     )}
-    tables = gold_tables()
+    tables = gold_tables(sets)
     pool, excluded = [], []
     for cand, row in zip(cands, sims, strict=True):
         best = max(range(len(v2)), key=lambda j: row[j])
