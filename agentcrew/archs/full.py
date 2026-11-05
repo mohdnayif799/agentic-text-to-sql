@@ -16,10 +16,11 @@ When the run escalates, D adds:
 - for a question that asks why (is_why_question), a metric analysis first:
   one validated MetricPlan picks the metric and the comparison, and
   decompose_change splits the metric into its components (or, for a metric
-  without components, contribution_by_dimension breaks it down). If the question
-  asks why one group changed more than the others (is_cross_group_question), the
-  planner is told so and decompose_change compares each component's change across
-  the groups, so the answer names what differs, not what fell most. If it asks
+  without components, contribution_by_dimension breaks it down). The plan may
+  give two periods together with groups, and decompose_change then compares each
+  component's change across the groups, so the answer names what differs, not
+  what fell most. Choosing that comparison is the planner's call; no wording of
+  the question decides it. If it asks
   about a sudden change (is_spike_question), the next step reads the same metric
   over the periods before it (compute.history.period_history, no LLM call), so the
   answer can say what is normal. Added after a holdout failure (ha08: an answer
@@ -300,13 +301,6 @@ in every group does not explain the difference, however large its own change.
 figures (whole numbers for counts, at most two decimals otherwise).
 """
 
-#: Added to the planner's prompt when the question asks about one group against
-#: the rest, so the choice of comparison does not rest on the prompt's list alone.
-ACROSS_GROUPS_HINT = (
-    "The question compares a change across groups: use the comparison with "
-    "period_a, period_b, group_dimension and groups, listing every group."
-)
-
 #: Added to METRIC_GUIDANCE when the question asks about a sudden change.
 BASELINE_GUIDANCE = """\
 ## What is normal
@@ -334,13 +328,6 @@ _SPIKE = re.compile(
     r"|slump\w*|tank\w*|fell|fall\w*|declin\w*|collaps\w*|crash\w*)\b",
     re.IGNORECASE,
 )
-#: One thing changing more or less than the others. General English phrasing,
-#: not drawn from any question set.
-_CROSS_GROUP = re.compile(
-    r"\b(?:more|less|faster|slower|further|harder|worse|better)\b[^.?!]{0,30}?"
-    r"\b(?:than|compared\s+(?:with|to))\s+(?:the\s+|all\s+|its\s+)?others?\b",
-    re.IGNORECASE,
-)
 _METRIC_STEPS = {f"compute:{name}" for name in METRIC_TOOLS}
 _TREND_STEPS = {f"compute:{name}" for name in TREND_FUNCTIONS}
 
@@ -354,10 +341,6 @@ FORCED_REASON = (
 
 def is_why_question(question: str) -> bool:
     return _WHY.search(question) is not None
-
-
-def is_cross_group_question(question: str) -> bool:
-    return _CROSS_GROUP.search(question) is not None
 
 
 def is_spike_question(question: str) -> bool:
@@ -491,8 +474,6 @@ class Full(Router):
         """A why-question's first exploration step: a metric analysis. If no
         valid plan comes back, the ordinary loop continues instead."""
         progress.enter(f"step {number}: metric plan")
-        if is_cross_group_question(self.question):
-            reason = f"{reason} {ACROSS_GROUPS_HINT}".strip()
         try:
             plan: MetricPlan = self._structured(
                 MetricPlan, self.metric_system, self._decide_prompt(steps, reason))

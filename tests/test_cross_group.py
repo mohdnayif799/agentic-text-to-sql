@@ -10,7 +10,6 @@ import pytest
 
 from agentcrew.archs import run_architecture
 from agentcrew.archs.explore import MetricPlan, NextAction
-from agentcrew.archs.full import is_cross_group_question
 from agentcrew.compute.functions import ComputeError
 from agentcrew.compute.metrics import (
     COLUMNS,
@@ -203,26 +202,6 @@ class TestOnTheDatabase:
                  "groups": ["APAC", "EMEA"]}))
 
 
-class TestQuestionWording:
-    @pytest.mark.parametrize("question", [
-        "Why did EMEA's revenue fall so much more than other regions'?",
-        "Why did Online grow faster than the other channels in 2024?",
-        "Why did SMB revenue drop less than the others last year?",
-        "Why did LATAM decline more compared with the other regions?",
-    ])
-    def test_a_change_against_the_rest(self, question):
-        assert is_cross_group_question(question)
-
-    @pytest.mark.parametrize("question", [
-        "Why did revenue fall in Q3 2025?",
-        "Why does Online bring in more revenue than Direct?",
-        "Why do other regions have more customers?",
-        "How many more orders than last year?",
-    ])
-    def test_other_questions(self, question):
-        assert not is_cross_group_question(question)
-
-
 COUNT = "SELECT COUNT(*) AS n FROM orders"
 PLAN = {"metric": "revenue", "reason": "compare the change", "comparison": ACROSS}
 WHY = "Why did Online's revenue fall so much more than the other channels' in 2024?"
@@ -292,17 +271,23 @@ class TestInTheRun:
         assert not any("compute:period_history" in s["tools"] for s in out.steps)
         assert "## What is normal" not in script.answer_prompt
 
-    def test_the_planner_is_told_when_the_question_is_about_the_rest(self, run):
-        script = Script()
-        run("full", script)
-        assert "compares a change across groups" in script.plan_prompt
+    def test_the_planner_gets_the_same_prompt_whatever_the_wording(self, run):
+        """The comparison is offered on every why-question and chosen from the
+        question itself: no wording adds to the prompt or decides the mode."""
+        prompts = []
+        for question in (WHY, "Why did revenue fall in 2024?"):
+            script = Script()
+            run("full", script, question=question)
+            prompts.append(script.plan_prompt.split("## Question")[0])
+            assert "how a change differs between groups" in script.plan_prompt
+            assert "compares a change across groups" not in script.plan_prompt
+        assert prompts[0].split("## ")[0] == prompts[1].split("## ")[0]
 
-    def test_the_planner_is_not_told_otherwise(self, run):
+    def test_a_plan_without_groups_keeps_the_ordinary_guidance(self, run):
         single = {"metric": "revenue", "reason": "x",
                   "comparison": {"period_a": H1, "period_b": H2}}
         script = Script(plans=[single])
         run("full", script, question="Why did revenue fall in 2024?")
-        assert "compares a change across groups" not in script.plan_prompt
         assert "the group being explained" not in script.answer_prompt
 
     def test_the_driver_sentence_names_the_component_that_differs(self, run):

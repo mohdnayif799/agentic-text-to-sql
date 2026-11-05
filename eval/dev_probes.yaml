@@ -18,8 +18,8 @@
   question: >-
     Between 2024 and 2025, revenue rose faster in the Direct channel than in Online
     and Partner. What explains that?
-  exercises: cross-group change comparison (fix 6), without the wording that adds
-    the planner's hint, so the planner has to choose the mode from the question
+  exercises: cross-group change comparison (fix 6), which the planner has to choose
+    from the question
   expect: >-
     Revenue grew 42% in Direct, 25% in Online and 29% in Partner. Orders grew 60% in
     Direct against 37% and 38%, while average order value fell in all three (about
