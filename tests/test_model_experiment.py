@@ -117,3 +117,40 @@ class TestRunConfigChoice:
         base = RunConfig.load()
         cfg = _script("run_eval_v2").run_config(None)
         assert cfg == base
+
+
+@pytest.fixture(scope="module")
+def report():
+    return _script("report_model_experiment")
+
+
+class TestReport:
+    def test_the_comparison_is_paired_on_the_same_questions(self, report):
+        def run(flags):
+            return {"items": {(q, "full"): {"id": q, "arch": "full", "primary": ok,
+                                            "state": "evaluated"}
+                              for q, ok in flags.items()}}
+
+        runs = {report.LITE: run({"a": True, "b": False, "c": True}),
+                "other": run({"a": False, "b": True, "c": True})}
+        c = report.against_lite(runs, "other", "full", ["a", "b", "c"])
+        assert (c["only_lite"], c["only_model"], c["p"]) == (["a"], ["b"], 1.0)
+
+    def test_thinking_is_priced_as_output(self, report):
+        use = {"input": 1_000_000, "output": 0, "thoughts": 1_000_000}
+        assert report.priced("gemini-3.8-flash", use) == pytest.approx(4.50)
+
+    def test_retries_are_split_by_kind(self, report):
+        counts = report.retry_counts([
+            {"kind": "provider", "message": "503 UNAVAILABLE"},
+            {"kind": "provider", "message": "Gemini call timed out"},
+            {"kind": "rate_limit", "message": "429"}])
+        assert (counts["provider"], counts["503"], counts["timeout"],
+                counts["rate_limit"]) == (2, 1, 1, 1)
+
+    def test_a_not_evaluated_question_is_counted_apart(self, report):
+        run = {"items": {
+            ("a", "full"): {"state": "evaluated", "latency_live_s": 4.0, "llm_calls": 2},
+            ("b", "full"): {"state": "not_evaluated"}}}
+        row = report.speed_row(run, "full")
+        assert (row["n"], row["not_evaluated"], row["latency"]) == (2, 1, 4.0)
