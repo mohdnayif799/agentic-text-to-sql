@@ -141,6 +141,7 @@ Blue boxes are code, orange boxes are model calls. The old v1 agent (architectur
    - an SQL error or a guard rejection;
    - an unknown or ambiguous column (sqlglot schema check);
    - a join that fans out an aggregate;
+   - a LEFT JOIN whose `ON` clause filters a table nothing else in the query reads, so the filter restricts no rows;
    - an empty result, an all-NULL result, or a result that hit the row cap;
    - a question that asks for a forecast or a fitted trend.
 
@@ -168,6 +169,8 @@ The original agent's graph design (B) is documented in [docs/ARCHITECTURE.md](do
 ## Safety
 
 A request to change the data is refused first, before any model call or query, and does not use a demo run (`agentcrew/refusal.py`). That is a courtesy to the person asking, not the protection: it looks at wording, and it deliberately lets through anything unclear, such as "how many orders were deleted?".
+
+A request that gets past that check can still be refused. If the model writes a statement that would change data (`DELETE`, `UPDATE`, `INSERT`, `REPLACE`, `DROP`, `ALTER`, `TRUNCATE`, `CREATE` or `MERGE`, also inside a CTE or a batch), C and D end the run there as refused, with the same message. This applies at any step: the first query, a repair or a follow-up. The statement is never sent to the database. The run has already made model calls, so on the demo it uses a run. A, the baseline, has no such step: the guard below rejects the write, as it does for every query.
 
 The protection is that read-only is enforced in **three independent layers**, and the strongest one is not the prompt.
 
@@ -470,7 +473,7 @@ Stated plainly, from the [50-question evaluation](eval/results/primary50_report.
 - **Comparing a change across groups.** The decomposition now compares each component's change across groups and finds the right driver, but answers can still overstate how alike the other components moved.
 - **Attributing a spike against a baseline.** Earlier periods are now in the evidence, and a breakdown leads with the dimension that concentrates the change most. On the holdout question this targets (ha08), D passed in the primary run and failed in the post-fix rerun, so it is not yet reliable.
 - **Conditional questions.** The condition is now evaluated first when a sentence opens with "if ...,", but other wordings still use a single query, which can leave a row from the branch that does not apply.
-- **Write requests are recognized by wording.** The first-layer refusal can miss an unusual phrasing, which then meets the read-only guard instead, or wrongly refuse a sentence that opens like a command, such as "Drop shipping revenue in 2025".
+- **Write requests are first recognized by wording.** The first check can miss an unusual phrasing. If the model then writes a statement that changes data, C and D end the run as refused. If the model answers with a read query instead, the run goes on as an ordinary question. Either way the read-only guard stays as the final layer. The first check can also wrongly refuse a sentence that opens like a command, such as "Drop shipping revenue in 2025".
 - **Non-determinism.** First queries change between runs on identical prompts. Between the primary run and the post-fix rerun, 6 of A's 50 verdicts moved with no code change, so a difference of one or two questions between runs means nothing.
 - **SQLite only.** PostgreSQL would need a read-only role instead of a URI flag, plus dialect changes.
 
