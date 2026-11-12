@@ -68,12 +68,34 @@ class Settings(BaseSettings):
     allow_write_mode: bool = False
     """When False the agent is structurally incapable of writing. Default off."""
 
+    # ---- Cost and abuse guard (agentcrew/caps.py, app.py) -----------------
+    daily_run_cap: int = 150
+    """Runs per UTC day on the server's key, across every session. 0 = no cap.
+    The per-session allowance in app.py is reset by a page reload; this is
+    the ceiling on total spend. Resets on a cold start (no store)."""
+    daily_llm_call_cap: int = 1000
+    """Model calls per UTC day on the server's key. 0 = no cap. A run makes
+    about 2 (direct) to 7 (escalated) calls, so this is the finer bound."""
+    idle_timeout_seconds: int = 600
+    """A browser session with no activity for this long is ended, in the
+    browser and on the server, so an idle tab cannot keep the Cloud Run
+    instance alive. The deployed demo scales to zero only when no session
+    holds a connection."""
+
     # ---- Observability ---------------------------------------------------
     trace_dir: Path = REPO_ROOT / "data" / "traces"
-    langfuse_enabled: bool = False
+    langfuse_enabled: bool | None = None
+    """None (the default): Langfuse is on exactly when both keys below are
+    set. False switches it off while keeping the keys. True is the same as
+    None, plus a warning when the keys are missing (tracer.langfuse_wanted)."""
     langfuse_public_key: str | None = None
     langfuse_secret_key: str | None = None
     langfuse_host: str = "https://cloud.langfuse.com"
+    trace_content: bool = False
+    """Off by default and off on the public demo. When on, a Langfuse trace
+    also records the question text and the final SQL, so a self-hosted
+    operator can see real failures. Result rows and uploaded data are never
+    recorded, with this on or off."""
 
     def resolved_model(self) -> str:
         """Provider-appropriate default when the user did not override the model.

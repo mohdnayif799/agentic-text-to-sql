@@ -129,11 +129,15 @@ def stub_arch_run(question: str, *, path: str = "direct",
 
 class FakeCounter:
     calls = 0
+    trace = None
 
 
 class FakeRuntime:
-    def new_client(self) -> FakeCounter:
+    def new_client(self, **_: Any) -> FakeCounter:
         return FakeCounter()
+
+    def start_trace(self, question: str) -> None:
+        return None
 
 
 class FakeAgent:

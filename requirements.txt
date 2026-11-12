@@ -38,6 +38,11 @@ anthropic==1.0.0
 google-genai==2.20.0
 # openai==3.3.1           # for provider=openai
 
+# ---- Observability ---------------------------------------------------------
+# Installed in the image so tracing can be switched on in production with env
+# vars alone (AGENTCREW_LANGFUSE_PUBLIC_KEY / _SECRET_KEY). Off otherwise; the
+# structured run log (agentcrew/runlog.py) needs nothing.
+langfuse==4.14.5
+
 # ---- Optional --------------------------------------------------------------
 # mcp==2.1.0              # only needed to run mcp_server.py
-# langfuse==4.14.5        # only needed if AGENTCREW_LANGFUSE_ENABLED=true

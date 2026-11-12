@@ -20,6 +20,7 @@ Run:  streamlit run app.py
 from __future__ import annotations
 
 import html
+import json
 import logging
 import re
 import sys
@@ -32,16 +33,19 @@ from typing import Any
 import altair as alt
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from streamlit.delta_generator import DeltaGenerator
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
+from agentcrew import runlog  # noqa: E402
 from agentcrew.archs.app_runner import (  # noqa: E402
     AppRun,
     build_runtime,
     run_arch_question,
 )
+from agentcrew.caps import DailyCap, DailyCapExceeded, daily_cap  # noqa: E402
 from agentcrew.config import Settings  # noqa: E402
 from agentcrew.db.engine import DatabaseNotFoundError  # noqa: E402
 from agentcrew.graph.build import RunOutcome, build_deps, run_question  # noqa: E402
@@ -80,6 +84,9 @@ if not log.handlers:
     log.addHandler(_stderr)
     log.setLevel(logging.INFO)
     log.propagate = False
+# The run record itself goes out as one JSON line on stdout (agentcrew/runlog.py),
+# which Cloud Logging stores as a structured entry.
+runlog.configure()
 
 # Must match primaryColor in .streamlit/config.toml (a test checks this), so
 # charts use the same blue as buttons, links and the question bubble.
@@ -349,6 +356,121 @@ SLOW_MODEL_MESSAGE = (
 DEMO_MAX_ATTEMPTS = 3
 DEMO_MAX_STEPS = 3
 DEMO_FIXED_CAPTION = "Fixed in demo mode. Add your own key to change."
+# The process-wide daily cap (agentcrew/caps.py) is the ceiling behind the
+# per-session allowance, which a page reload resets. Same wording family as
+# the other notices: not a failure, and not counted.
+DAILY_LIMIT_MESSAGE = (
+    "The demo has reached its daily limit. Try again tomorrow, or add your own "
+    "key under 'Use your own API key'."
+)
+
+
+def _daily_cap() -> DailyCap:
+    """The deployment's cap, read from the environment once per process."""
+    try:
+        return daily_cap(Settings())
+    except Exception:
+        # Settings could not be built (a malformed variable); the run itself
+        # will fail with a message. The cap still exists, at its defaults.
+        fields = Settings.model_fields
+        return daily_cap(Settings.model_construct(
+            daily_run_cap=fields["daily_run_cap"].default,
+            daily_llm_call_cap=fields["daily_llm_call_cap"].default,
+        ))
+
+
+def trace_content_enabled() -> bool:
+    """AGENTCREW_TRACE_CONTENT: whether the run log line may carry the question
+    and the final SQL. Off by default and off on the public demo."""
+    try:
+        return bool(Settings().trace_content)
+    except Exception:
+        return False
+
+
+# ---- Idle guard ----------------------------------------------------------------
+# Streamlit holds one websocket per open tab and its client reconnects by
+# itself, so an idle tab keeps a request in flight and Cloud Run keeps the
+# instance (and its billing) alive indefinitely. Two halves end such a session:
+#
+# * In the browser: the small script below (components.html, so it runs)
+#   watches input in the page and, after `idle_timeout_seconds` without any,
+#   leaves for the static page static/idle.html. Leaving unloads the Streamlit
+#   client, which closes the connection for good.
+# * On the server: each script run stamps the session's last activity. A run
+#   that arrives after the timeout (the script is off, or the tab came back
+#   from suspension) finds the conversation cleared and a notice; Phase 2 also
+#   deletes the session's uploaded data here.
+LAST_ACTIVITY = "last_activity"  # st.session_state key, time.monotonic()
+IDLE_PAGE = "/app/static/idle.html"  # server.enableStaticServing serves static/
+IDLE_MESSAGE = (
+    "This session ended after a while without activity, so the conversation was "
+    "cleared. Ask a new question to start again."
+)
+# The component iframe is sandboxed without allow-top-navigation, so a
+# redirect from inside it is refused ("Unsafe attempt to initiate navigation",
+# seen in a browser check). It is same-origin with scripts allowed, though, so
+# it may add a script to the page itself; the timer then lives in the page,
+# navigates as the page, and survives the reruns that re-mount the iframe.
+# Installed once per page (the flag), whatever the number of reruns.
+IDLE_GUARD_HTML = """\
+<script>
+(function () {
+  var timeout = %d * 1000;
+  var target = %s;
+  var page = window.parent;
+  if (page.__agentcrewIdleGuard) { return; }
+  function install(timeout, target) {
+    if (window.__agentcrewIdleGuard) { return; }
+    window.__agentcrewIdleGuard = true;
+    var last = Date.now();
+    function bump() { last = Date.now(); }
+    ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"]
+      .forEach(function (name) {
+        document.addEventListener(name, bump, {passive: true, capture: true});
+      });
+    setInterval(function () {
+      if (Date.now() - last > timeout) { window.location.replace(target); }
+    }, 15000);
+  }
+  var script = page.document.createElement("script");
+  script.textContent = "(" + install.toString() + ")(" + timeout + "," +
+    JSON.stringify(target) + ");";
+  page.document.head.appendChild(script);
+})();
+</script>
+"""
+
+
+def idle_timeout() -> int:
+    """AGENTCREW_IDLE_TIMEOUT_SECONDS, or the default when it cannot be read."""
+    try:
+        return int(Settings().idle_timeout_seconds)
+    except Exception:
+        return int(Settings.model_fields["idle_timeout_seconds"].default)
+
+
+def session_expired(state: MutableMapping[str, Any], *, now: float,
+                    timeout: float) -> bool:
+    """True when the session's last activity is older than the timeout. A
+    session with no stamp yet is new, not stale."""
+    last = state.get(LAST_ACTIVITY)
+    return last is not None and now - last > timeout
+
+
+def touch(state: MutableMapping[str, Any], *, now: float) -> None:
+    state[LAST_ACTIVITY] = now
+
+
+def end_session(state: MutableMapping[str, Any]) -> None:
+    """Forget the conversation. The demo run count survives on purpose, as it
+    does for 'New chat'."""
+    state["turns"] = []
+    state["pending"] = None
+
+
+def idle_guard_html(timeout_seconds: int) -> str:
+    return IDLE_GUARD_HTML % (int(timeout_seconds), json.dumps(IDLE_PAGE))
 
 
 def configured_defaults() -> tuple[str, str]:
@@ -628,6 +750,7 @@ def execute(
     *,
     own_key: str,
     show_progress: Callable[[str, float], None] | None = None,
+    budget: DailyCap | None = None,
 ) -> tuple[Turn, bool]:
     """Run one question. Failures are returned on the Turn, never raised.
 
@@ -638,6 +761,10 @@ def execute(
     A quota refusal, a failure to start, or any exception during the run never
     uses up a visitor's runs.
 
+    `budget` is the daily cap, given for runs on the server key only: each
+    model call is charged against it, and a call that would cross the day's
+    limit ends the run with a notice (not counted either).
+
     On the server key, failures show a generic message rather than provider
     error text; the redacted detail goes to the log instead.
     """
@@ -645,6 +772,7 @@ def execute(
     secret = own_key or _server_key(spec.key)  # for redaction only
     started = time.perf_counter()
     arch = cfg.get("arch", "?")
+    paid = {"own_key": bool(own_key), "question": question}
     try:
         settings = Settings(**cfg)
         arch = settings.arch
@@ -652,10 +780,11 @@ def execute(
             deps = build_deps(settings)
         else:
             runtime = build_runtime(settings)
-            client = runtime.new_client()
+            client = runtime.new_client(budget=budget,
+                                        trace=runtime.start_trace(question))
     except Exception as exc:
         _log_run(cfg, "start_failed", started, 0, arch=arch, error=exc,
-                 secret=secret)
+                 secret=secret, **paid)
         if not own_key:
             turn.error = DEMO_UNAVAILABLE_MESSAGE
         elif isinstance(exc, DatabaseNotFoundError):
@@ -671,6 +800,9 @@ def execute(
     def calls_so_far() -> int:
         return _llm_calls_so_far(deps) if arch == "v1" else client.calls
 
+    def usage_so_far() -> Any:
+        return None if arch == "v1" else getattr(client, "usage", None)
+
     try:
         if arch == "v1":
             turn.outcome = run_question(question, settings=settings, deps=deps)
@@ -684,19 +816,26 @@ def execute(
         # Stops the run outright: the provider refused, so there is nothing
         # to repair and retrying would only be refused again.
         _log_run(cfg, "quota", started, calls_so_far(), arch=arch, error=exc,
-                 secret=secret)
+                 secret=secret, usage=usage_so_far(), **paid)
         turn.notice = OWN_QUOTA_MESSAGE if own_key else SHARED_QUOTA_MESSAGE
+        return turn, False
+    except DailyCapExceeded as exc:
+        # The day's model calls are used up: the call never reached the
+        # provider. A notice like the per-session limit, not counted.
+        _log_run(cfg, "daily_cap", started, calls_so_far(), arch=arch, error=exc,
+                 secret=secret, usage=usage_so_far(), **paid)
+        turn.notice = DAILY_LIMIT_MESSAGE
         return turn, False
     except LLMTimeoutError as exc:
         # The provider is slow, not broken: a notice rather than an error, the
         # same on either key, and (like every failed run) not counted.
         _log_run(cfg, "timeout", started, calls_so_far(), arch=arch, error=exc,
-                 secret=secret)
+                 secret=secret, usage=usage_so_far(), **paid)
         turn.notice = SLOW_MODEL_MESSAGE
         return turn, False
     except Exception as exc:
         _log_run(cfg, "error", started, calls_so_far(), arch=arch, error=exc,
-                 secret=secret)
+                 secret=secret, usage=usage_so_far(), **paid)
         turn.error = (
             f"Run failed: {type(exc).__name__}: {redact(str(exc), secret)}"
             if own_key
@@ -706,13 +845,25 @@ def execute(
 
     if turn.arch_run is not None:
         run = turn.arch_run
+        selected = run.outcome.selected
         _log_run(cfg, run.outcome.status, started, run.llm_calls, arch=arch,
-                 path=run.outcome.path, tools=run.tools)
+                 path=run.outcome.path, tools=run.tools, usage=run,
+                 final_sql=selected.sql if selected is not None else None, **paid)
     else:
-        _log_run(cfg, turn.outcome.status, started,
-                 turn.outcome.trace["counters"]["llm_calls"], arch=arch, path="v1",
-                 tools=[["run_sql"] for _ in turn.outcome.step_results])
+        counters = turn.outcome.trace["counters"]
+        _log_run(cfg, turn.outcome.status, started, counters["llm_calls"],
+                 arch=arch, path="v1",
+                 tools=[["run_sql"] for _ in turn.outcome.step_results],
+                 usage=_Tokens(counters.get("input_tokens", 0),
+                               counters.get("output_tokens", 0)), **paid)
     return turn, True
+
+
+@dataclass(frozen=True)
+class _Tokens:
+    input_tokens: int = 0
+    output_tokens: int = 0
+    thoughts_tokens: int = 0
 
 
 def _llm_calls_so_far(deps: Any) -> int:
@@ -732,22 +883,42 @@ def _log_run(
     tools: list[list[str]] | None = None,
     error: BaseException | None = None,
     secret: str = "",
-) -> None:
-    """One log line per run: provider, model, architecture, status, path
-    (direct or escalated), the tools of each step and the LLM calls. Never
-    the key and never the question text."""
-    used = ">".join("+".join(step) for step in tools or []) or "-"
-    fields = (
-        f"provider={cfg['provider']} model={cfg['model']} arch={arch} "
-        f"status={status} path={path} tools={used} "
-        f"seconds={time.perf_counter() - started:.1f} llm_calls={llm_calls}"
-    )
-    if error is None:
-        log.info("run %s", fields)
-        return
-    # Collapsed to one line: provider errors often span several.
-    message = " ".join(redact(str(error), secret).split())
-    log.warning("run %s error=%s: %s", fields, type(error).__name__, message)
+    usage: Any = None,
+    own_key: bool = False,
+    question: str | None = None,
+    final_sql: str | None = None,
+) -> str:
+    """One structured JSON line per run on stdout (agentcrew/runlog.py):
+    which key paid, provider, model, architecture, status, path (direct or
+    escalated), the tools of each step, model calls, tokens, seconds and an
+    error's type name. Never the key, never an error's text (it can echo
+    request data: the redacted text goes to a stderr detail line), and the
+    question and final SQL only when AGENTCREW_TRACE_CONTENT is on."""
+    content = trace_content_enabled()
+    line = runlog.emit(runlog.RunRecord(
+        surface="app",
+        key="own" if own_key else "server",
+        provider=str(cfg.get("provider", "?")),
+        model=str(cfg.get("model", "?")),
+        arch=arch,
+        status=status,
+        path=path,
+        tools=tuple(tuple(step) for step in tools or ()),
+        llm_calls=llm_calls,
+        input_tokens=int(getattr(usage, "input_tokens", 0) or 0),
+        output_tokens=int(getattr(usage, "output_tokens", 0) or 0),
+        thoughts_tokens=int(getattr(usage, "thoughts_tokens", 0) or 0),
+        seconds=time.perf_counter() - started,
+        error=type(error).__name__ if error is not None else None,
+        question=question if content else None,
+        final_sql=final_sql if content else None,
+    ))
+    if error is not None:
+        # Collapsed to one line: provider errors often span several.
+        message = " ".join(redact(str(error), secret).split())
+        log.warning("run status=%s error=%s: %s", status, type(error).__name__,
+                    message)
+    return line
 
 
 def answer(
@@ -800,6 +971,9 @@ def answer(
         )
     if demo_runs_left(state) == 0:
         return Turn(question=question, notice=DEMO_LIMIT_MESSAGE)
+    cap = _daily_cap()
+    if not cap.allows_run():
+        return Turn(question=question, notice=DAILY_LIMIT_MESSAGE)
 
     # Enforced here, not only by the disabled sliders: widget values come from
     # the browser, so the server decides the budgets for its own key.
@@ -809,9 +983,10 @@ def answer(
         "max_steps": DEMO_MAX_STEPS,
     }
     turn, charged = execute(question, demo_cfg, spec, own_key="",
-                            show_progress=show_progress)
+                            show_progress=show_progress, budget=cap)
     if charged:
         record_demo_run(state)
+        cap.charge_run()
     return turn
 
 
@@ -1018,6 +1193,16 @@ def main() -> None:
     st.session_state.setdefault("turns", [])
     st.session_state.setdefault("pending", None)
 
+    # Idle guard, server half: every script run is an interaction, so a run
+    # that finds the stamp older than the timeout is a session coming back
+    # from idle. It starts over, and says so.
+    timeout = idle_timeout()
+    now = time.monotonic()
+    expired = session_expired(st.session_state, now=now, timeout=timeout)
+    if expired:
+        end_session(st.session_state)
+    touch(st.session_state, now=now)
+
     run, counter = render_sidebar(*configured_defaults())
     show_demo_counter(counter, run)
 
@@ -1028,6 +1213,12 @@ def main() -> None:
         "Each question is answered independently: the agent does not see "
         "earlier questions in this chat."
     )
+    if expired:
+        st.warning(IDLE_MESSAGE)
+    # Idle guard, browser half (height 0: nothing to see). Last in the page
+    # order would be tidier, but a component mounts where it is called and
+    # the chat input below is pinned to the bottom regardless.
+    components.html(idle_guard_html(timeout), height=0)
 
     # st.chat_input is pinned to the bottom of the page wherever it is called.
     # Calling it before the history means this script run already knows

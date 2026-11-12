@@ -535,14 +535,17 @@ class TestArchitectureD:
                 lines.append(record.getMessage())
 
         handler = Keep()
-        app.log.addHandler(handler)
+        run_log = logging.getLogger("agentcrew.run")
+        run_log.addHandler(handler)
         try:
             app._log_run({"provider": "gemini", "model": "m"}, "done", 0.0, 5,
                          arch="full", path="escalated",
                          tools=[["run_sql", "repair"], ["compute:decompose_change"]])
         finally:
-            app.log.removeHandler(handler)
+            run_log.removeHandler(handler)
         (line,) = lines
-        assert "arch=full" in line and "path=escalated" in line
-        assert "tools=run_sql+repair>compute:decompose_change" in line
-        assert "llm_calls=5" in line
+        entry = json.loads(line)  # one JSON object per line, for Cloud Logging
+        assert entry["arch"] == "full" and entry["path"] == "escalated"
+        assert entry["tools"] == "run_sql+repair>compute:decompose_change"
+        assert entry["llm_calls"] == 5
+        assert "tools=run_sql+repair>compute:decompose_change" in entry["message"]
