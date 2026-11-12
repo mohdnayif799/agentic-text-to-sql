@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import tempfile
 from datetime import date
 from pathlib import Path
 from typing import Literal
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -36,6 +38,16 @@ class Settings(BaseSettings):
     openai_base_url: str | None = None
 
     # ---- Database --------------------------------------------------------
+    database_url: SecretStr | None = None
+    """Self-hosted mode only: a PostgreSQL URL (postgresql://user:pass@host/db)
+    the app answers from instead of NorthStar. Never set on the public demo,
+    and never accepted from the browser. Connect as a read-only role
+    (docs/SELF_HOSTED.md); the app also forces read-only transactions.
+
+    A SecretStr because the URL holds the database password: printing or
+    logging a Settings object (pytest does it in an assertion diff, as D15
+    records for an API key) shows ********** instead. Only
+    database_url_value() returns the real text, and only the engine uses it."""
     database_path: Path = REPO_ROOT / "data" / "northstar.db"
     sql_timeout_seconds: float = 15.0
     max_result_rows: int = 500
@@ -76,6 +88,39 @@ class Settings(BaseSettings):
     daily_llm_call_cap: int = 1000
     """Model calls per UTC day on the server's key. 0 = no cap. A run makes
     about 2 (direct) to 7 (escalated) calls, so this is the finer bound."""
+    daily_upload_cap: int = 50
+    """Uploaded datasets per UTC day across every session. 0 = no cap. Each
+    upload also spends model calls on drafting descriptions, which the daily
+    call cap counts when the server key pays."""
+
+    # ---- Bring your own data (agentcrew/datasets) ----------------------------
+    uploads_enabled: bool = True
+    """Whether the app offers CSV, Excel and SQLite uploads."""
+    upload_dir: Path = Path(tempfile.gettempdir()) / "agentcrew" / "uploads"
+    """Where converted uploads live. On Cloud Run this is in-memory tmpfs, so
+    every byte here counts against the instance's memory limit."""
+    max_upload_mb: float = 10.0
+    """Largest CSV or SQLite file accepted, in MB."""
+    max_excel_upload_mb: float = 10.0
+    """Largest Excel file accepted, in MB. Separate because an .xlsx file is
+    zipped XML and takes far more memory to read than its size suggests."""
+    upload_store_max_mb: float = 150.0
+    """All converted datasets together, in MB. A new upload that would exceed
+    it is refused until others expire."""
+    dataset_ttl_seconds: int = 900
+    """A dataset not used for this long is deleted, whether or not its
+    browser tab is still open."""
+    max_upload_rows: int = 500_000
+    """Rows per table in an upload."""
+    max_upload_tables: int = 30
+    """Tables (or Excel sheets) per upload."""
+    max_upload_columns: int = 200
+    """Columns per table in an upload."""
+    descriptions_path: Path | None = None
+    """Self-hosted only: a YAML file the table and column descriptions of
+    AGENTCREW_DATABASE_URL are loaded from and saved to, so they are drafted
+    once rather than on every restart. Unset: descriptions live in memory."""
+
     idle_timeout_seconds: int = 600
     """A browser session with no activity for this long is ended, in the
     browser and on the server, so an idle tab cannot keep the Cloud Run
@@ -96,6 +141,11 @@ class Settings(BaseSettings):
     also records the question text and the final SQL, so a self-hosted
     operator can see real failures. Result rows and uploaded data are never
     recorded, with this on or off."""
+
+    def database_url_value(self) -> str | None:
+        """The real database URL, password included. For the engine only:
+        never log, render or put it in an exception message."""
+        return self.database_url.get_secret_value() if self.database_url else None
 
     def resolved_model(self) -> str:
         """Provider-appropriate default when the user did not override the model.

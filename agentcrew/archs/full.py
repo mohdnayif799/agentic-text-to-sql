@@ -343,6 +343,12 @@ _SPIKE = re.compile(
 _METRIC_STEPS = {f"compute:{name}" for name in METRIC_TOOLS}
 _TREND_STEPS = {f"compute:{name}" for name in TREND_FUNCTIONS}
 
+#: Replaces the metric catalog in the planning prompts on a database other than
+#: NorthStar, where decompose_change and contribution_by_dimension have no
+#: definitions to build their SQL from.
+NO_METRICS = ("(none: no metric analyses are defined for this database, so do "
+              "not use decompose_change or contribution_by_dimension)")
+
 FORCED_REASON = (
     "Forced escalation for a development smoke test: re-check the first result "
     "with the tools (look up the values it filters on, recompute any statistic "
@@ -440,7 +446,11 @@ class Full(Router):
         self.shared_llm = shared_llm or llm
         self.force_escalation = force_escalation
         self.formats = _date_formats(tools)
-        self.why = is_why_question(question)
+        # The metric analyses are built from NorthStar's data dictionary
+        # (compute/metrics.py). On any other database (tools.metrics False) a
+        # why-question goes through the general exploration loop instead, and
+        # the planning prompt says the metric tools do not apply.
+        self.why = tools.metrics and is_why_question(question)
         kind = self.question_signal.kind if self.question_signal else None
         self.forecast = kind == "forecast"
         self.conditional = kind == "conditional"
@@ -452,8 +462,9 @@ class Full(Router):
         self.history: StepRun | None = None
         """The earlier periods of a spike or dip question, once they were read."""
         # replace(), not format(): the prompts contain literal JSON braces.
-        self.system = DECIDE_SYSTEM.replace("{catalog}", catalog())
-        self.metric_system = METRIC_PLAN_SYSTEM.replace("{catalog}", catalog())
+        metrics = catalog() if tools.metrics else NO_METRICS
+        self.system = DECIDE_SYSTEM.replace("{catalog}", metrics)
+        self.metric_system = METRIC_PLAN_SYSTEM.replace("{catalog}", metrics)
         self.trend_system = TREND_PLAN_SYSTEM
 
     def _verify(self, sql: str, result: ExecutionResult):
@@ -644,7 +655,16 @@ class Full(Router):
             step = self.run_step(number, action.sql, action.reason,
                                  verify=self._verify)
             return step
-        if action.action == "compute":
+        if (action.action == "compute" and action.function in METRIC_TOOLS
+                and not self.tools.metrics):
+            result = ExecutionResult(
+                ok=False, sql=f"-- compute: {action.function}",
+                error_message=f"{action.function} is not available for this "
+                              "database; use run_sql or another compute function")
+            step = StepRun(number, result.sql, result, None, action.reason,
+                           result.sql, kind="compute",
+                           tool=f"compute:{action.function}")
+        elif action.action == "compute":
             result, _ = compute(
                 action, {s.number: s.result for s in steps
                          if not self._figures_wrong(s)},

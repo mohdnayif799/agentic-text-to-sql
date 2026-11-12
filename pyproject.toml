@@ -20,6 +20,10 @@ dependencies = [
     "streamlit>=1.62.0,<2.0",
     "pandas>=3.0.5,<4.0",
     "altair>=6.2.2,<7.0",
+    "langfuse>=4.14.5,<5.0",
+    "openpyxl>=3.1.5,<4.0",
+    "psycopg>=3.3.9,<4.0",
+    "psycopg-binary>=3.3.9,<4.0",
 ]
 
 [project.optional-dependencies]

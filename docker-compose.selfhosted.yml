@@ -1,0 +1,39 @@
+# AgentCrew answering from your own PostgreSQL database.
+#
+#   1. Create a read-only role in your database (docs/SELF_HOSTED.md).
+#   2. Put the connection URL and a model key in a file named .env next to
+#      this one (never commit it):
+#        AGENTCREW_DATABASE_URL=postgresql://agentcrew_ro:PASSWORD@db.internal:5432/company
+#        AGENTCREW_GEMINI_API_KEY=...
+#   3. docker compose -f docker-compose.selfhosted.yml up --build
+#   4. Open http://localhost:8080
+#
+# The image is the same one the public demo runs. Only configuration differs.
+services:
+  agentcrew:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file: .env
+    environment:
+      # The provider and model the UI starts on; any of anthropic, openai,
+      # gemini works with the matching AGENTCREW_<PROVIDER>_API_KEY.
+      AGENTCREW_PROVIDER: gemini
+      AGENTCREW_MODEL: gemini-3.5-flash-lite
+      # Your own deployment: no per-day limits unless you want them.
+      AGENTCREW_DAILY_RUN_CAP: "0"
+      AGENTCREW_DAILY_LLM_CALL_CAP: "0"
+      # Uploads are still offered beside your database. Set to "false" to
+      # answer only from AGENTCREW_DATABASE_URL.
+      AGENTCREW_UPLOADS_ENABLED: "true"
+      # Descriptions you edit are kept here across restarts.
+      AGENTCREW_DESCRIPTIONS_PATH: /descriptions/descriptions.yaml
+      # Off by default. "true" adds the question and the final SQL to the run
+      # log on stdout (never result rows), to debug real failures.
+      AGENTCREW_TRACE_CONTENT: "false"
+    volumes:
+      - descriptions:/descriptions
+    restart: unless-stopped
+
+volumes:
+  descriptions:

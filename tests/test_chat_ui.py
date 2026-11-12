@@ -231,11 +231,13 @@ class TestExampleChips:
 class TestSidebar:
     def test_expanders_are_collapsed_and_hold_the_right_controls(self) -> None:
         at = start_app()
-        own_key, advanced = at.sidebar.expander
-        assert (own_key.label, advanced.label) == (
-            "Use your own API key", "Advanced settings"
+        own_key, advanced, data = at.sidebar.expander
+        assert (own_key.label, advanced.label, data.label) == (
+            "Use your own API key", "Advanced settings", "Your data"
         )
         assert not own_key.proto.expanded and not advanced.proto.expanded
+        assert not data.proto.expanded
+        assert [r.label for r in data.radio] == ["Answer questions from"]
         assert [s.key for s in own_key.selectbox] == ["provider"]
         assert len(own_key.text_input) == 1
         assert [s.label for s in advanced.slider] == [

@@ -71,26 +71,58 @@ def profile_columns(
     with engine.connect() as conn:
         for table_name in sorted(catalog.tables):
             for col in catalog.tables[table_name].columns:
-                if "TEXT" not in col.type.upper() and "CHAR" not in col.type.upper():
-                    continue
+                kind = col.type.upper()
                 # Names come from introspection of this database, not input.
                 c, t = f'"{col.name}"', f'"{table_name}"'
-                present = f"FROM {t} WHERE {c} IS NOT NULL"
-                distinct = conn.execute(
-                    text(f"SELECT COUNT(DISTINCT {c}) FROM {t}")  # noqa: S608
-                ).scalar_one()
-                sample = conn.execute(
-                    text(f"SELECT {c} {present} LIMIT 1")  # noqa: S608
-                ).scalar()
-                fmt = _date_format(str(sample)) if sample is not None else None
-                if fmt:
-                    lo, hi = conn.execute(
-                        text(f"SELECT MIN({c}), MAX({c}) FROM {t}")  # noqa: S608
-                    ).one()
-                    dates.append(DateRange(table_name, col.name, fmt, lo, hi))
-                elif distinct < max_distinct:
-                    rows = conn.execute(
-                        text(f"SELECT DISTINCT {c} {present} ORDER BY 1")  # noqa: S608
-                    ).scalars()
-                    values.append(ColumnValues(table_name, col.name, tuple(rows)))
+                if "TEXT" not in kind and "CHAR" not in kind:
+                    # A typed date column (PostgreSQL DATE / TIMESTAMP): its
+                    # range, which a TEXT date column gets below. NorthStar
+                    # stores dates as TEXT, so its profile is unchanged.
+                    if "DATE" in kind or "TIMESTAMP" in kind:
+                        found = _range(conn, t, c)
+                        if found is not None:
+                            fmt = "TIMESTAMP" if "TIMESTAMP" in kind else "DATE"
+                            dates.append(DateRange(table_name, col.name, fmt,
+                                                   *found))
+                    continue
+                try:
+                    present = f"FROM {t} WHERE {c} IS NOT NULL"
+                    distinct = conn.execute(
+                        text(f"SELECT COUNT(DISTINCT {c}) FROM {t}")  # noqa: S608
+                    ).scalar_one()
+                    sample = conn.execute(
+                        text(f"SELECT {c} {present} LIMIT 1")  # noqa: S608
+                    ).scalar()
+                    fmt = _date_format(str(sample)) if sample is not None else None
+                    if fmt:
+                        lo, hi = conn.execute(
+                            text(f"SELECT MIN({c}), MAX({c}) FROM {t}")  # noqa: S608
+                        ).one()
+                        dates.append(DateRange(table_name, col.name, fmt, lo, hi))
+                    elif distinct < max_distinct:
+                        rows = conn.execute(
+                            text(f"SELECT DISTINCT {c} {present} ORDER BY 1")  # noqa: S608
+                        ).scalars()
+                        values.append(ColumnValues(table_name, col.name,
+                                                   tuple(rows)))
+                except Exception:  # noqa: BLE001
+                    # A column the database will not profile (a timeout on a
+                    # huge PostgreSQL table, a collation error) is left out
+                    # of the value lists rather than failing the whole
+                    # context. On PostgreSQL the failed statement aborts the
+                    # transaction, so roll it back before the next column.
+                    conn.rollback()
     return Profile(values=tuple(values), dates=tuple(dates))
+
+
+def _range(conn: object, table: str, column: str) -> tuple[str, str] | None:
+    try:
+        lo, hi = conn.execute(  # type: ignore[attr-defined]
+            text(f"SELECT MIN({column}), MAX({column}) FROM {table}")  # noqa: S608
+        ).one()
+    except Exception:  # noqa: BLE001 - same reasoning as above
+        conn.rollback()  # type: ignore[attr-defined]
+        return None
+    if lo is None:
+        return None
+    return str(lo), str(hi)

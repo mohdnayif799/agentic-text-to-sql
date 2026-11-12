@@ -19,19 +19,28 @@ Two optional collaborators ride on the counting client:
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
+from typing import TYPE_CHECKING
 
 from agentcrew.archs import ArchOutcome, progress, run_architecture
 from agentcrew.caps import DailyCap
 from agentcrew.config import Settings
 from agentcrew.context import ContextBuilder
+from agentcrew.db import dialect as sql_dialect
 from agentcrew.db.engine import read_only_engine
 from agentcrew.llm import LLMClient, LLMResponse, Usage, build_client
 from agentcrew.tools import ToolContext
 from agentcrew.tracer import LangfuseRunSink, RunTrace, build_run_sink
+
+if TYPE_CHECKING:
+    from agentcrew.datasets.source import DataSource
+    from agentcrew.datasets.store import Dataset
+
+_CONTEXT_LOCK = threading.RLock()
 
 # A child of app.py's "agentcrew.app" logger, which sets INFO and the stderr
 # handler (Cloud Run sends stderr to Cloud Logging). A logger outside that
@@ -123,8 +132,11 @@ class Runtime:
                    trace: RunTrace | None = None) -> CountingClient:
         """A counted client for one run. Built before the run starts, so the
         caller still knows how many calls were made if the run raises."""
-        return CountingClient(self.client_factory(self.settings), budget=budget,
-                              trace=trace)
+        inner = self.client_factory(self.settings)
+        name = _DIALECT_NAMES.get(self.tools.dialect) if self.tools else None
+        if name:
+            inner = DialectClient(inner, name)
+        return CountingClient(inner, budget=budget, trace=trace)
 
     def start_trace(self, question: str) -> RunTrace | None:
         """The run's Langfuse trace, or None when tracing is off."""
@@ -153,6 +165,34 @@ class AppRun:
         return [list(s.get("tools", [])) for s in self.outcome.steps]
 
 
+class DialectClient(LLMClient):
+    """Names the database's dialect in the prompts of a PostgreSQL run.
+
+    Every prompt says "SQLite" (it is NorthStar's, and the evaluation froze
+    them byte for byte), so a self-hosted run on PostgreSQL rewrites that one
+    word on the way to the model instead of keeping a second copy of every
+    prompt. SQLite runs never pass through here.
+    """
+
+    def __init__(self, inner: LLMClient, dialect_name: str) -> None:
+        self.inner = inner
+        self.name = inner.name
+        self._model = getattr(inner, "_model", "")
+        self._dialect_name = dialect_name
+
+    def _rewrite(self, text: str) -> str:
+        return text.replace("SQLite", self._dialect_name)
+
+    def complete(self, *, system: str, user: str, max_tokens: int = 2048,
+                 temperature: float = 0.0) -> LLMResponse:
+        return self.inner.complete(system=self._rewrite(system),
+                                   user=self._rewrite(user), max_tokens=max_tokens,
+                                   temperature=temperature)
+
+
+_DIALECT_NAMES = {sql_dialect.POSTGRES: "PostgreSQL"}
+
+
 _CONTEXT: dict[tuple[str, date], tuple[ToolContext, ContextBuilder]] = {}
 #: The Langfuse sink is built once per process from the first settings seen:
 #: one client, one credential check, one log line.
@@ -171,11 +211,15 @@ def reset_run_sink() -> None:
 
 
 def build_runtime(settings: Settings,
-                  client_factory: Callable[[Settings], LLMClient] = build_client
-                  ) -> Runtime:
+                  client_factory: Callable[[Settings], LLMClient] = build_client,
+                  *, source: DataSource | None = None) -> Runtime:
     """The read-only database, tools and shared context (profiled once per
-    database and day, then reused), plus how to build the model client."""
+    database and day, then reused), plus how to build the model client.
+    `source` is an uploaded dataset or the self-hosted database; without it
+    the runtime is NorthStar's, built exactly as before."""
     today = settings.today or date.today()
+    if source is not None:
+        return _source_runtime(settings, client_factory, source, today)
     key = (str(settings.database_path), today)
     if key not in _CONTEXT:
         engine = read_only_engine(settings.database_path)
@@ -185,6 +229,46 @@ def build_runtime(settings: Settings,
         _CONTEXT[key] = (tools, builder)
     tools, builder = _CONTEXT[key]
     return Runtime(settings, tools, builder, client_factory, sink=run_sink(settings))
+
+
+def _source_runtime(settings: Settings,
+                    client_factory: Callable[[Settings], LLMClient],
+                    source: DataSource, today: date) -> Runtime:
+    key = (source.key, today)
+    with _CONTEXT_LOCK:
+        if key not in _CONTEXT:
+            # An edit bumps the source's revision: drop the context of its
+            # earlier revisions rather than keep every one.
+            stem = source.key.rsplit(":", 1)[0] + ":"
+            for old in [k for k in _CONTEXT if k[0].startswith(stem)]:
+                del _CONTEXT[old]
+            tools = source.tool_context(settings)
+            _CONTEXT[key] = (tools, source.context_builder(tools, today, settings))
+        tools, builder = _CONTEXT[key]
+    return Runtime(settings, tools, builder, client_factory, sink=run_sink(settings))
+
+
+def forget_source(key_prefix: str, engine_url: str | None) -> None:
+    """Drop everything cached for a removed dataset: its shared context, and
+    the per-engine indexes the router and D build lazily (value search, key
+    uniqueness, date formats). Without this a long-running process would
+    keep every uploaded dataset's values in memory after the files are gone.
+    """
+    from agentcrew.archs import explore, full, router
+
+    with _CONTEXT_LOCK:
+        for old in [k for k in _CONTEXT if k[0].startswith(key_prefix)]:
+            del _CONTEXT[old]
+    if engine_url:
+        for cache in (explore._INDEXES, router._KEY_INDEXES, full._FORMATS):
+            cache.pop(engine_url, None)
+
+
+def forget_dataset(dataset: Dataset) -> None:
+    """The store's on_remove hook for uploads."""
+    from agentcrew.datasets.source import close_upload
+
+    forget_source(f"upload:{dataset.id}:", close_upload(dataset))
 
 
 def run_arch_question(
@@ -203,7 +287,9 @@ def run_arch_question(
     trace = client.trace
     started = time.perf_counter()
     try:
-        with progress.listening(on_stage):
+        # Every SQL check in the run parses in the database's dialect.
+        dialect = getattr(runtime.tools, "dialect", sql_dialect.SQLITE)
+        with progress.listening(on_stage), sql_dialect.using(dialect):
             outcome = run_architecture(
                 settings.arch, question, settings=settings, llm=client,
                 tools=runtime.tools, context_builder=runtime.builder,

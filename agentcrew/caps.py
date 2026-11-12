@@ -55,6 +55,8 @@ class CapSnapshot:
     max_runs: int
     llm_calls: int
     max_llm_calls: int
+    uploads: int = 0
+    max_uploads: int = 0
 
 
 def _utc_today() -> date:
@@ -72,10 +74,13 @@ class DailyCap:
         *,
         max_runs: int,
         max_llm_calls: int,
+        max_uploads: int = 0,
         today: Callable[[], date] = _utc_today,
     ) -> None:
         self.max_runs = max(0, int(max_runs))
         self.max_llm_calls = max(0, int(max_llm_calls))
+        self.max_uploads = max(0, int(max_uploads))
+        self._uploads = 0
         self._today = today
         self._lock = threading.Lock()
         self._day = today()
@@ -90,6 +95,7 @@ class DailyCap:
             self._day = now
             self._runs = 0
             self._calls = 0
+            self._uploads = 0
 
     def _calls_left(self) -> bool:
         return self.max_llm_calls == 0 or self._calls < self.max_llm_calls
@@ -119,6 +125,18 @@ class DailyCap:
                 )
             self._calls += 1
 
+    def allows_upload(self) -> bool:
+        """Whether one more dataset may be uploaded today. An upload's
+        description calls are counted by charge_call like any other."""
+        with self._lock:
+            self._roll()
+            return self.max_uploads == 0 or self._uploads < self.max_uploads
+
+    def charge_upload(self) -> None:
+        with self._lock:
+            self._roll()
+            self._uploads += 1
+
     def snapshot(self) -> CapSnapshot:
         with self._lock:
             self._roll()
@@ -128,6 +146,8 @@ class DailyCap:
                 max_runs=self.max_runs,
                 llm_calls=self._calls,
                 max_llm_calls=self.max_llm_calls,
+                uploads=self._uploads,
+                max_uploads=self.max_uploads,
             )
 
 
@@ -148,6 +168,7 @@ def daily_cap(settings: Any) -> DailyCap:
             _cap = DailyCap(
                 max_runs=settings.daily_run_cap,
                 max_llm_calls=settings.daily_llm_call_cap,
+                max_uploads=getattr(settings, "daily_upload_cap", 0),
             )
         return _cap
 

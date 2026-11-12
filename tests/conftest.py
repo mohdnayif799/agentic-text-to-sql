@@ -60,9 +60,13 @@ def isolate_from_developer_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     # otherwise decide the cap and the tracing for every test after it.
     from agentcrew.archs.app_runner import reset_run_sink
     from agentcrew.caps import reset_daily_cap
+    from agentcrew.datasets.source import reset_sources
+    from agentcrew.datasets.store import reset_dataset_store
 
     reset_daily_cap()
     reset_run_sink()
+    reset_dataset_store()
+    reset_sources()
 
 
 def clean_subprocess_env() -> dict[str, str]:

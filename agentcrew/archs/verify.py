@@ -28,6 +28,7 @@ from sqlglot.errors import OptimizeError, ParseError
 from sqlglot.optimizer.qualify import qualify
 
 from agentcrew.archs.checks import Schema, Signal
+from agentcrew.db import dialect as sql_dialect
 from agentcrew.schemas import ExecutionResult
 
 RECONCILE_REL_TOL = 0.01
@@ -130,8 +131,9 @@ def date_format_problem(
     sql: str, schema: Schema, formats: Mapping[tuple[str, str], str]
 ) -> str | None:
     try:
-        tree = qualify(sqlglot.parse_one(sql, read="sqlite"), schema=schema,
-                       dialect="sqlite", validate_qualify_columns=False)
+        tree = qualify(sqlglot.parse_one(sql, read=sql_dialect.current()),
+                       schema=schema, dialect=sql_dialect.current(),
+                       validate_qualify_columns=False)
     except (ParseError, OptimizeError):
         return None
     tables = {t.alias_or_name: t.name for t in tree.find_all(exp.Table)}
@@ -207,7 +209,7 @@ def _literal_span(text: str) -> tuple[date, date] | None:
 def sql_date_spans(sql: str) -> list[tuple[date, date]]:
     """The date literals of a query as spans; empty if it does not parse."""
     try:
-        tree = sqlglot.parse_one(sql, read="sqlite")
+        tree = sqlglot.parse_one(sql, read=sql_dialect.current())
     except ParseError:
         return []
     return [s for lit in tree.find_all(exp.Literal) if lit.is_string

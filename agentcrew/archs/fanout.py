@@ -25,6 +25,7 @@ from sqlalchemy import Engine, text
 from sqlglot import exp
 from sqlglot.errors import ParseError
 
+from agentcrew.db import dialect as sql_dialect
 from agentcrew.db.introspect import Catalog
 
 
@@ -51,11 +52,18 @@ class KeyIndex:
             return True
         cols = ", ".join(f'"{n}"' for n in sorted(names))
         with self._engine.connect() as conn:
-            # Names come from introspection of this database, not input.
-            distinct = conn.execute(text(
-                f'SELECT COUNT(*) FROM (SELECT DISTINCT {cols} FROM "{table}")'  # noqa: S608
-            )).scalar_one()
-            total = conn.execute(text(f'SELECT COUNT(*) FROM "{table}"')).scalar_one()  # noqa: S608
+            try:
+                # Names come from introspection of this database, not input.
+                # The alias is required by PostgreSQL and harmless in SQLite.
+                distinct = conn.execute(text(
+                    f'SELECT COUNT(*) FROM (SELECT DISTINCT {cols} FROM "{table}") k'  # noqa: S608
+                )).scalar_one()
+                total = conn.execute(
+                    text(f'SELECT COUNT(*) FROM "{table}"')  # noqa: S608
+                ).scalar_one()
+            except Exception:  # noqa: BLE001 - a timeout on a huge table
+                conn.rollback()
+                return True  # unknown: assume unique (no false alarm)
         return distinct == total
 
 
@@ -172,7 +180,7 @@ def _scope_problem(select: exp.Select, keys: KeyIndex, ctes: set[str]) -> str | 
             left_unique = alias not in repeated and _unique_side(
                 alias, left_cols, left_expr, sources, keys)
         if not right_unique and not left_unique:
-            condition = on.sql(dialect="sqlite")
+            condition = on.sql(dialect=sql_dialect.current())
             return (
                 f"Join fan-out: {right} is joined on {condition}, a key that is "
                 "not unique on either side, so SUM/COUNT/AVG values are "
@@ -189,7 +197,7 @@ def _scope_problem(select: exp.Select, keys: KeyIndex, ctes: set[str]) -> str | 
 
 def fanout_problem(sql: str, keys: KeyIndex) -> str | None:
     try:
-        tree = sqlglot.parse_one(sql, read="sqlite")
+        tree = sqlglot.parse_one(sql, read=sql_dialect.current())
     except ParseError:
         return None
     if tree is None:

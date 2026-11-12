@@ -1,0 +1,21 @@
+course_id,title,department,credits,semester,instructor
+CS201,Data Structures,Computer Science,4,2026-Spring,Prof. Gupta
+CS305,Database Systems,Computer Science,4,2026-Spring,Prof. Khan
+CS310,Operating Systems,Computer Science,3,2026-Spring,Prof. Nair
+CS420,Machine Learning,Computer Science,4,2026-Spring,Prof. Patel
+CS110,Programming Fundamentals,Computer Science,3,2026-Spring,Prof. Kulkarni
+EC210,Signals and Systems,Electronics,4,2026-Spring,Prof. Sharma
+EC220,Digital Electronics,Electronics,3,2026-Spring,Prof. Reddy
+EC330,Microprocessors,Electronics,3,2026-Spring,Prof. Kulkarni
+EC340,Communication Systems,Electronics,4,2026-Spring,Prof. Reddy
+EC150,Circuit Theory,Electronics,3,2026-Spring,Prof. Verma
+ME201,Engineering Thermodynamics,Mechanical,4,2026-Spring,Prof. Nair
+ME210,Fluid Mechanics,Mechanical,4,2026-Spring,Prof. Menon
+ME320,Machine Design,Mechanical,3,2026-Spring,Prof. Iyer
+ME330,Manufacturing Processes,Mechanical,3,2026-Spring,Prof. Das
+ME140,Engineering Drawing,Mechanical,3,2026-Spring,Prof. Menon
+CE201,Structural Analysis,Civil,4,2026-Spring,Prof. Gupta
+CE215,Surveying,Civil,3,2026-Spring,Prof. Reddy
+CE320,Geotechnical Engineering,Civil,4,2026-Spring,Prof. Menon
+CE330,Transportation Engineering,Civil,3,2026-Spring,Prof. Reddy
+CE140,Building Materials,Civil,3,2026-Spring,Prof. Bose

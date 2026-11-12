@@ -1,0 +1,108 @@
+# Unseen-schema test: 10 questions about the synthetic college dataset in
+# eval/college/ (scripts/build_college_dataset.py), uploaded as four CSV files
+# exactly as a visitor would upload them.
+#
+# Separate from the frozen 50-question evaluation: not registered in
+# evalrun/sets.py, not in any FREEZE file, never used to tune the agent. The
+# agent, its prompts and its schema selection were written before this
+# schema existed. Gold answers are the rows of the gold SQL below, run on the
+# converted upload (scripts/run_unseen_schema.py). Grading is the frozen
+# grader's strict result-set match.
+#
+# Table and column names are what the upload produces from the CSV files:
+# students, courses, marks, attendance.
+
+- id: co01
+  type: easy
+  question: How many students are in the Computer Science department?
+  gold:
+    sql: SELECT COUNT(*) AS students FROM students WHERE department = 'Computer Science'
+
+- id: co02
+  type: easy
+  question: How many courses are worth 4 credits?
+  gold:
+    sql: SELECT COUNT(*) AS courses FROM courses WHERE credits = 4
+
+- id: co03
+  type: multi_hop
+  question: What is the average final exam score in Database Systems?
+  gold:
+    sql: |
+      SELECT AVG(m.score) AS avg_score
+      FROM marks m JOIN courses c ON c.course_id = m.course_id
+      WHERE c.title = 'Database Systems' AND m.exam = 'final'
+
+- id: co04
+  type: segment_comparison
+  question: >-
+    What is the average final exam score of the courses of each department?
+    Give one row per department.
+  gold:
+    sql: |
+      SELECT c.department, AVG(m.score) AS avg_final
+      FROM marks m JOIN courses c ON c.course_id = m.course_id
+      WHERE m.exam = 'final'
+      GROUP BY c.department
+
+- id: co05
+  type: statistics
+  question: >-
+    For each student department, what share of class sessions were marked
+    present, as a percentage? Give one row per department.
+  gold:
+    sql: |
+      SELECT s.department,
+             100.0 * SUM(a.status = 'present') / COUNT(*) AS present_pct
+      FROM attendance a JOIN students s ON s.student_id = a.student_id
+      GROUP BY s.department
+
+- id: co06
+  type: multi_hop
+  question: How many students have an average final exam score above 80?
+  gold:
+    sql: |
+      SELECT COUNT(*) AS students FROM (
+        SELECT student_id FROM marks WHERE exam = 'final'
+        GROUP BY student_id HAVING AVG(score) > 80
+      )
+
+- id: co07
+  type: easy
+  question: How many absences were recorded in March 2026?
+  gold:
+    sql: |
+      SELECT COUNT(*) AS absences FROM attendance
+      WHERE status = 'absent' AND session_date BETWEEN '2026-03-01' AND '2026-03-31'
+
+- id: co08
+  type: multi_hop
+  question: >-
+    Which 3 students had the most absences? Give each student's ID, name and
+    number of absences, most first.
+  gold:
+    ordered: true
+    sql: |
+      SELECT s.student_id, s.name, COUNT(*) AS absences
+      FROM attendance a JOIN students s ON s.student_id = a.student_id
+      WHERE a.status = 'absent'
+      GROUP BY s.student_id, s.name
+      ORDER BY absences DESC, s.student_id
+      LIMIT 3
+
+- id: co09
+  type: segment_comparison
+  question: How many students are there in each year of study?
+  gold:
+    sql: |
+      SELECT year_of_study, COUNT(*) AS students FROM students
+      GROUP BY year_of_study
+
+- id: co10
+  type: term_matching
+  question: What was the average midterm score in the thermodynamics course?
+  gold:
+    sql: |
+      SELECT AVG(m.score) AS avg_midterm
+      FROM marks m JOIN courses c ON c.course_id = m.course_id
+      WHERE c.title = 'Engineering Thermodynamics' AND m.exam = 'midterm'

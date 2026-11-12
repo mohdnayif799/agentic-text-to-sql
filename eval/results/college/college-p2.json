@@ -1,0 +1,328 @@
+{
+  "note": "unseen-schema test, not part of the frozen evaluation",
+  "run": "college-p2",
+  "model": "gemini-3.5-flash-lite",
+  "today": "2026-10-04",
+  "code_commit": "847ee22-dirty",
+  "complete": true,
+  "stopped": null,
+  "joins": [
+    "attendance.course_id = courses.course_id",
+    "attendance.student_id = students.student_id",
+    "marks.course_id = courses.course_id",
+    "marks.student_id = students.student_id"
+  ],
+  "descriptions": {
+    "tables": {
+      "attendance": "Records student attendance for specific course sessions.",
+      "courses": "Contains details about academic courses offered.",
+      "marks": "Stores exam scores achieved by students in courses.",
+      "students": "Contains demographic and enrollment details for students."
+    },
+    "columns": {
+      "attendance.student_id": "Identifier that refers to students.",
+      "attendance.course_id": "Identifier that refers to courses.",
+      "attendance.session_date": "Date of the class session.",
+      "attendance.status": "Attendance status such as present, absent, or late.",
+      "courses.course_id": "Unique identifier for the course.",
+      "courses.title": "Name of the course.",
+      "courses.department": "Department offering the course.",
+      "courses.credits": "Number of credits for the course.",
+      "courses.semester": "Academic semester when the course is held.",
+      "courses.instructor": "Name of the course instructor.",
+      "marks.student_id": "Identifier that refers to students.",
+      "marks.course_id": "Identifier that refers to courses.",
+      "marks.exam": "Type of exam, such as midterm or final.",
+      "marks.score": "Numeric score achieved in the exam.",
+      "marks.exam_date": "Date when the exam took place.",
+      "students.student_id": "Unique identifier for the student.",
+      "students.name": "Full name of the student.",
+      "students.department": "Department the student belongs to.",
+      "students.year_of_study": "Current year of study for the student.",
+      "students.gender": "Gender of the student.",
+      "students.admission_date": "Date when the student was admitted."
+    }
+  },
+  "summary": {
+    "baseline": {
+      "passed": 10,
+      "of": 10,
+      "wilson95": [
+        0.722,
+        1.0
+      ],
+      "avg_llm_calls": 2.0
+    },
+    "full": {
+      "passed": 10,
+      "of": 10,
+      "wilson95": [
+        0.722,
+        1.0
+      ],
+      "avg_llm_calls": 3.0
+    }
+  },
+  "items": [
+    {
+      "id": "co01",
+      "arch": "baseline",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 2,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co01",
+      "arch": "full",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 3,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co02",
+      "arch": "baseline",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 2,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co02",
+      "arch": "full",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 3,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co03",
+      "arch": "baseline",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 2,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co03",
+      "arch": "full",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 3,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co04",
+      "arch": "baseline",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 2,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co04",
+      "arch": "full",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 3,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co05",
+      "arch": "baseline",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 2,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co05",
+      "arch": "full",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 3,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co06",
+      "arch": "baseline",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 2,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co06",
+      "arch": "full",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 3,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co07",
+      "arch": "baseline",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 2,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co07",
+      "arch": "full",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 3,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co08",
+      "arch": "baseline",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 2,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co08",
+      "arch": "full",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 3,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co09",
+      "arch": "baseline",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 2,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co09",
+      "arch": "full",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 3,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co10",
+      "arch": "baseline",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 2,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    },
+    {
+      "id": "co10",
+      "arch": "full",
+      "primary": true,
+      "path": "direct",
+      "llm_calls": 3,
+      "first_failing_check": "",
+      "tools": [
+        [
+          "run_sql"
+        ]
+      ]
+    }
+  ]
+}

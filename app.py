@@ -39,22 +39,27 @@ from streamlit.delta_generator import DeltaGenerator
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from agentcrew import runlog  # noqa: E402
+from agentcrew import data_panel, runlog  # noqa: E402
 from agentcrew.archs.app_runner import (  # noqa: E402
     AppRun,
+    CountingClient,
     build_runtime,
     run_arch_question,
 )
 from agentcrew.caps import DailyCap, DailyCapExceeded, daily_cap  # noqa: E402
 from agentcrew.config import Settings  # noqa: E402
-from agentcrew.db.engine import DatabaseNotFoundError  # noqa: E402
+from agentcrew.datasets.describe import Notes, draft_notes  # noqa: E402
+from agentcrew.datasets.source import DataSource  # noqa: E402
+from agentcrew.db.engine import DatabaseNotFoundError, scrub_url  # noqa: E402
 from agentcrew.graph.build import RunOutcome, build_deps, run_question  # noqa: E402
 from agentcrew.llm import (  # noqa: E402
     PROVIDERS,
     SELECTABLE_PROVIDERS,
+    LLMError,
     LLMTimeoutError,
     ProviderSpec,
     QuotaExhaustedError,
+    build_client,
 )
 from agentcrew.presentation import (  # noqa: E402
     FINAL_TABLE,
@@ -71,6 +76,7 @@ from agentcrew.presentation import (  # noqa: E402
 )
 from agentcrew.refusal import WRITE_REFUSAL, is_write_request  # noqa: E402
 from agentcrew.schemas import ExecutionResult  # noqa: E402
+from agentcrew.tools import ToolContext  # noqa: E402
 
 # One line per run on stderr (Cloud Run sends stderr to Cloud Logging).
 # Streamlit re-executes this file on every rerun but loggers are process-wide,
@@ -516,11 +522,21 @@ def record_demo_run(state: MutableMapping[str, Any]) -> None:
     state[DEMO_RUNS_USED] = state.get(DEMO_RUNS_USED, 0) + 1
 
 
+def _database_url() -> str | None:
+    """AGENTCREW_DATABASE_URL (self-hosted), for redaction only."""
+    try:
+        return Settings().database_url_value()
+    except Exception:
+        return None
+
+
 def redact(text: str, secret: str) -> str:
-    """Never echo the key back into the UI, even inside a provider error."""
+    """Never echo the key back into the UI, even inside a provider error. The
+    same goes for the self-hosted database URL and its password: every error
+    text the app shows or logs passes through here."""
     if secret and len(secret) > 8:
-        return text.replace(secret, "***")
-    return text
+        text = text.replace(secret, "***")
+    return scrub_url(text, _database_url())
 
 
 # ---- Architecture runs (A, C, D) ---------------------------------------------
@@ -751,6 +767,7 @@ def execute(
     own_key: str,
     show_progress: Callable[[str, float], None] | None = None,
     budget: DailyCap | None = None,
+    source: DataSource | None = None,
 ) -> tuple[Turn, bool]:
     """Run one question. Failures are returned on the Turn, never raised.
 
@@ -765,6 +782,9 @@ def execute(
     model call is charged against it, and a call that would cross the day's
     limit ends the run with a notice (not counted either).
 
+    `source` is the session's uploaded dataset or the self-hosted database;
+    None answers from NorthStar exactly as before.
+
     On the server key, failures show a generic message rather than provider
     error text; the redacted detail goes to the log instead.
     """
@@ -776,10 +796,14 @@ def execute(
     try:
         settings = Settings(**cfg)
         arch = settings.arch
-        if arch == "v1":
+        if arch == "v1" and source is None:
             deps = build_deps(settings)
         else:
-            runtime = build_runtime(settings)
+            if arch == "v1":  # the original agent only knows NorthStar
+                settings = settings.model_copy(update={"arch": "full"})
+                arch = "full"
+            runtime = (build_runtime(settings) if source is None
+                       else build_runtime(settings, source=source))
             client = runtime.new_client(budget=budget,
                                         trace=runtime.start_trace(question))
     except Exception as exc:
@@ -931,6 +955,7 @@ def answer(
     max_steps: int,
     state: MutableMapping[str, Any],
     show_progress: Callable[[str, float], None] | None = None,
+    source: DataSource | None = None,
 ) -> Turn:
     """Choose the key for this run, enforce the demo allowance, and run. A request
     to change the data is refused first: no model call, no SQL, no run counted."""
@@ -957,7 +982,7 @@ def answer(
     if own_key:
         turn, _ = execute(
             question, {**cfg, spec.key_field: own_key}, spec, own_key=own_key,
-            show_progress=show_progress,
+            show_progress=show_progress, source=source,
         )
         return turn
 
@@ -983,11 +1008,86 @@ def answer(
         "max_steps": DEMO_MAX_STEPS,
     }
     turn, charged = execute(question, demo_cfg, spec, own_key="",
-                            show_progress=show_progress, budget=cap)
+                            show_progress=show_progress, budget=cap, source=source)
     if charged:
         record_demo_run(state)
         cap.charge_run()
     return turn
+
+
+NO_KEY_FOR_DESCRIPTIONS = (
+    "No API key is available to draft descriptions, so they are empty. You can "
+    "write them below, or add your own key and upload again."
+)
+DESCRIPTIONS_FAILED = (
+    "The model could not draft descriptions right now, so they are empty. You "
+    "can write them below; questions still work without them."
+)
+
+
+def describer(run: RunChoice) -> data_panel.Describer:
+    """The model call that drafts a dataset's descriptions, paid for the way a
+    run is: the visitor's own key uncapped, or the server key with every call
+    charged to the daily cap. One run-log line records it (arch "describe")."""
+
+    def describe(tools: ToolContext) -> tuple[Notes | None, str | None]:
+        spec = PROVIDERS[run.provider]
+        cfg: dict[str, Any] = {"provider": run.provider, "model": run.model}
+        budget = None
+        if run.own_key:
+            cfg[spec.key_field] = run.own_key
+        elif server_key_configured(run.provider):
+            budget = _daily_cap()
+        else:
+            return None, NO_KEY_FOR_DESCRIPTIONS
+        started = time.perf_counter()
+        client: CountingClient | None = None
+        try:
+            settings = Settings(**cfg)
+            client = CountingClient(build_client(settings), budget=budget)
+            notes = draft_notes(client, tools,
+                                max_tokens=settings.max_output_tokens,
+                                temperature=settings.temperature)
+        except DailyCapExceeded as exc:
+            _log_run(cfg, "daily_cap", started, client.calls if client else 0,
+                     arch="describe", error=exc, own_key=bool(run.own_key))
+            return None, DAILY_LIMIT_MESSAGE
+        except (QuotaExhaustedError, LLMTimeoutError, LLMError) as exc:
+            _log_run(cfg, "error", started, client.calls if client else 0,
+                     arch="describe", error=exc, secret=run.own_key,
+                     usage=client.usage if client else None,
+                     own_key=bool(run.own_key))
+            return None, DESCRIPTIONS_FAILED
+        _log_run(cfg, "done", started, client.calls, arch="describe",
+                 usage=client.usage, own_key=bool(run.own_key))
+        return notes, None
+
+    return describe
+
+
+def render_data_panel(run: RunChoice) -> DataSource | None:
+    """The 'Your data' expander (agentcrew/data_panel.py); returns the source
+    this session's questions are answered from, None for NorthStar."""
+    try:
+        settings = Settings()
+    except Exception:
+        return None
+    if not (settings.uploads_enabled or settings.database_url):
+        return None
+    cap = _daily_cap()
+    try:
+        return data_panel.render(settings=settings, describe=describer(run),
+                                 allows_upload=cap.allows_upload,
+                                 charge_upload=cap.charge_upload)
+    except Exception as exc:
+        # The panel must never take the app down with it; NorthStar stays.
+        # The detail goes to the log through redact(), which also scrubs the
+        # database URL; the browser gets a fixed sentence.
+        log.warning("data panel failed: %s: %s", type(exc).__name__,
+                    " ".join(redact(str(exc), "").split())[:400])
+        st.sidebar.error("Your data could not be loaded. Questions use the "
+                         "sample data.")
+        return None
 
 
 ABOUT = (
@@ -1201,9 +1301,15 @@ def main() -> None:
     expired = session_expired(st.session_state, now=now, timeout=timeout)
     if expired:
         end_session(st.session_state)
+        try:
+            data_panel.drop_session_data(st.session_state, Settings())
+        except Exception as exc:  # the sweeper deletes it later regardless
+            log.warning("could not drop an idle session's data: %s",
+                        type(exc).__name__)
     touch(st.session_state, now=now)
 
     run, counter = render_sidebar(*configured_defaults())
+    source = render_data_panel(run)
     show_demo_counter(counter, run)
 
     st.title("Agentic Text-to-SQL")
@@ -1215,6 +1321,9 @@ def main() -> None:
     )
     if expired:
         st.warning(IDLE_MESSAGE)
+    if source is not None:
+        note(f"Answering from {source.label}. The sample questions below the "
+             "chat do not apply to it.")
     # Idle guard, browser half (height 0: nothing to see). Last in the page
     # order would be tidier, but a component mounts where it is called and
     # the chat input below is pinned to the bottom regardless.
@@ -1223,7 +1332,8 @@ def main() -> None:
     # st.chat_input is pinned to the bottom of the page wherever it is called.
     # Calling it before the history means this script run already knows
     # whether a question was submitted, so the example chips can be skipped.
-    submitted = st.chat_input("Ask a question about the sales data")
+    submitted = st.chat_input("Ask a question about the sales data"
+                              if source is None else "Ask a question about your data")
     question = submitted or st.session_state.pending
     st.session_state.pending = None
 
@@ -1254,13 +1364,14 @@ def main() -> None:
                     max_steps=run.max_steps,
                     state=st.session_state,
                     show_progress=show_progress,
+                    source=source,
                 )
             progress_slot.empty()
             # The same slot it gets from the loop above on later reruns.
             render_reply(turn, len(st.session_state.turns))
         st.session_state.turns = [*st.session_state.turns, turn]
         show_demo_counter(counter, run)
-    elif not st.session_state.turns:
+    elif not st.session_state.turns and source is None:
         render_examples()
 
 

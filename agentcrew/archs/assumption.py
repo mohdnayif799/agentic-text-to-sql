@@ -22,6 +22,7 @@ from sqlglot.errors import ParseError
 
 from agentcrew.archs.checks import is_number
 from agentcrew.archs.verify import question_periods, sql_date_spans
+from agentcrew.db import dialect as sql_dialect
 from agentcrew.schemas import ExecutionResult
 
 #: Ranking words that do not say what is being ranked. "Most customers" does
@@ -74,7 +75,7 @@ def open_terms(question: str) -> OpenTerms | None:
 def _ranked_column(sql: str, candidates: list[str]) -> str | None:
     """The result column the query orders by, if it orders by one."""
     try:
-        tree = sqlglot.parse_one(sql, read="sqlite")
+        tree = sqlglot.parse_one(sql, read=sql_dialect.current())
     except ParseError:
         return None
     order = tree.args.get("order")
@@ -99,7 +100,7 @@ def _measure(result: ExecutionResult) -> str | None:
 def _is_query(sql: str) -> bool:
     """False for a tool's result, whose provenance is only a comment."""
     try:
-        return sqlglot.parse_one(sql, read="sqlite") is not None
+        return sqlglot.parse_one(sql, read=sql_dialect.current()) is not None
     except ParseError:
         return False
 

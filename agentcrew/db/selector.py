@@ -23,11 +23,22 @@ Selection strategy
 4. Force-include any table named in a previous execution error, so a repair
    attempt can actually see the object it got wrong.
 5. Cap the result, preferring high scorers and hub tables.
+
+Databases without foreign keys or with opaque names
+---------------------------------------------------
+Two optional inputs make the same ranking work on someone else's data:
+`notes`, each table's descriptions (datasets/describe.py), whose words score
+like column names at a lower weight, so ``t3`` described as "exam marks per
+student" is found by a question about marks; and the catalog's foreign keys,
+which for an uploaded dataset include the joins its owner confirmed
+(datasets/joins.py), so closure still reaches the tables a join needs.
+Without `notes` the scores are exactly what they always were.
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from sqlalchemy import Engine
@@ -75,11 +86,15 @@ class Selection:
 
 TABLE_NAME_WEIGHT = 3.0
 COLUMN_NAME_WEIGHT = 1.0
+DESCRIPTION_WEIGHT = 0.5
 HUB_BONUS = 0.25
 
 
-def score_tables(question: str, catalog: Catalog) -> dict[str, float]:
-    """Lexical relevance of each table to the question."""
+def score_tables(question: str, catalog: Catalog,
+                 notes: Mapping[str, str] | None = None) -> dict[str, float]:
+    """Lexical relevance of each table to the question. `notes` maps a table
+    to the text of its descriptions; tokens already counted as a name are not
+    counted again from the description."""
     q_tokens = tokenize(question)
     scores: dict[str, float] = {}
     for name, table in catalog.tables.items():
@@ -90,6 +105,9 @@ def score_tables(question: str, catalog: Catalog) -> dict[str, float]:
 
         score = TABLE_NAME_WEIGHT * len(q_tokens & name_tokens)
         score += COLUMN_NAME_WEIGHT * len(q_tokens & col_tokens)
+        if notes and notes.get(name):
+            described = tokenize(notes[name]) - name_tokens - col_tokens
+            score += DESCRIPTION_WEIGHT * len(q_tokens & described)
         if score > 0:
             score += HUB_BONUS * len(catalog.neighbours(name))
         scores[name] = score
@@ -102,10 +120,11 @@ def select_tables(
     *,
     max_tables: int = 8,
     force_include: set[str] | None = None,
+    notes: Mapping[str, str] | None = None,
 ) -> Selection:
     """Pick the tables to show the model."""
     force_include = {t.lower() for t in (force_include or set())}
-    scores = score_tables(question, catalog)
+    scores = score_tables(question, catalog, notes)
 
     seeds = sorted(
         (t for t, s in scores.items() if s > 0),

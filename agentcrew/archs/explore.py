@@ -268,14 +268,18 @@ class ValueIndex:
                         continue
                     # Names come from introspection of this database.
                     c, t = f'"{col.name}"', f'"{table}"'
-                    count = conn.execute(
-                        text(f"SELECT COUNT(DISTINCT {c}) FROM {t}")  # noqa: S608
-                    ).scalar_one()
-                    if count > SEARCHABLE_DISTINCT:
+                    try:
+                        count = conn.execute(
+                            text(f"SELECT COUNT(DISTINCT {c}) FROM {t}")  # noqa: S608
+                        ).scalar_one()
+                        if count > SEARCHABLE_DISTINCT:
+                            continue
+                        values = conn.execute(text(
+                            f"SELECT DISTINCT {c} FROM {t} WHERE {c} IS NOT NULL"  # noqa: S608
+                        )).scalars().all()
+                    except Exception:  # noqa: BLE001 - a column too slow to index
+                        conn.rollback()  # PostgreSQL: clear the aborted transaction
                         continue
-                    values = conn.execute(text(
-                        f"SELECT DISTINCT {c} FROM {t} WHERE {c} IS NOT NULL"  # noqa: S608
-                    )).scalars().all()
                     first = str(values[0]) if values else ""
                     if first[:4].isdigit() and "-" in first:
                         continue  # dates

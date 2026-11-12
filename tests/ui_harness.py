@@ -157,8 +157,12 @@ class FakeAgent:
         self.arch_run: AppRun | None = None
         self.stages: list[str] = []
         """Stages fed to the app's progress callback by run_arch_question."""
+        self.sources_seen: list[Any] = []
+        """The data source each runtime was built for (None = NorthStar)."""
 
-    def build_runtime(self, settings: Any, **_: Any) -> FakeRuntime:
+    def build_runtime(self, settings: Any, *_: Any, source: Any = None,
+                      **__: Any) -> FakeRuntime:
+        self.sources_seen.append(source)
         return FakeRuntime()
 
     def run_arch_question(self, question: str, *, settings: Any, runtime: Any,

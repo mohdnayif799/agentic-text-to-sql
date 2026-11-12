@@ -102,6 +102,22 @@ class TestCalls:
         assert (snap.runs, snap.llm_calls) == (4000, 4000)
 
 
+class TestUploads:
+    def test_upload_cap(self, clock: Clock) -> None:
+        cap = DailyCap(max_runs=0, max_llm_calls=0, max_uploads=1, today=clock)
+        assert cap.allows_upload()
+        cap.charge_upload()
+        assert not cap.allows_upload()
+        clock.today = date(2026, 11, 13)
+        assert cap.allows_upload() and cap.snapshot().uploads == 0
+
+    def test_uploads_unlimited_by_default(self, clock: Clock) -> None:
+        cap = DailyCap(max_runs=0, max_llm_calls=0, today=clock)
+        for _ in range(100):
+            cap.charge_upload()
+        assert cap.allows_upload()
+
+
 class TestProcessWideInstance:
     def test_built_from_settings_once(self) -> None:
         caps.reset_daily_cap()
