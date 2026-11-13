@@ -143,17 +143,22 @@ def current_source(state: MutableMapping[str, Any],
 def handle_upload(files: list[tuple[str, bytes]], *,
                   state: MutableMapping[str, Any],
                   settings: Settings, describe: Describer,
-                  allows_upload: Callable[[], bool] = lambda: True,
-                  charge_upload: Callable[[], None] = lambda: None,
+                  reserve_upload: Callable[[], bool] = lambda: True,
+                  release_upload: Callable[[], None] = lambda: None,
                   progress: Callable[[str], None] | None = None,
                   ) -> tuple[Dataset | None, str | None, str | None]:
     """Ingest one upload (one or several files) for this session. Returns
     (dataset, notice, error):
     a notice is information (descriptions could not be drafted), an error
-    means nothing was stored. The session's previous upload is deleted."""
+    means nothing was stored. The session's previous upload is deleted.
+
+    `reserve_upload` checks the daily upload cap and counts this upload in
+    one step (DailyCap.reserve_upload), so two sessions uploading at the same
+    moment cannot both take the day's last upload; `release_upload` gives it
+    back when the upload is refused."""
     if state.get(UPLOADS_USED, 0) >= UPLOADS_PER_SESSION:
         return None, None, UPLOAD_LIMIT_MESSAGE
-    if not allows_upload():
+    if not reserve_upload():
         return None, None, DAILY_UPLOAD_MESSAGE
     owner = session_owner(state)
     the_store = store(settings)
@@ -163,10 +168,13 @@ def handle_upload(files: list[tuple[str, bytes]], *,
         dataset = ingest(the_store, owner=owner, files=files, settings=settings,
                          progress=progress)
     except UploadError as exc:
+        release_upload()
         return None, None, str(exc)
+    except BaseException:
+        release_upload()
+        raise
     state[DATASET_ID] = dataset.id
     state[UPLOADS_USED] = state.get(UPLOADS_USED, 0) + 1
-    charge_upload()
     if progress is not None:
         progress("Drafting descriptions of the tables and columns")
     tools = upload_source(dataset, settings).tool_context(settings)
@@ -230,7 +238,7 @@ def _editors(source: DataSource, *, key: str) -> tuple[Notes, tuple[Join, ...],
 
 
 def render(*, settings: Settings, describe: Describer,
-           allows_upload: Callable[[], bool], charge_upload: Callable[[], None],
+           reserve_upload: Callable[[], bool], release_upload: Callable[[], None],
            ) -> DataSource | None:
     """Draw the panel in the sidebar; return the session's source."""
     state = st.session_state
@@ -238,15 +246,16 @@ def render(*, settings: Settings, describe: Describer,
     with st.sidebar, st.expander(EXPANDER):
         choice = st.radio("Answer questions from", options, key=DATA_CHOICE)
         if choice == UPLOAD:
-            _render_upload(state, settings, describe, allows_upload, charge_upload)
+            _render_upload(state, settings, describe, reserve_upload,
+                           release_upload)
         elif choice == DATABASE:
             _render_database(settings, describe)
     return current_source(state, settings)
 
 
 def _render_upload(state: MutableMapping[str, Any], settings: Settings,
-                   describe: Describer, allows_upload: Callable[[], bool],
-                   charge_upload: Callable[[], None]) -> None:
+                   describe: Describer, reserve_upload: Callable[[], bool],
+                   release_upload: Callable[[], None]) -> None:
     minutes = max(1, settings.dataset_ttl_seconds // 60)
     st.markdown(PRIVACY_NOTE.format(minutes=minutes))
     st.caption(f"One or more CSV files (one table each) or a SQLite file, up to "
@@ -262,8 +271,8 @@ def _render_upload(state: MutableMapping[str, Any], settings: Settings,
         with st.status(PROGRESS_START, expanded=False) as status:
             _, notice, error = handle_upload(
                 [(f.name, f.getvalue()) for f in uploaded], state=state,
-                settings=settings, describe=describe, allows_upload=allows_upload,
-                charge_upload=charge_upload,
+                settings=settings, describe=describe,
+                reserve_upload=reserve_upload, release_upload=release_upload,
                 progress=lambda message: status.update(label=f"{message}..."))
             status.update(label=PROGRESS_FAILED if error else PROGRESS_DONE,
                           state="error" if error else "complete")

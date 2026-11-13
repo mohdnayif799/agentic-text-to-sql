@@ -700,6 +700,50 @@ class TestDatasets:
         assert api.delete(f"/datasets/{first}").status_code == 204
         assert api.upload("c.csv", PEOPLE_CSV).status_code == 201
 
+    def _slow_ingest(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Make every conversion take long enough that simultaneous uploads
+        are all inside it together."""
+        import time
+
+        from agentcrew.api import routes
+
+        real = routes.ingest
+
+        def slow(*args: Any, **kwargs: Any) -> Any:
+            time.sleep(0.3)
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(routes, "ingest", slow)
+
+    def _together(self, api: Api, keys: list[str]) -> list[int]:
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(len(keys)) as pool:
+            return sorted(r.status_code for r in pool.map(
+                lambda key: api.upload("a.csv", PEOPLE_CSV, key=key), keys))
+
+    def test_simultaneous_uploads_cannot_pass_the_per_key_limit(
+            self, api: Api, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._slow_ingest(monkeypatch)
+        assert self._together(api, [KEY_A] * 6) == [201, 201, 409, 409, 409, 409]
+        owner = KeyRing(KEY_A).identify(KEY_A).owner
+        assert len(api.store.owned_by(owner)) == 2
+
+    def test_simultaneous_uploads_cannot_pass_the_daily_cap(
+            self, make_api: Callable[..., Api],
+            monkeypatch: pytest.MonkeyPatch) -> None:
+        api = make_api(daily_upload_cap=1)
+        self._slow_ingest(monkeypatch)
+        assert self._together(api, [KEY_A, KEY_B]) == [201, 429]
+        assert caps._cap.snapshot().uploads == 1
+
+    def test_a_refused_upload_gives_its_daily_slot_back(
+            self, make_api: Callable[..., Api]) -> None:
+        api = make_api(daily_upload_cap=1)
+        assert api.upload("notes.pdf", b"x").status_code == 400
+        assert caps._cap.snapshot().uploads == 0
+        assert api.upload("a.csv", PEOPLE_CSV).status_code == 201
+
     def test_delete(self, api: Api) -> None:
         dataset = api.upload("people.csv", PEOPLE_CSV).json()["dataset_id"]
         response = api.delete(f"/datasets/{dataset}")

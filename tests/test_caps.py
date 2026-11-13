@@ -140,3 +140,17 @@ class TestProcessWideInstance:
         from agentcrew.llm import LLMError
 
         assert not issubclass(DailyCapExceeded, LLMError)
+
+
+def test_reserve_upload_checks_and_counts_in_one_step() -> None:
+    from agentcrew.caps import DailyCap
+
+    cap = DailyCap(max_runs=0, max_llm_calls=0, max_uploads=2)
+    assert [cap.reserve_upload() for _ in range(3)] == [True, True, False]
+    cap.release_upload()
+    assert cap.snapshot().uploads == 1 and cap.reserve_upload()
+    unlimited = DailyCap(max_runs=0, max_llm_calls=0)
+    assert all(unlimited.reserve_upload() for _ in range(5))
+    for _ in range(9):
+        unlimited.release_upload()
+    assert unlimited.snapshot().uploads == 0

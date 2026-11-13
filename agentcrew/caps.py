@@ -146,6 +146,23 @@ class DailyCap:
             self._roll()
             self._uploads += 1
 
+    def reserve_upload(self) -> bool:
+        """Check and count one upload in a single step, for callers that can
+        run uploads at the same time (the API): two requests can never both
+        take the day's last upload. False when the day's uploads are used up.
+        Give it back with release_upload() if the upload then fails."""
+        with self._lock:
+            self._roll()
+            if self.max_uploads and self._uploads >= self.max_uploads:
+                return False
+            self._uploads += 1
+            return True
+
+    def release_upload(self) -> None:
+        with self._lock:
+            self._roll()
+            self._uploads = max(0, self._uploads - 1)
+
     def allows_sql_run(self) -> bool:
         """Whether the SQL editor may run one more statement today."""
         with self._lock:

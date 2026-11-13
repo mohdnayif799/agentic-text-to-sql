@@ -269,3 +269,52 @@ class TestPrivacyNoteMatchesTheCode:
         assert f"cut to {describe.SAMPLE_CELL} characters" in note
         assert "up to 100)" in note  # explore.lookup: get_distinct_values LIMIT 100
         assert re.search(r"up to 3 example values", note)
+
+
+class TestDailyUploadCapIsReserved:
+    """The daily upload cap is checked and counted in one step, so two
+    sessions cannot both take the day's last upload (the same fix as the
+    API's, agentcrew/api/routes.py)."""
+
+    def _upload(self, cap, tmp_path, name="a.csv", data=b"a,b\n1,2\n"):
+        from agentcrew.config import Settings
+        from agentcrew.data_panel import handle_upload
+
+        settings = Settings(upload_dir=tmp_path / "uploads")
+        return handle_upload(
+            [(name, data)], state={}, settings=settings,
+            describe=lambda tools: (None, None),
+            reserve_upload=cap.reserve_upload, release_upload=cap.release_upload)
+
+    def test_two_sessions_at_once_get_one_upload(self, tmp_path) -> None:
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+
+        from agentcrew.caps import DailyCap
+        from agentcrew.data_panel import DAILY_UPLOAD_MESSAGE
+
+        cap = DailyCap(max_runs=0, max_llm_calls=0, max_uploads=1)
+        inside = threading.Barrier(2, timeout=5)
+        real_reserve = cap.reserve_upload
+
+        def reserve() -> bool:
+            inside.wait()  # both sessions reach the cap check together
+            return real_reserve()
+
+        cap.reserve_upload = reserve  # type: ignore[method-assign]
+        with ThreadPoolExecutor(2) as pool:
+            results = list(pool.map(lambda _: self._upload(cap, tmp_path), range(2)))
+        errors = [error for _, _, error in results]
+        assert sorted(e is None for e in errors) == [False, True]
+        assert DAILY_UPLOAD_MESSAGE in errors
+        assert cap.snapshot().uploads == 1
+
+    def test_a_refused_upload_gives_the_slot_back(self, tmp_path) -> None:
+        from agentcrew.caps import DailyCap
+
+        cap = DailyCap(max_runs=0, max_llm_calls=0, max_uploads=1)
+        _, _, error = self._upload(cap, tmp_path, name="notes.pdf")
+        assert error and cap.snapshot().uploads == 0
+        dataset, _, error = self._upload(cap, tmp_path)
+        assert dataset is not None and error is None
+        assert cap.snapshot().uploads == 1

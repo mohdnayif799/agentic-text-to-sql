@@ -24,6 +24,7 @@ framework runs them in its thread pool and the event loop stays free.
 from __future__ import annotations
 
 import re
+import threading
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -230,28 +231,49 @@ async def create_dataset(
                                    _client(request), filename, data)
 
 
+_upload_locks: dict[str, threading.Lock] = {}
+_upload_locks_guard = threading.Lock()
+
+
+def _upload_lock(owner: str) -> threading.Lock:
+    """One lock per key (so at most as many as there are keys): a key's
+    uploads run one at a time, which makes "count, then add" a single step."""
+    with _upload_locks_guard:
+        return _upload_locks.setdefault(owner, threading.Lock())
+
+
 def _create_dataset(api: ApiState, client: Client, filename: str,
                     data: bytes) -> DatasetCreated:
     settings = api.settings
     if not settings.uploads_enabled:
         raise ApiError(403, "uploads_disabled", UPLOADS_DISABLED)
     store = service.store(settings)
-    store.sweep()
-    limit = settings.api_datasets_per_key
-    if len(store.owned_by(client.owner)) >= limit:
-        raise ApiError(409, "dataset_limit", DATASET_LIMIT.format(limit=limit))
     cap = service.deployment_cap()
-    if not cap.allows_upload():
-        raise errors.daily_cap()
-    try:
-        # The same converter and checks as the UI's upload (datasets/ingest.py).
-        dataset = ingest(store, owner=client.owner, settings=settings,
-                         files=[(Path(filename).name, data)])
-    except UploadError as exc:
-        if str(exc) == STORE_FULL:
-            raise ApiError(503, "store_full", STORE_FULL) from None
-        raise ApiError(400, "upload_refused", str(exc)) from None
-    cap.charge_upload()
+    limit = settings.api_datasets_per_key
+    # Requests run in a thread pool, so two uploads from one key can arrive
+    # together. Checking a limit and counting against it must be one step, or
+    # both would pass the check: the per-key count is taken under the key's
+    # lock, held until the dataset is in the store, and the daily cap is
+    # reserved (checked and counted at once) and given back on failure.
+    with _upload_lock(client.owner):
+        store.sweep()
+        if len(store.owned_by(client.owner)) >= limit:
+            raise ApiError(409, "dataset_limit", DATASET_LIMIT.format(limit=limit))
+        if not cap.reserve_upload():
+            raise errors.daily_cap()
+        try:
+            # The same converter and checks as the UI's upload
+            # (datasets/ingest.py).
+            dataset = ingest(store, owner=client.owner, settings=settings,
+                             files=[(Path(filename).name, data)])
+        except UploadError as exc:
+            cap.release_upload()
+            if str(exc) == STORE_FULL:
+                raise ApiError(503, "store_full", STORE_FULL) from None
+            raise ApiError(400, "upload_refused", str(exc)) from None
+        except BaseException:
+            cap.release_upload()
+            raise
     api.known.add(dataset.id, client.owner)
 
     described = False

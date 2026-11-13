@@ -659,8 +659,8 @@ def render_data_panel(run: RunChoice) -> DataSource | None:
     cap = _daily_cap()
     try:
         return data_panel.render(settings=settings, describe=describer(run),
-                                 allows_upload=cap.allows_upload,
-                                 charge_upload=cap.charge_upload)
+                                 reserve_upload=cap.reserve_upload,
+                                 release_upload=cap.release_upload)
     except Exception as exc:
         # The panel must never take the app down with it; NorthStar stays.
         # The detail goes to the log through redact(), which also scrubs the
