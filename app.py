@@ -26,7 +26,7 @@ import re
 import sys
 import time
 from collections.abc import Callable, MutableMapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -76,6 +76,7 @@ from agentcrew.presentation import (  # noqa: E402
 )
 from agentcrew.refusal import WRITE_REFUSAL, is_write_request  # noqa: E402
 from agentcrew.schemas import ExecutionResult  # noqa: E402
+from agentcrew.sql_editor import EditorRun, run_sql, runs_left  # noqa: E402
 from agentcrew.tools import ToolContext  # noqa: E402
 
 # One line per run on stderr (Cloud Run sends stderr to Cloud Logging).
@@ -382,6 +383,7 @@ def _daily_cap() -> DailyCap:
         return daily_cap(Settings.model_construct(
             daily_run_cap=fields["daily_run_cap"].default,
             daily_llm_call_cap=fields["daily_llm_call_cap"].default,
+            daily_sql_run_cap=fields["daily_sql_run_cap"].default,
         ))
 
 
@@ -757,6 +759,9 @@ class Turn:
     error: str | None = None
     notice: str | None = None
     """Not a failure of the agent: demo limit reached, quota refused, no key."""
+    source_id: str = "northstar"
+    """Which data source answered (source_id()), so the SQL editor runs the
+    answer's SQL only against that source."""
 
 
 def execute(
@@ -1130,9 +1135,10 @@ def _render_user_message(text: str) -> None:
     )
 
 
-def render_reply(turn: Turn, slot: int) -> None:
+def render_reply(turn: Turn, slot: int, source: DataSource | None = None) -> None:
     """`slot` is the turn's position in the conversation; it keeps the keys
-    of the reply's containers unique on the page."""
+    of the reply's containers unique on the page. `source` is the data
+    source selected now (None = NorthStar), for the SQL editor."""
     if turn.notice:
         st.warning(turn.notice)
     if turn.error:
@@ -1141,14 +1147,117 @@ def render_reply(turn: Turn, slot: int) -> None:
         render_run(turn.outcome, slot)
     if turn.arch_run is not None:
         render_arch_run(turn.arch_run, slot)
+    render_sql_editor(turn, slot, source)
 
 
-def render_turn(turn: Turn, slot: int) -> None:
+def render_turn(turn: Turn, slot: int, source: DataSource | None = None) -> None:
     _render_user_message(turn.question)
     # Plain container, not st.chat_message: chat_message always renders an
     # avatar and there is no supported way to suppress it.
     with st.container():
-        render_reply(turn, slot)
+        render_reply(turn, slot, source)
+
+
+# ---- SQL editor (agentcrew/sql_editor.py) -------------------------------------
+SQL_EDITOR_LABEL = "Edit and run the SQL"
+SQL_OTHER_SOURCE = (
+    "This answer came from a different data source than the one selected now, "
+    "so its SQL can't run here."
+)
+SQL_UNAVAILABLE = "The database is not available right now."
+
+
+def source_id(source: DataSource | None) -> str:
+    """A data source's identity that survives edits of its descriptions
+    (which bump the revision at the end of its key)."""
+    return "northstar" if source is None else source.key.rsplit(":", 1)[0]
+
+
+def final_sql(turn: Turn) -> str | None:
+    """The SQL behind the answer's final table: what the editor starts from."""
+    if turn.arch_run is not None and turn.arch_run.outcome.selected is not None:
+        return turn.arch_run.outcome.selected.sql or None
+    if turn.outcome is not None and turn.outcome.step_results:
+        return turn.outcome.step_results[-1].sql or None
+    return None
+
+
+def run_editor_sql(sql: str, source: DataSource | None,
+                   state: MutableMapping[str, Any]) -> tuple[EditorRun, int]:
+    """Run the editor's SQL on the agent's own ToolContext for `source`
+    (build_runtime caches it, so it is the very object the agent's runs use).
+    Returns the run and the row cap it ran under. No model call is made."""
+    try:
+        settings = Settings()
+        runtime = (build_runtime(settings) if source is None
+                   else build_runtime(settings, source=source))
+        tools = runtime.tools
+    except Exception as exc:
+        log.warning("sql editor could not start: %s", type(exc).__name__)
+        runlog.emit(runlog.RunRecord(surface="sql_editor", provider="-", model="-",
+                                     arch="-", status="start_failed", key="-",
+                                     error=type(exc).__name__))
+        return EditorRun(message=SQL_UNAVAILABLE, status="start_failed"), 0
+    run = run_sql(sql, tools=tools, state=state,
+                  session_limit=settings.session_sql_run_cap, cap=_daily_cap(),
+                  scrub=lambda text: redact(text, ""),
+                  trace_content=trace_content_enabled())
+    return run, tools.max_rows
+
+
+def _session_sql_cap() -> int:
+    try:
+        return Settings().session_sql_run_cap
+    except Exception:
+        return Settings.model_fields["session_sql_run_cap"].default
+
+
+def render_sql_editor(turn: Turn, slot: int, source: DataSource | None) -> None:
+    """A collapsed expander under the answer, prefilled with its final SQL.
+    Runs go through tools.execute_readonly_sql (agentcrew/sql_editor.py):
+    the agent's guard, LIMIT, row cap and timeout, never a model call."""
+    sql = final_sql(turn)
+    if sql is None:
+        return
+    # Keyed, with its open state tracked: otherwise the rerun a Run click
+    # triggers draws it as a new element, collapsed, hiding the result.
+    with st.expander(SQL_EDITOR_LABEL, expanded=False, key=f"sql_editor_{slot}",
+                     on_change="rerun"):
+        if turn.source_id != source_id(source):
+            note(SQL_OTHER_SOURCE)
+            st.code(sql, language="sql", wrap_lines=True)
+            return
+        text = st.text_area("SQL", value=sql, key=f"sql_text_{slot}", height=160,
+                            label_visibility="collapsed")
+        result_key = f"sql_result_{slot}"
+        if st.button("Run", key=f"sql_run_{slot}"):
+            st.session_state[result_key] = run_editor_sql(text, source,
+                                                          st.session_state)
+        if result_key in st.session_state:
+            render_editor_run(*st.session_state[result_key])
+        cap = _session_sql_cap()
+        left = runs_left(st.session_state, cap)
+        if left is not None:
+            note(f"SQL runs left this session: {left} of {cap}. Read-only, with "
+                 "the same checks and limits as the agent's queries.")
+
+
+def render_editor_run(run: EditorRun, max_rows: int) -> None:
+    if run.message:
+        # A refused or failed statement is an error; a limit or empty input
+        # (nothing ran) is a notice.
+        (st.error if run.charged else st.warning)(run.message)
+    result = run.result
+    if result is None or not result.ok:
+        return
+    df = to_frame(result)
+    if df.empty:
+        note("No rows returned.")
+    else:
+        show_table(df)
+    capped = result.truncated or (max_rows > 0 and result.row_count >= max_rows)
+    note(f"{count(result.row_count, 'row')} in {result.duration_ms:.0f} ms"
+         + (f", capped at {max_rows:,} rows" if capped else ""))
 
 
 def _queue_question(question: str) -> None:
@@ -1338,7 +1447,7 @@ def main() -> None:
     st.session_state.pending = None
 
     for slot, turn in enumerate(st.session_state.turns):
-        render_turn(turn, slot)
+        render_turn(turn, slot, source)
 
     if question:
         # The question appears at once; the spinner then sits where the reply
@@ -1366,9 +1475,10 @@ def main() -> None:
                     show_progress=show_progress,
                     source=source,
                 )
+            turn = replace(turn, source_id=source_id(source))
             progress_slot.empty()
             # The same slot it gets from the loop above on later reruns.
-            render_reply(turn, len(st.session_state.turns))
+            render_reply(turn, len(st.session_state.turns), source)
         st.session_state.turns = [*st.session_state.turns, turn]
         show_demo_counter(counter, run)
     elif not st.session_state.turns and source is None:

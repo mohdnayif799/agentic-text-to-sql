@@ -14,6 +14,8 @@ can spend, from the inside out.
 | Per browser session | `app.py`, `st.session_state` | 5 runs | fixed (`DEMO_RUN_LIMIT`) |
 | Per UTC day, every session | `agentcrew/caps.py`, process-wide | 150 runs, 1,000 model calls | `AGENTCREW_DAILY_RUN_CAP`, `AGENTCREW_DAILY_LLM_CALL_CAP` (0 = no cap) |
 | Provider quota | Google, on the key | the key's daily quota | AI Studio or the Generative Language API quotas page |
+| SQL editor, per browser session | `agentcrew/sql_editor.py`, `st.session_state` | 30 runs | `AGENTCREW_SESSION_SQL_RUN_CAP` (0 = no cap) |
+| SQL editor, per UTC day | `agentcrew/caps.py`, its own counter | 1,000 runs | `AGENTCREW_DAILY_SQL_RUN_CAP` (0 = no cap) |
 
 - The session allowance is a courtesy: a page reload starts a new session. The
   daily cap is the ceiling. It counts runs when they complete and model calls
@@ -26,6 +28,11 @@ can spend, from the inside out.
   quota is the hard stop behind this one.
 - Both caps also apply to uploads (Phase 2) and the API (Phase 4), which
   charge the same counters.
+- The SQL editor makes no model call, so it has counters of its own and never
+  uses up the day's agent runs. They apply whichever key the visitor uses
+  (the cost is database time, not the key). A run is counted once it passes
+  the limit checks, including a statement the guard refuses; empty or
+  over-long input is not.
 
 ## Idle guard
 
@@ -53,9 +60,16 @@ stores it as a structured entry in Cloud Logging, so each field is filterable.
  "tools":"run_sql>compute:decompose_change","llm_calls":5,"input_tokens":14210,"output_tokens":612,"thoughts_tokens":0,"seconds":9.31,"error":null}
 ```
 
+Each SQL editor run writes a line too, with `"surface":"sql_editor"`, no model
+fields (`"-"`), `rows` when it ran, and `error` set to the failure kind
+(`blocked`, `syntax`, `timeout`...). Statuses: `done`, `refused`, `failed`,
+`error`, `invalid`, `session_limit`, `daily_cap`, `start_failed`. The SQL text
+is included only with `AGENTCREW_TRACE_CONTENT=true`.
+
 Useful queries in Logs Explorer:
 
 ```text
+jsonPayload.event="run" AND jsonPayload.surface="sql_editor" AND jsonPayload.status="refused"
 jsonPayload.event="run" AND jsonPayload.status!="done"
 jsonPayload.event="run" AND jsonPayload.path="escalated"
 jsonPayload.event="run" AND jsonPayload.key="server"

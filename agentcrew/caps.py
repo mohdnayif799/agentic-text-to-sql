@@ -27,6 +27,9 @@ Where it is enforced
   a run that would cross the line stops at the call that crosses it.
 * ``charge_run()`` once a run completed, the same moment the per-session
   allowance is charged.
+* ``allows_sql_run()`` / ``charge_sql_run()`` for the SQL editor
+  (agentcrew/sql_editor.py). A counter of its own: editor runs make no model
+  call, so they must not use up the day's agent runs.
 
 A visitor's own key is never counted: they pay for those calls.
 """
@@ -57,6 +60,8 @@ class CapSnapshot:
     max_llm_calls: int
     uploads: int = 0
     max_uploads: int = 0
+    sql_runs: int = 0
+    max_sql_runs: int = 0
 
 
 def _utc_today() -> date:
@@ -75,12 +80,15 @@ class DailyCap:
         max_runs: int,
         max_llm_calls: int,
         max_uploads: int = 0,
+        max_sql_runs: int = 0,
         today: Callable[[], date] = _utc_today,
     ) -> None:
         self.max_runs = max(0, int(max_runs))
         self.max_llm_calls = max(0, int(max_llm_calls))
         self.max_uploads = max(0, int(max_uploads))
         self._uploads = 0
+        self.max_sql_runs = max(0, int(max_sql_runs))
+        self._sql_runs = 0
         self._today = today
         self._lock = threading.Lock()
         self._day = today()
@@ -96,6 +104,7 @@ class DailyCap:
             self._runs = 0
             self._calls = 0
             self._uploads = 0
+            self._sql_runs = 0
 
     def _calls_left(self) -> bool:
         return self.max_llm_calls == 0 or self._calls < self.max_llm_calls
@@ -137,6 +146,17 @@ class DailyCap:
             self._roll()
             self._uploads += 1
 
+    def allows_sql_run(self) -> bool:
+        """Whether the SQL editor may run one more statement today."""
+        with self._lock:
+            self._roll()
+            return self.max_sql_runs == 0 or self._sql_runs < self.max_sql_runs
+
+    def charge_sql_run(self) -> None:
+        with self._lock:
+            self._roll()
+            self._sql_runs += 1
+
     def snapshot(self) -> CapSnapshot:
         with self._lock:
             self._roll()
@@ -148,6 +168,8 @@ class DailyCap:
                 max_llm_calls=self.max_llm_calls,
                 uploads=self._uploads,
                 max_uploads=self.max_uploads,
+                sql_runs=self._sql_runs,
+                max_sql_runs=self.max_sql_runs,
             )
 
 
@@ -169,6 +191,7 @@ def daily_cap(settings: Any) -> DailyCap:
                 max_runs=settings.daily_run_cap,
                 max_llm_calls=settings.daily_llm_call_cap,
                 max_uploads=getattr(settings, "daily_upload_cap", 0),
+                max_sql_runs=getattr(settings, "daily_sql_run_cap", 0),
             )
         return _cap
 

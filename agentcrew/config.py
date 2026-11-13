@@ -88,6 +88,13 @@ class Settings(BaseSettings):
     daily_llm_call_cap: int = 1000
     """Model calls per UTC day on the server's key. 0 = no cap. A run makes
     about 2 (direct) to 7 (escalated) calls, so this is the finer bound."""
+    session_sql_run_cap: int = 30
+    """SQL editor runs per browser session (agentcrew/sql_editor.py). 0 = no
+    cap. No model call is made, so it applies whichever key the visitor uses."""
+    daily_sql_run_cap: int = 1000
+    """SQL editor runs per UTC day across every session. 0 = no cap. Its own
+    counter, separate from daily_run_cap: editor runs make no model call and
+    must not use up the demo's agent runs."""
     daily_upload_cap: int = 50
     """Uploaded datasets per UTC day across every session. 0 = no cap. Each
     upload also spends model calls on drafting descriptions, which the daily

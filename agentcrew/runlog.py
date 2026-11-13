@@ -9,10 +9,12 @@ list view. The same record serves the Streamlit app and, later, the API.
 
 What a line holds, by design:
 
-  always      surface (app or api), which key paid (server or own), provider,
-              model, architecture, status, path (direct or escalated), the
-              tools of each step, model calls, tokens in / out / thinking,
-              seconds, and on failure the exception's type name
+  always      surface (app, api or sql_editor), which key paid (server or
+              own), provider, model, architecture, status, path (direct or
+              escalated), the tools of each step, model calls, tokens in /
+              out / thinking, seconds, and on failure the exception's type name
+  sql_editor  also the row count; no model, so provider, model, arch and
+              key are "-", and error is the failure kind (blocked, syntax...)
   only with   the question text and the final SQL (AGENTCREW_TRACE_CONTENT,
   trace_content   off by default and off on the public demo)
   never       prompts, completions, result rows, previews, values from an
@@ -43,7 +45,7 @@ class RunRecord:
     """Everything one line records. Build it; never log pieces by hand."""
 
     surface: str
-    """Where the run came from: "app" or "api"."""
+    """Where the run came from: "app", "api" or "sql_editor"."""
     provider: str
     model: str
     arch: str
@@ -57,13 +59,16 @@ class RunRecord:
     thoughts_tokens: int = 0
     seconds: float = 0.0
     error: str | None = None
-    """An exception's type name, never its text."""
+    """An exception's type name (or, for a SQL editor run, the failure kind:
+    blocked, syntax, timeout...), never its text."""
     key: str = "server"
     """Which key paid: "server" or "own"."""
     question: str | None = None
     """Only set when trace_content is on."""
     final_sql: str | None = None
     """Only set when trace_content is on."""
+    rows: int | None = None
+    """Rows returned, for a SQL editor run that ran; None otherwise."""
 
 
 def tools_text(tools: Sequence[Sequence[str]]) -> str:
@@ -83,6 +88,7 @@ def to_dict(record: RunRecord) -> dict[str, Any]:
         "message": (
             f"run status={record.status} path={record.path} tools={tools} "
             f"llm_calls={record.llm_calls} seconds={record.seconds:.1f}"
+            + (f" rows={record.rows}" if record.rows is not None else "")
             + (f" error={record.error}" if record.error else "")
         ),
         "surface": record.surface,
@@ -100,6 +106,8 @@ def to_dict(record: RunRecord) -> dict[str, Any]:
         "seconds": round(record.seconds, 3),
         "error": record.error,
     }
+    if record.rows is not None:
+        payload["rows"] = record.rows
     if record.question is not None:
         payload["question"] = record.question
     if record.final_sql is not None:
