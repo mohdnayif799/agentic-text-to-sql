@@ -34,6 +34,10 @@ from pydantic import BaseModel, ValidationError
 T = TypeVar("T", bound=BaseModel)
 
 _FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
+#: Every fenced block, any language tag, and one left unclosed at the end.
+_ANY_FENCE_RE = re.compile(r"```[ \t]*[A-Za-z]*[ \t]*\r?\n?(.*?)(?:```|\Z)", re.DOTALL)
+#: Enough for any real reply; bounds the scan on a pathological one.
+_MAX_CANDIDATES = 8
 
 
 class LLMError(RuntimeError):
@@ -167,6 +171,36 @@ def extract_json(raw: str) -> str:
     return raw
 
 
+def json_candidates(raw: str) -> list[str]:
+    """Every JSON object in a reply, most likely first, as exact substrings.
+
+    Looks inside each fenced block (whatever its language tag, and one the
+    model never closed), then in the whole reply, and keeps each piece that
+    actually decodes as a JSON object. So a sentence before or after, an
+    inline code span in the prose, a ```sql block or an example object ahead
+    of the real one no longer decide what gets validated. Empty when nothing
+    decodes (a reply cut off mid-object, say): the caller then validates
+    extract_json's guess and gets the validation error to repair from.
+    """
+    raw = raw.strip()
+    sources = [m.group(1) for m in _ANY_FENCE_RE.finditer(raw)] + [raw]
+    decoder = json.JSONDecoder()
+    found: list[str] = []
+    for text in sources:
+        i = text.find("{")
+        while i != -1 and len(found) < _MAX_CANDIDATES:
+            try:
+                obj, end = decoder.raw_decode(text, i)
+            except ValueError:
+                i = text.find("{", i + 1)
+                continue
+            piece = text[i:end]
+            if isinstance(obj, dict) and piece not in found:
+                found.append(piece)
+            i = text.find("{", end)  # past this object: not its inner ones
+    return found
+
+
 class LLMClient(ABC):
     """Minimal provider interface. Two methods, both easy to fake."""
 
@@ -219,24 +253,39 @@ class LLMClient(ABC):
                 temperature=temperature,
             )
             total.add(response.usage)
-            candidate = extract_json(response.text)
-            try:
-                return schema.model_validate_json(candidate), total
-            except (ValidationError, ValueError) as exc:
-                last_error = str(exc)[:800]
-                prompt = (
-                    f"{user}\n\n"
-                    f"Your previous reply was rejected.\n"
-                    f"--- your reply ---\n{response.text[:1500]}\n"
-                    f"--- validation error ---\n{last_error}\n"
-                    "Return corrected JSON only."
-                )
-                if attempt == repair_attempts:
-                    break
+            parsed, last_error = _first_valid(response.text, schema)
+            if parsed is not None:
+                return parsed, total
+            # The same repair prompt as always (the evaluation replays it).
+            prompt = (
+                f"{user}\n\n"
+                f"Your previous reply was rejected.\n"
+                f"--- your reply ---\n{response.text[:1500]}\n"
+                f"--- validation error ---\n{last_error}\n"
+                "Return corrected JSON only."
+            )
+            if attempt == repair_attempts:
+                break
 
         raise StructuredOutputError(
             f"{self.name} could not produce valid {schema.__name__}: {last_error}"
         )
+
+
+def _first_valid(text: str, schema: type[T]) -> tuple[T | None, str]:
+    """The first JSON object in `text` that validates against `schema`, or
+    None and the validation error to show the model. The error is the most
+    likely candidate's (the first), so the repair prompt reads as before;
+    with no candidate at all it is extract_json's guess's, exactly as before.
+    """
+    candidates = json_candidates(text) or [extract_json(text)]
+    first_error = ""
+    for candidate in candidates:
+        try:
+            return schema.model_validate_json(candidate), ""
+        except (ValidationError, ValueError) as exc:
+            first_error = first_error or str(exc)[:800]
+    return None, first_error
 
 
 class AnthropicClient(LLMClient):

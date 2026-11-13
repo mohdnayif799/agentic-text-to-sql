@@ -282,10 +282,23 @@ class TestInTheApp:
         assert warnings(at) == [WRITE_REFUSAL] and fake_agent.questions == []
 
     def test_the_log_line_says_refused_and_not_the_question(
-        self, demo_env: None, fake_agent: FakeAgent, caplog: pytest.LogCaptureFixture
+        self, demo_env: None, fake_agent: FakeAgent
     ) -> None:
-        with caplog.at_level(logging.INFO):
+        import json
+
+        lines: list[str] = []
+
+        class Keep(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                lines.append(record.getMessage())
+
+        run_log, handler = logging.getLogger("agentcrew.run"), Keep()
+        run_log.addHandler(handler)
+        try:
             ask(start_app(), DELETE)
-        lines = [r.getMessage() for r in caplog.records if "status=refused" in r.getMessage()]
-        assert len(lines) == 1 and "llm_calls=0" in lines[0]
-        assert "LATAM" not in lines[0]
+        finally:
+            run_log.removeHandler(handler)
+        entries = [json.loads(line) for line in lines]
+        refused = [e for e in entries if e["status"] == "refused"]
+        assert len(refused) == 1 and refused[0]["llm_calls"] == 0
+        assert "LATAM" not in lines[0] and "question" not in refused[0]

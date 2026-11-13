@@ -23,8 +23,9 @@ from typing import Any
 
 from sqlalchemy import Engine
 
+from agentcrew.db import dialect as sql_dialect
 from agentcrew.db.engine import execute_select
-from agentcrew.db.introspect import Catalog, build_catalog
+from agentcrew.db.introspect import Catalog, build_catalog, quote_name
 from agentcrew.db.safety import UnsafeSQLError, guard_sql
 from agentcrew.schemas import ExecutionResult, FailureKind
 
@@ -38,6 +39,14 @@ class ToolContext:
     max_rows: int = 500
     timeout: float = 15.0
     allow_write: bool = False
+    dialect: str = sql_dialect.SQLITE
+    """The SQL dialect of `engine`. execute_readonly_sql guards and runs every
+    statement in it, so the SQL editor and the API, which call it directly,
+    get the same guard as the agent."""
+    metrics: bool = True
+    """Whether D's metric tools (decompose_change, contribution_by_dimension)
+    apply. Their SQL is built from NorthStar's data dictionary, so they are
+    off for any other database."""
 
     @classmethod
     def create(
@@ -47,13 +56,18 @@ class ToolContext:
         max_rows: int = 500,
         timeout: float = 15.0,
         allow_write: bool = False,
+        dialect: str = sql_dialect.SQLITE,
+        metrics: bool = True,
+        catalog: Catalog | None = None,
     ) -> ToolContext:
         return cls(
             engine=engine,
-            catalog=build_catalog(engine),
+            catalog=catalog if catalog is not None else build_catalog(engine),
             max_rows=max_rows,
             timeout=timeout,
             allow_write=allow_write,
+            dialect=sql_dialect.check(dialect),
+            metrics=metrics,
         )
 
 
@@ -111,7 +125,8 @@ def get_sample_rows(ctx: ToolContext, table: str, limit: int = 5) -> dict[str, A
     limit = max(1, min(int(limit), 20))
     result = execute_select(
         ctx.engine,
-        f'SELECT * FROM "{table}" LIMIT {limit}',  # noqa: S608 - name validated above
+        # The name is in the catalog (checked above) and quoted by the dialect.
+        f"SELECT * FROM {quote_name(ctx.engine, table)} LIMIT {limit}",  # noqa: S608
         max_rows=limit,
         timeout=ctx.timeout,
     )
@@ -127,17 +142,18 @@ def execute_readonly_sql(ctx: ToolContext, sql: str) -> ExecutionResult:
     because the agent needs to read the reason and try again. That feedback
     loop is the point of the whole system.
     """
-    try:
-        guarded = guard_sql(
-            sql, max_rows=ctx.max_rows, allow_write=ctx.allow_write
-        )
-    except UnsafeSQLError as exc:
-        return ExecutionResult(
-            ok=False,
-            sql=sql,
-            failure=FailureKind.BLOCKED,
-            error_message=str(exc),
-        )
+    with sql_dialect.using(ctx.dialect):
+        try:
+            guarded = guard_sql(
+                sql, max_rows=ctx.max_rows, allow_write=ctx.allow_write
+            )
+        except UnsafeSQLError as exc:
+            return ExecutionResult(
+                ok=False,
+                sql=sql,
+                failure=FailureKind.BLOCKED,
+                error_message=str(exc),
+            )
 
     result = execute_select(
         ctx.engine,

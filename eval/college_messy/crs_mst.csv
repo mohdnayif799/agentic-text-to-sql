@@ -1,0 +1,21 @@
+crs_cd,crs_ttl,dept_cd,crd,sem,instr
+CS201,Data Structures,CSE,4,2026-Spring,Prof. Gupta
+CS305,Database Systems,CSE,4,2026-Spring,Prof. Khan
+CS310,Operating Systems,CSE,3,2026-Spring,Prof. Nair
+CS420,Machine Learning,CSE,4,2026-Spring,Prof. Patel
+CS110,Programming Fundamentals,CSE,3,2026-Spring,Prof. Kulkarni
+EC210,Signals and Systems,ECE,4,2026-Spring,Prof. Sharma
+EC220,Digital Electronics,ECE,3,2026-Spring,Prof. Reddy
+EC330,Microprocessors,ECE,3,2026-Spring,Prof. Kulkarni
+EC340,Communication Systems,ECE,4,2026-Spring,Prof. Reddy
+EC150,Circuit Theory,ECE,3,2026-Spring,Prof. Verma
+ME201,Engineering Thermodynamics,ME,4,2026-Spring,Prof. Nair
+ME210,Fluid Mechanics,ME,4,2026-Spring,Prof. Menon
+ME320,Machine Design,ME,3,2026-Spring,Prof. Iyer
+ME330,Manufacturing Processes,ME,3,2026-Spring,Prof. Das
+ME140,Engineering Drawing,ME,3,2026-Spring,Prof. Menon
+CE201,Structural Analysis,CE,4,2026-Spring,Prof. Gupta
+CE215,Surveying,CE,3,2026-Spring,Prof. Reddy
+CE320,Geotechnical Engineering,CE,4,2026-Spring,Prof. Menon
+CE330,Transportation Engineering,CE,3,2026-Spring,Prof. Reddy
+CE140,Building Materials,CE,3,2026-Spring,Prof. Bose

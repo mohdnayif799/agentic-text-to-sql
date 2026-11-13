@@ -129,11 +129,19 @@ def stub_arch_run(question: str, *, path: str = "direct",
 
 class FakeCounter:
     calls = 0
+    trace = None
 
 
 class FakeRuntime:
-    def new_client(self) -> FakeCounter:
+    def __init__(self, tools: Any = None) -> None:
+        self.tools = tools
+        """The ToolContext the SQL editor runs on (FakeAgent.tools)."""
+
+    def new_client(self, **_: Any) -> FakeCounter:
         return FakeCounter()
+
+    def start_trace(self, question: str) -> None:
+        return None
 
 
 class FakeAgent:
@@ -153,9 +161,15 @@ class FakeAgent:
         self.arch_run: AppRun | None = None
         self.stages: list[str] = []
         """Stages fed to the app's progress callback by run_arch_question."""
+        self.sources_seen: list[Any] = []
+        self.tools: Any = None
+        """A real ToolContext for SQL editor tests; None elsewhere."""
+        """The data source each runtime was built for (None = NorthStar)."""
 
-    def build_runtime(self, settings: Any, **_: Any) -> FakeRuntime:
-        return FakeRuntime()
+    def build_runtime(self, settings: Any, *_: Any, source: Any = None,
+                      **__: Any) -> FakeRuntime:
+        self.sources_seen.append(source)
+        return FakeRuntime(self.tools)
 
     def run_arch_question(self, question: str, *, settings: Any, runtime: Any,
                           client: Any = None, on_stage: Any = None) -> AppRun:

@@ -72,6 +72,27 @@ jobs:
         if: always()
         run: docker logs agentcrew
 
+      # The same image as the REST API (docs/API.md): the command overridden
+      # to uvicorn, as the agentcrew-api service runs it. No keys are given,
+      # so every endpoint but /v1/health would answer 401; health needs none.
+      # curl -f fails on anything but a 2xx, so this passes only on a 200.
+      - name: Smoke-test the image as the API
+        run: |
+          docker run -d --name agentcrew-api -p 8081:8080 -e HEALTH_PATH=/v1/health \
+            agentcrew:ci uvicorn agentcrew.api.app:create_app --factory \
+            --host 0.0.0.0 --port 8080 --no-access-log
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://localhost:8081/v1/health; then
+              echo
+              echo "API healthy after ${attempt} attempt(s)."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "The API did not answer /v1/health with 200 within 60 seconds."
+          docker logs agentcrew-api
+          exit 1
+
   # Continuous deployment to Cloud Run. Runs only for a push to main, and only
   # after both jobs above pass. A pull request never reaches it (the `if`
   # below), and Google would refuse it anyway: the Workload Identity provider

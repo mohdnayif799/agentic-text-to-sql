@@ -9,6 +9,7 @@ app.py actually applies them.
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 from pathlib import Path
 
 import pandas as pd
@@ -344,3 +345,38 @@ class TestMarkdown:
         text = "a residual of -$348,547.32, and -$425,182.00"
         assert p.escape_dollars(text) == (
             "a residual of -\\$348,547.32, and -\\$425,182.00")
+
+
+class TestRunsThatDidNotAnswer:
+    """A failed or refused run never claims it 'answered directly'."""
+
+    @staticmethod
+    def _with(status: str, path: str = "direct") -> ArchOutcome:
+        return replace(outcome(path), status=status)
+
+    @pytest.mark.parametrize("path", ["direct", "escalated"])
+    def test_failed_run_summary(self, path: str) -> None:
+        line = p.arch_summary(self._with("failed", path), llm_calls=2, seconds=21.9)
+        assert line.startswith("Stopped · ")
+        assert "Direct" not in line
+
+    def test_failed_direct_run_reason(self) -> None:
+        reason = p.escalation_reason(self._with("failed"))
+        assert reason == "It stopped before it could answer."
+        assert "answered directly" not in reason
+
+    def test_failed_escalated_run_reason_says_it_stopped(self) -> None:
+        run = outcome(steps=FUZZY_STEPS, repairs=(repair(1, "empty"),))
+        reason = p.escalation_reason(replace(run, status="failed"))
+        assert reason.endswith("It stopped before it could answer.")
+        assert "answered directly" not in reason
+
+    def test_refused_run(self) -> None:
+        run = self._with("refused")
+        assert p.arch_summary(run, llm_calls=0, seconds=0.1).startswith("Refused · ")
+        assert p.escalation_reason(run) == (
+            "It refused the request: the database is read-only.")
+
+    def test_done_run_unchanged(self) -> None:
+        assert p.escalation_reason(outcome("direct")) == (
+            "One query was enough, so it answered directly.")

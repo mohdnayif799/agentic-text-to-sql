@@ -1,0 +1,329 @@
+# Unseen-schema test: 15 questions about the synthetic college dataset built
+# by scripts/build_college_dataset.py, asked of two copies of the same rows:
+#
+#   clean   eval/college/        students, courses, marks, attendance
+#   messy   eval/college_messy/  stu_mst, crs_mst, exm_mk, att_log, att_sum:
+#           cryptic names, coded values (CSE/ECE/ME/CE, MT/FN, P/A/L)
+#
+# Each copy is uploaded as CSV files exactly as a visitor would upload them.
+# The question text is the same for both; `sql` is the gold query on the clean
+# copy and `messy_sql` on the messy one. Gold answers are the rows those
+# queries return on the converted upload.
+#
+# co01-co10 are single-query questions (the first version of this test).
+# cm01-cm05 need more than one step: an intermediate result per student or
+# per course that a second step filters, compares or ranks.
+#
+# Separate from the frozen 50-question evaluation: not registered in
+# evalrun/sets.py, never used to tune the agent. The agent's code is the
+# commit recorded in each result file; nothing in agentcrew/ changed between
+# writing these questions and running them.
+#
+# Verified and frozen before any model call: scripts/check_college_gold.py
+# checks that each clean and messy query return the same answer, recomputes
+# every answer independently with pandas from the CSV files, checks that no
+# threshold or top-N cut falls on a tie, and writes eval/college_FREEZE.sha256.
+# scripts/run_unseen_schema.py refuses to run if a frozen file has changed.
+#
+# Definitions used by the questions (also stated in each question that needs
+# them): a session is attended when it is marked present or late; a course is
+# failed when its final exam score is below 50, so a pass is 50 or more.
+
+- id: co01
+  type: easy
+  question: How many students are in the Computer Science department?
+  gold:
+    sql: SELECT COUNT(*) AS students FROM students WHERE department = 'Computer Science'
+    messy_sql: SELECT COUNT(*) AS students FROM stu_mst WHERE dept_cd = 'CSE'
+
+- id: co02
+  type: easy
+  question: How many courses are worth 4 credits?
+  gold:
+    sql: SELECT COUNT(*) AS courses FROM courses WHERE credits = 4
+    messy_sql: SELECT COUNT(*) AS courses FROM crs_mst WHERE crd = 4
+
+- id: co03
+  type: multi_hop
+  question: What is the average final exam score in Database Systems?
+  gold:
+    sql: |
+      SELECT AVG(m.score) AS avg_score
+      FROM marks m JOIN courses c ON c.course_id = m.course_id
+      WHERE c.title = 'Database Systems' AND m.exam = 'final'
+    messy_sql: |
+      SELECT AVG(m.mk_obt) AS avg_score
+      FROM exm_mk m JOIN crs_mst c ON c.crs_cd = m.crs_cd
+      WHERE c.crs_ttl = 'Database Systems' AND m.exm_typ = 'FN'
+
+- id: co04
+  type: segment_comparison
+  question: >-
+    What is the average final exam score of the courses of each department?
+    Give one row per department.
+  gold:
+    sql: |
+      SELECT c.department, AVG(m.score) AS avg_final
+      FROM marks m JOIN courses c ON c.course_id = m.course_id
+      WHERE m.exam = 'final'
+      GROUP BY c.department
+    messy_sql: |
+      SELECT c.dept_cd, AVG(m.mk_obt) AS avg_final
+      FROM exm_mk m JOIN crs_mst c ON c.crs_cd = m.crs_cd
+      WHERE m.exm_typ = 'FN'
+      GROUP BY c.dept_cd
+
+- id: co05
+  type: statistics
+  question: >-
+    For each student department, what share of class sessions were marked
+    present, as a percentage? Give one row per department.
+  gold:
+    sql: |
+      SELECT s.department,
+             100.0 * SUM(a.status = 'present') / COUNT(*) AS present_pct
+      FROM attendance a JOIN students s ON s.student_id = a.student_id
+      GROUP BY s.department
+    messy_sql: |
+      SELECT s.dept_cd,
+             100.0 * SUM(a.att_st = 'P') / COUNT(*) AS present_pct
+      FROM att_log a JOIN stu_mst s ON s.stu_id = a.stu_id
+      GROUP BY s.dept_cd
+
+- id: co06
+  type: multi_hop
+  question: How many students have an average final exam score above 80?
+  gold:
+    sql: |
+      SELECT COUNT(*) AS students FROM (
+        SELECT student_id FROM marks WHERE exam = 'final'
+        GROUP BY student_id HAVING AVG(score) > 80
+      )
+    messy_sql: |
+      SELECT COUNT(*) AS students FROM (
+        SELECT stu_id FROM exm_mk WHERE exm_typ = 'FN'
+        GROUP BY stu_id HAVING AVG(mk_obt) > 80
+      )
+
+- id: co07
+  type: easy
+  question: How many absences were recorded in March 2026?
+  gold:
+    sql: |
+      SELECT COUNT(*) AS absences FROM attendance
+      WHERE status = 'absent' AND session_date BETWEEN '2026-03-01' AND '2026-03-31'
+    messy_sql: |
+      SELECT COUNT(*) AS absences FROM att_log
+      WHERE att_st = 'A' AND ses_dt BETWEEN '2026-03-01' AND '2026-03-31'
+
+- id: co08
+  type: multi_hop
+  question: >-
+    Which 3 students had the most absences? Give each student's ID, name and
+    number of absences, most first.
+  gold:
+    ordered: true
+    sql: |
+      SELECT s.student_id, s.name, COUNT(*) AS absences
+      FROM attendance a JOIN students s ON s.student_id = a.student_id
+      WHERE a.status = 'absent'
+      GROUP BY s.student_id, s.name
+      ORDER BY absences DESC, s.student_id
+      LIMIT 3
+    messy_sql: |
+      SELECT s.stu_id, s.stu_nm, COUNT(*) AS absences
+      FROM att_log a JOIN stu_mst s ON s.stu_id = a.stu_id
+      WHERE a.att_st = 'A'
+      GROUP BY s.stu_id, s.stu_nm
+      ORDER BY absences DESC, s.stu_id
+      LIMIT 3
+
+- id: co09
+  type: segment_comparison
+  question: How many students are there in each year of study?
+  gold:
+    sql: |
+      SELECT year_of_study, COUNT(*) AS students FROM students
+      GROUP BY year_of_study
+    messy_sql: |
+      SELECT yr, COUNT(*) AS students FROM stu_mst
+      GROUP BY yr
+
+- id: co10
+  type: term_matching
+  question: What was the average midterm score in the thermodynamics course?
+  gold:
+    sql: |
+      SELECT AVG(m.score) AS avg_midterm
+      FROM marks m JOIN courses c ON c.course_id = m.course_id
+      WHERE c.title = 'Engineering Thermodynamics' AND m.exam = 'midterm'
+    messy_sql: |
+      SELECT AVG(m.mk_obt) AS avg_midterm
+      FROM exm_mk m JOIN crs_mst c ON c.crs_cd = m.crs_cd
+      WHERE c.crs_ttl = 'Engineering Thermodynamics' AND m.exm_typ = 'MT'
+
+# ---------------------------------------------------------------------------
+# Harder questions: more than one step
+# ---------------------------------------------------------------------------
+
+- id: cm01
+  type: multi_hop
+  question: >-
+    Which students attended less than 85% of their class sessions overall and
+    also failed two or more courses? Count a session as attended when it is
+    marked present or late, and a course as failed when its final exam score
+    is below 50. Give each student's ID and name.
+  gold:
+    sql: |
+      WITH att AS (
+        SELECT student_id,
+               100.0 * SUM(status IN ('present', 'late')) / COUNT(*) AS pct
+        FROM attendance GROUP BY student_id
+      ),
+      failed AS (
+        SELECT student_id, COUNT(*) AS n FROM marks
+        WHERE exam = 'final' AND score < 50 GROUP BY student_id
+      )
+      SELECT s.student_id, s.name
+      FROM students s
+      JOIN att ON att.student_id = s.student_id
+      JOIN failed ON failed.student_id = s.student_id
+      WHERE att.pct < 85 AND failed.n >= 2
+    messy_sql: |
+      WITH att AS (
+        SELECT stu_id,
+               100.0 * SUM(att_st IN ('P', 'L')) / COUNT(*) AS pct
+        FROM att_log GROUP BY stu_id
+      ),
+      failed AS (
+        SELECT stu_id, COUNT(*) AS n FROM exm_mk
+        WHERE exm_typ = 'FN' AND mk_obt < 50 GROUP BY stu_id
+      )
+      SELECT s.stu_id, s.stu_nm
+      FROM stu_mst s
+      JOIN att ON att.stu_id = s.stu_id
+      JOIN failed ON failed.stu_id = s.stu_id
+      WHERE att.pct < 85 AND failed.n >= 2
+
+- id: cm02
+  type: multi_hop
+  question: >-
+    List every student and course where the student was absent from 5 or more
+    sessions of that course and still scored 80 or more in that course's
+    final exam. Give the student ID, the course ID, the number of absences
+    and the final exam score.
+  gold:
+    sql: |
+      WITH absent AS (
+        SELECT student_id, course_id, COUNT(*) AS absences
+        FROM attendance WHERE status = 'absent'
+        GROUP BY student_id, course_id
+      )
+      SELECT a.student_id, a.course_id, a.absences, m.score
+      FROM absent a
+      JOIN marks m ON m.student_id = a.student_id AND m.course_id = a.course_id
+      WHERE m.exam = 'final' AND a.absences >= 5 AND m.score >= 80
+    messy_sql: |
+      WITH absent AS (
+        SELECT stu_id, crs_cd, COUNT(*) AS absences
+        FROM att_log WHERE att_st = 'A'
+        GROUP BY stu_id, crs_cd
+      )
+      SELECT a.stu_id, a.crs_cd, a.absences, m.mk_obt
+      FROM absent a
+      JOIN exm_mk m ON m.stu_id = a.stu_id AND m.crs_cd = a.crs_cd
+      WHERE m.exm_typ = 'FN' AND a.absences >= 5 AND m.mk_obt >= 80
+
+- id: cm03
+  type: multi_hop
+  question: >-
+    How many students scored above the course average in the final exam of
+    every course they took? The course average is the average final exam
+    score of all students in that course.
+  gold:
+    sql: |
+      WITH course_avg AS (
+        SELECT course_id, AVG(score) AS avg_score
+        FROM marks WHERE exam = 'final' GROUP BY course_id
+      )
+      SELECT COUNT(*) AS students FROM (
+        SELECT m.student_id
+        FROM marks m JOIN course_avg c ON c.course_id = m.course_id
+        WHERE m.exam = 'final'
+        GROUP BY m.student_id
+        HAVING MIN(m.score > c.avg_score) = 1
+      )
+    messy_sql: |
+      WITH course_avg AS (
+        SELECT crs_cd, AVG(mk_obt) AS avg_score
+        FROM exm_mk WHERE exm_typ = 'FN' GROUP BY crs_cd
+      )
+      SELECT COUNT(*) AS students FROM (
+        SELECT m.stu_id
+        FROM exm_mk m JOIN course_avg c ON c.crs_cd = m.crs_cd
+        WHERE m.exm_typ = 'FN'
+        GROUP BY m.stu_id
+        HAVING MIN(m.mk_obt > c.avg_score) = 1
+      )
+
+- id: cm04
+  type: statistics
+  question: >-
+    By how many points does the average final exam score of students whose
+    overall attendance is at least 85% exceed that of students whose overall
+    attendance is below 85%? Count a session as attended when it is marked
+    present or late.
+  gold:
+    sql: |
+      WITH att AS (
+        SELECT student_id,
+               100.0 * SUM(status IN ('present', 'late')) / COUNT(*) AS pct
+        FROM attendance GROUP BY student_id
+      )
+      SELECT AVG(CASE WHEN att.pct >= 85 THEN m.score END)
+           - AVG(CASE WHEN att.pct < 85 THEN m.score END) AS difference
+      FROM marks m JOIN att ON att.student_id = m.student_id
+      WHERE m.exam = 'final'
+    messy_sql: |
+      WITH att AS (
+        SELECT stu_id,
+               100.0 * SUM(att_st IN ('P', 'L')) / COUNT(*) AS pct
+        FROM att_log GROUP BY stu_id
+      )
+      SELECT AVG(CASE WHEN att.pct >= 85 THEN m.mk_obt END)
+           - AVG(CASE WHEN att.pct < 85 THEN m.mk_obt END) AS difference
+      FROM exm_mk m JOIN att ON att.stu_id = m.stu_id
+      WHERE m.exm_typ = 'FN'
+
+- id: cm05
+  type: multi_hop
+  question: >-
+    For each department, which of its courses had the lowest pass rate in the
+    final exam? A pass is a final exam score of 50 or more. Give the course
+    ID, the course title and the pass rate as a percentage, one row per
+    department.
+  gold:
+    sql: |
+      WITH rate AS (
+        SELECT c.department, c.course_id, c.title,
+               100.0 * SUM(m.score >= 50) / COUNT(*) AS pass_rate
+        FROM marks m JOIN courses c ON c.course_id = m.course_id
+        WHERE m.exam = 'final'
+        GROUP BY c.department, c.course_id, c.title
+      )
+      SELECT r.course_id, r.title, r.pass_rate
+      FROM rate r
+      WHERE r.pass_rate = (SELECT MIN(x.pass_rate) FROM rate x
+                           WHERE x.department = r.department)
+    messy_sql: |
+      WITH rate AS (
+        SELECT c.dept_cd, c.crs_cd, c.crs_ttl,
+               100.0 * SUM(m.mk_obt >= 50) / COUNT(*) AS pass_rate
+        FROM exm_mk m JOIN crs_mst c ON c.crs_cd = m.crs_cd
+        WHERE m.exm_typ = 'FN'
+        GROUP BY c.dept_cd, c.crs_cd, c.crs_ttl
+      )
+      SELECT r.crs_cd, r.crs_ttl, r.pass_rate
+      FROM rate r
+      WHERE r.pass_rate = (SELECT MIN(x.pass_rate) FROM rate x
+                           WHERE x.dept_cd = r.dept_cd)

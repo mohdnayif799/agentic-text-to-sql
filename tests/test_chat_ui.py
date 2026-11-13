@@ -153,7 +153,7 @@ class TestConversation:
         assert [e.label for e in at.main.expander] == [
             "How this was answered",
             "Step 1: Count lost customers per region (1 attempt, verified)",
-            "Agent trace", "Schema selection",
+            "Agent trace", "Schema selection", "Edit and run the SQL",
         ]
 
     def test_caption_says_questions_are_independent(self) -> None:
@@ -231,11 +231,13 @@ class TestExampleChips:
 class TestSidebar:
     def test_expanders_are_collapsed_and_hold_the_right_controls(self) -> None:
         at = start_app()
-        own_key, advanced = at.sidebar.expander
-        assert (own_key.label, advanced.label) == (
-            "Use your own API key", "Advanced settings"
+        own_key, advanced, data = at.sidebar.expander
+        assert (own_key.label, advanced.label, data.label) == (
+            "Use your own API key", "Advanced settings", "Your data"
         )
         assert not own_key.proto.expanded and not advanced.proto.expanded
+        assert not data.proto.expanded
+        assert [r.label for r in data.radio] == ["Answer questions from"]
         assert [s.key for s in own_key.selectbox] == ["provider"]
         assert len(own_key.text_input) == 1
         assert [s.label for s in advanced.slider] == [
@@ -427,8 +429,9 @@ class TestArchitectureD:
         summary = notes.index("Direct · 1 step · 0 repairs · 3 LLM calls · 0.2 s")
         assert notes[summary + 1] == "One query was enough, so it answered directly."
         assert [e.label for e in at.main.expander] == [
-            "How this was answered", "Step 1: SQL query"]
+            "How this was answered", "Step 1: SQL query", "Edit and run the SQL"]
         assert not at.main.expander[0].proto.expanded
+        assert not at.main.expander[-1].proto.expanded
 
     def test_escalated_reply_shows_the_path_and_each_steps_tools(
         self, demo_env: None, fake_agent: FakeAgent
@@ -445,7 +448,7 @@ class TestArchitectureD:
                 "components.") in notes
         assert [e.label for e in at.main.expander] == [
             "How this was answered", "Step 1: SQL query, 1 repair",
-            "Step 2: Metric decomposition"]
+            "Step 2: Metric decomposition", "Edit and run the SQL"]
         assert "split the metric" in notes  # the step's own reason, inside
         assert len(at.dataframe) == 1 and len(at.get("vega_lite_chart")) == 1
         assert "Final table: the metric analyses below, stacked." in notes
@@ -535,14 +538,17 @@ class TestArchitectureD:
                 lines.append(record.getMessage())
 
         handler = Keep()
-        app.log.addHandler(handler)
+        run_log = logging.getLogger("agentcrew.run")
+        run_log.addHandler(handler)
         try:
             app._log_run({"provider": "gemini", "model": "m"}, "done", 0.0, 5,
                          arch="full", path="escalated",
                          tools=[["run_sql", "repair"], ["compute:decompose_change"]])
         finally:
-            app.log.removeHandler(handler)
+            run_log.removeHandler(handler)
         (line,) = lines
-        assert "arch=full" in line and "path=escalated" in line
-        assert "tools=run_sql+repair>compute:decompose_change" in line
-        assert "llm_calls=5" in line
+        entry = json.loads(line)  # one JSON object per line, for Cloud Logging
+        assert entry["arch"] == "full" and entry["path"] == "escalated"
+        assert entry["tools"] == "run_sql+repair>compute:decompose_change"
+        assert entry["llm_calls"] == 5
+        assert "tools=run_sql+repair>compute:decompose_change" in entry["message"]
