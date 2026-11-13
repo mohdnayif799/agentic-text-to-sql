@@ -82,14 +82,19 @@ rows so far).
 ## Descriptions and joins
 
 After an upload the model drafts one short description per table and column
-(one call per 12 tables). The visitor can correct them, and untick, fix or
-add joins, in "Your data". Both go into the shared context as the dataset's
-data dictionary; schema selection also scores tables by their descriptions'
-words when a database has more tables than fit in context.
+(one call per 12 tables), and for each table one line saying what a single
+row of it is ("One row per student per course."). The visitor can correct
+them, and untick, fix or add joins, in "Your data". All of it goes into the
+shared context as the dataset's data dictionary, with the row line printed on
+the table's own line, as NorthStar's hand-written dictionary has it; schema
+selection also scores tables by their descriptions' words when a database
+has more tables than fit in context.
 
 Joins are proposed only when the name and the data agree (a matching key
 column, or a column naming another table, with a unique referenced side and
-90% of values found). Generic columns (`id`, `name`, `date`, `status`,
+90% of values found). A key column is one ending in `_id`, `_cd`, `_code`,
+`_no`, `_num`, `_number`, `_key` or `_ref`; the ending only makes it a
+candidate, and the data check decides. Generic columns (`id`, `name`, `date`, `status`,
 `created_at`, ...) never make a join, and a hand-entered join between two
 columns of the same generic name is refused.
 
@@ -168,3 +173,36 @@ What the run shows, and what it does not:
 
 Results: `eval/results/college/college2.json`. The first version of this
 test (10 questions, clean copy only) is `college-p2.json`: A 10/10, D 10/10.
+
+### After the grain fix (not a holdout result)
+
+Two changes were made because of the run above: the description draft now
+says what one row of each table is and that line is in the agent's context,
+and `_cd` is a key ending for join inference. The messy copy was then run
+again, live from an empty cache (run college3, 2026-11-13). NorthStar's
+prompts did not change: the frozen 50 replays offline with no cache miss.
+
+| Messy copy, same 15 questions | A (baseline) | D (full) |
+| --- | --- | --- |
+| Before (college2), all 15 | 14/15 | 14/15 |
+| After (college3), all 15 | 15/15 | 15/15 |
+| Before, 5 multi-step | 4/5 | 4/5 |
+| After, 5 multi-step | 5/5 | 5/5 |
+| Joins proposed | 3 | 6 |
+
+**This is the same 15 questions, not a holdout.** The fix was written after
+reading the failure on one of them, so the rerun shows the fix does what it
+was written to do and broke nothing else here. It is not a measurement of
+how the agent does on unseen messy data; that needs questions and a schema
+written after the fix, by someone else.
+
+What changed in the run: the model drafted "One row per student per course."
+for `att_sum` and "likely summarizing att_log" in its description, and the
+failing question's query now groups `att_sum` by student before comparing
+(1.95, the gold answer). Three things changed together (the row line, one
+sentence of guidance in the dataset dictionary, three more join hints), so
+the run cannot say which one fixed it. D answered every question directly
+this time, so again it added nothing over A. One run, one model, and the
+first query is not deterministic.
+
+Results: `eval/results/college/college3.json`.

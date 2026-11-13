@@ -134,6 +134,7 @@ def run_variant(variant: str, run: str, offline: bool,
         "today": cfg.today.isoformat(), "tables": list(dataset.tables),
         "joins": joins,
         "descriptions": {"tables": dict(notes.tables),
+                         "rows": dict(notes.grains),
                          "columns": {f"{t}.{c}": d
                                      for (t, c), d in notes.columns.items()}},
         "summary": summarise(items),

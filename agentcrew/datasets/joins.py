@@ -48,7 +48,13 @@ GENERIC_COLUMNS = frozenset("""
 """.split())
 
 #: Endings that make a column look like a key rather than an attribute.
-KEY_SUFFIXES = ("_id", "id", "_code", "_no", "_num", "_number", "_key", "_ref")
+#: "_cd" was missing at first: the messy college copy's crs_cd (course code)
+#: was not proposed while stu_id was (eval/results/college/college2.json).
+#: An ending only makes a column a CANDIDATE. The data still has to agree: the
+#: referenced side must be unique and 90% of the values must be found in it,
+#: which is why dept_cd, shared by students and courses, joins nothing.
+KEY_SUFFIXES = ("_id", "id", "_cd", "_code", "_no", "_num", "_number", "_key",
+                "_ref")
 
 MIN_OVERLAP = 0.9
 #: Each data check runs through execute_select, so it has the statement
@@ -102,8 +108,8 @@ def _references(column: str, table: str) -> bool:
     """`column` names `table`: course_id / courseid / course_code -> courses."""
     stem = _singular(table)
     name = column.lower()
-    return name in {f"{stem}_id", f"{stem}id", f"{stem}_code", f"{stem}_no",
-                    f"{stem}_key", f"{stem}_number"}
+    return name in {f"{stem}_id", f"{stem}id", f"{stem}_cd", f"{stem}_code",
+                    f"{stem}_no", f"{stem}_num", f"{stem}_key", f"{stem}_number"}
 
 
 def _candidates(catalog: Catalog) -> Iterable[tuple[str, str, str, str, str]]:

@@ -1,0 +1,567 @@
+{
+  "note": "unseen-schema test, not part of the frozen evaluation",
+  "run": "college3",
+  "code_commit": "9b9f759-dirty",
+  "freeze": [
+    "668855c9e93c6011522753b92954062967c56ad34b2ec0dda6476f844c155b8d *eval/college_questions.yaml",
+    "6b43c2ce15032c1f4104151c8db2b26c288e1fa244b3fd920cc6db4a4036f0b9 *eval/college/attendance.csv",
+    "25523356d0938c8e78c4b5f23bbb9b613d6a6c1dde50fe588d05cd0be4a5d295 *eval/college/courses.csv",
+    "6e9d748caa4783af4c0f8594ad1325075fe665e7b0a81b679a445a8240313fc9 *eval/college/marks.csv",
+    "68ada026d6759f1fc8b50b905246c37d5000081134a309e7209450272187afab *eval/college/students.csv",
+    "290aa095c13639e11310c0425dc694cb60dd5d031898d25d515fcdf3d91741b6 *eval/college_messy/att_log.csv",
+    "6c4a4a96a956a46e11b61c56a40874031cc1d29523e2984d4ce5f8bb68813a64 *eval/college_messy/att_sum.csv",
+    "4c12efd5ea64b4eceff4d753b1a9df9c6c48d2cbf63c878676a3152696762672 *eval/college_messy/crs_mst.csv",
+    "6f98ca74078f5a9f85bb5f9aa2261aef3be08d6c87cfeb4c63cd925855faa8a3 *eval/college_messy/exm_mk.csv",
+    "9d5592ca6749142896d592e7532f2c332fa4140bec1e6039f63249b642f0a78b *eval/college_messy/stu_mst.csv"
+  ],
+  "questions": 15,
+  "variants": {
+    "messy": {
+      "complete": true,
+      "stopped": null,
+      "model": "gemini-3.5-flash-lite",
+      "today": "2026-10-04",
+      "tables": [
+        "att_log",
+        "att_sum",
+        "crs_mst",
+        "exm_mk",
+        "stu_mst"
+      ],
+      "joins": [
+        "att_log.crs_cd = crs_mst.crs_cd",
+        "att_log.stu_id = stu_mst.stu_id",
+        "att_sum.crs_cd = crs_mst.crs_cd",
+        "att_sum.stu_id = stu_mst.stu_id",
+        "exm_mk.crs_cd = crs_mst.crs_cd",
+        "exm_mk.stu_id = stu_mst.stu_id"
+      ],
+      "descriptions": {
+        "tables": {
+          "att_log": "Student attendance log records for each course session.",
+          "att_sum": "Summary of student attendance per course, likely summarizing att_log.",
+          "crs_mst": "Master table containing course details.",
+          "exm_mk": "Examination marks obtained by students in courses.",
+          "stu_mst": "Master table containing student details."
+        },
+        "rows": {
+          "att_log": "One row per student per course per session date.",
+          "att_sum": "One row per student per course.",
+          "crs_mst": "One row per course code.",
+          "exm_mk": "One row per student per course per exam type.",
+          "stu_mst": "One row per student ID."
+        },
+        "columns": {
+          "att_log.stu_id": "Identifier that refers to stu_mst.",
+          "att_log.crs_cd": "Identifier that refers to crs_mst.",
+          "att_log.ses_dt": "Session date.",
+          "att_log.att_st": "Attendance status code.",
+          "att_sum.stu_id": "Identifier that refers to stu_mst.",
+          "att_sum.crs_cd": "Identifier that refers to crs_mst.",
+          "att_sum.cls_hld": "Total classes held.",
+          "att_sum.cls_att": "Total classes attended.",
+          "att_sum.att_pct": "Attendance percentage.",
+          "crs_mst.crs_cd": "Course code.",
+          "crs_mst.crs_ttl": "Course title.",
+          "crs_mst.dept_cd": "Department code.",
+          "crs_mst.crd": "Course credits.",
+          "crs_mst.sem": "Semester.",
+          "crs_mst.instr": "Instructor name.",
+          "exm_mk.stu_id": "Identifier that refers to stu_mst.",
+          "exm_mk.crs_cd": "Identifier that refers to crs_mst.",
+          "exm_mk.exm_typ": "Exam type code.",
+          "exm_mk.mk_obt": "Marks obtained.",
+          "exm_mk.exm_dt": "Exam date.",
+          "stu_mst.stu_id": "Student ID.",
+          "stu_mst.stu_nm": "Student name.",
+          "stu_mst.dept_cd": "Department code.",
+          "stu_mst.yr": "Year of study.",
+          "stu_mst.gndr": "Gender code.",
+          "stu_mst.adm_dt": "Admission date."
+        }
+      },
+      "summary": {
+        "baseline": {
+          "all": {
+            "passed": 15,
+            "of": 15,
+            "wilson95": [
+              0.796,
+              1.0
+            ],
+            "avg_llm_calls": 2.0
+          },
+          "single_query": {
+            "passed": 10,
+            "of": 10,
+            "wilson95": [
+              0.722,
+              1.0
+            ],
+            "avg_llm_calls": 2.0
+          },
+          "multi_step": {
+            "passed": 5,
+            "of": 5,
+            "wilson95": [
+              0.566,
+              1.0
+            ],
+            "avg_llm_calls": 2.0
+          }
+        },
+        "full": {
+          "all": {
+            "passed": 15,
+            "of": 15,
+            "wilson95": [
+              0.796,
+              1.0
+            ],
+            "avg_llm_calls": 3.0
+          },
+          "single_query": {
+            "passed": 10,
+            "of": 10,
+            "wilson95": [
+              0.722,
+              1.0
+            ],
+            "avg_llm_calls": 3.0
+          },
+          "multi_step": {
+            "passed": 5,
+            "of": 5,
+            "wilson95": [
+              0.566,
+              1.0
+            ],
+            "avg_llm_calls": 3.0
+          }
+        }
+      },
+      "items": [
+        {
+          "id": "co01",
+          "arch": "baseline",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 2,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co01",
+          "arch": "full",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 3,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co02",
+          "arch": "baseline",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 2,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co02",
+          "arch": "full",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 3,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co03",
+          "arch": "baseline",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 2,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co03",
+          "arch": "full",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 3,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co04",
+          "arch": "baseline",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 2,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co04",
+          "arch": "full",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 3,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co05",
+          "arch": "baseline",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 2,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co05",
+          "arch": "full",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 3,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co06",
+          "arch": "baseline",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 2,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co06",
+          "arch": "full",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 3,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co07",
+          "arch": "baseline",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 2,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co07",
+          "arch": "full",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 3,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co08",
+          "arch": "baseline",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 2,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co08",
+          "arch": "full",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 3,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co09",
+          "arch": "baseline",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 2,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co09",
+          "arch": "full",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 3,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co10",
+          "arch": "baseline",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 2,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "co10",
+          "arch": "full",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 3,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "cm01",
+          "arch": "baseline",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 2,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "cm01",
+          "arch": "full",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 3,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "cm02",
+          "arch": "baseline",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 2,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "cm02",
+          "arch": "full",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 3,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "cm03",
+          "arch": "baseline",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 2,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "cm03",
+          "arch": "full",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 3,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "cm04",
+          "arch": "baseline",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 2,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "cm04",
+          "arch": "full",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 3,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "cm05",
+          "arch": "baseline",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 2,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        },
+        {
+          "id": "cm05",
+          "arch": "full",
+          "primary": true,
+          "path": "direct",
+          "llm_calls": 3,
+          "first_failing_check": "",
+          "tools": [
+            [
+              "run_sql"
+            ]
+          ],
+          "status": "done"
+        }
+      ]
+    }
+  }
+}

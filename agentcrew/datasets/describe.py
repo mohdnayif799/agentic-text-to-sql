@@ -20,6 +20,18 @@ privacy note lists exactly this. Nothing else from the data is sent.
 
 A draft is text from a model about text from a file. It is treated as data:
 cut to a fixed length, stripped of newlines, and never executed.
+
+What one row is
+---------------
+Each table also gets one line saying what a single row of it means ("One row
+per student per course"). NorthStar's hand-written dictionary has this for
+every table ("One row per order"); a drafted one did not, and the unseen-
+schema test showed what that costs: given a summary table with one row per
+student per course, the model answered a per-student question at that
+table's grain (eval/results/college/college2.json, cm04), silently and on
+both architectures. The row line is drafted with the descriptions, shown in
+the same editor, and printed on the table's line of the data dictionary, so
+every SQL-writing call reads it next to the table it describes.
 """
 
 from __future__ import annotations
@@ -51,6 +63,13 @@ sample rows shown. Say what a code or flag means only when the values make \
 it clear; otherwise describe it as a code. Do not invent facts, units or \
 meanings the data does not show. Say if a column looks like an identifier \
 that refers to another table, and which one.
+
+For every table also fill in `row`: what ONE row of the table is, written as \
+"One row per ..." and naming every thing that together identifies a row, for \
+example "One row per order", "One row per student per course" or "One row \
+per region per month". Work it out from the row count and the columns that \
+identify a row, not from the table's name. If the table is a summary of \
+another table, say so in its description.
 """
 
 DESCRIBE_USER = """\
@@ -70,6 +89,7 @@ class ColumnNote(BaseModel):
 class TableNote(BaseModel):
     name: str
     description: str = Field(default="", description="At most 20 words.")
+    row: str = Field(default="", description="What one row is: 'One row per ...'.")
     columns: list[ColumnNote] = Field(default_factory=list)
 
 
@@ -83,6 +103,22 @@ def _clean(text: object) -> str:
     return " ".join(str(text or "").split())[:MAX_DESCRIPTION]
 
 
+#: The "column" of the editor row that holds a table's row line. Not a
+#: possible identifier from a CSV or Excel upload (names.to_identifier).
+ROW_LABEL = "(one row is)"
+
+
+def _row_line(text: object) -> str:
+    """A table's row line as one sentence starting "One row" (or "Each row"),
+    whatever shape the draft or the editor gave it."""
+    line = _clean(text).rstrip(".")
+    if not line:
+        return ""
+    if not line.lower().startswith(("one row", "each row")):
+        line = f"One row per {line[0].lower()}{line[1:]}"
+    return line + "."
+
+
 @dataclass(frozen=True)
 class Notes:
     """Descriptions by table and by (table, column). Immutable: an edit makes
@@ -90,20 +126,25 @@ class Notes:
 
     tables: Mapping[str, str] = field(default_factory=dict)
     columns: Mapping[tuple[str, str], str] = field(default_factory=dict)
+    grains: Mapping[str, str] = field(default_factory=dict)
+    """Per table, what one row of it is: "One row per student per course."."""
 
     def table_text(self, table: str) -> str:
         """Every description of `table` and its columns, for selection."""
-        parts = [self.tables.get(table, "")]
+        parts = [self.tables.get(table, ""), self.grains.get(table, "")]
         parts += [d for (t, _), d in self.columns.items() if t == table]
         return " ".join(p for p in parts if p)
 
     def rows(self, catalog: Catalog) -> list[dict[str, str]]:
-        """One row per table and per column, in catalog order, for editing.
-        A table's own row has an empty column."""
+        """One row per table, per table's row line and per column, in catalog
+        order, for editing. A table's own row has an empty column; its row
+        line has ROW_LABEL there."""
         out = []
         for name in sorted(catalog.tables):
             out.append({"table": name, "column": "",
                         "description": self.tables.get(name, "")})
+            out.append({"table": name, "column": ROW_LABEL,
+                        "description": self.grains.get(name, "")})
             for col in catalog.tables[name].columns:
                 out.append({"table": name, "column": col.name,
                             "description": self.columns.get((name, col.name), "")})
@@ -115,6 +156,7 @@ class Notes:
         dropped, so an edited table cannot add schema."""
         tables: dict[str, str] = {}
         columns: dict[tuple[str, str], str] = {}
+        grains: dict[str, str] = {}
         for row in rows:
             table = str(row.get("table") or "")
             column = str(row.get("column") or "")
@@ -125,7 +167,9 @@ class Notes:
                 tables[table] = text
             elif column in catalog.tables[table].column_names:
                 columns[(table, column)] = text
-        return cls(tables, columns)
+            elif column == ROW_LABEL:
+                grains[table] = _row_line(text)
+        return cls(tables, columns, grains)
 
     def to_yaml(self) -> str:
         data: dict[str, Any] = {}
@@ -135,6 +179,9 @@ class Notes:
         for (table, column), text in sorted(self.columns.items()):
             data.setdefault(table, {"description": "", "columns": {}})
             data[table]["columns"][column] = text
+        for table, text in sorted(self.grains.items()):
+            data.setdefault(table, {"description": "", "columns": {}})
+            data[table]["row"] = text
         return yaml.safe_dump({"tables": data}, sort_keys=True, allow_unicode=True)
 
     @classmethod
@@ -145,6 +192,8 @@ class Notes:
             spec = spec or {}
             rows.append({"table": table, "column": "",
                          "description": spec.get("description", "")})
+            rows.append({"table": table, "column": ROW_LABEL,
+                         "description": spec.get("row", "")})
             for column, text_ in (spec.get("columns") or {}).items():
                 rows.append({"table": table, "column": column, "description": text_})
         return cls.from_rows(rows, catalog)
@@ -186,6 +235,7 @@ def draft_notes(llm: LLMClient, tools: ToolContext, *, max_tokens: int = 2048,
     names = sorted(catalog.tables)
     tables: dict[str, str] = {}
     columns: dict[tuple[str, str], str] = {}
+    grains: dict[str, str] = {}
     for start in range(0, len(names), TABLES_PER_CALL):
         batch = names[start:start + TABLES_PER_CALL]
         user = DESCRIBE_USER.format(
@@ -202,11 +252,13 @@ def draft_notes(llm: LLMClient, tools: ToolContext, *, max_tokens: int = 2048,
                 continue  # a table the model made up
             if note.description:
                 tables[note.name] = _clean(note.description)
+            if note.row:
+                grains[note.name] = _row_line(note.row)
             known = set(catalog.tables[note.name].column_names)
             for col in note.columns:
                 if col.name in known and col.description:
                     columns[(note.name, col.name)] = _clean(col.description)
-    return Notes(tables, columns)
+    return Notes(tables, columns, grains)
 
 
 def render_dictionary(notes: Notes, joins: Iterable[Join], catalog: Catalog,
@@ -221,9 +273,16 @@ def render_dictionary(notes: Notes, joins: Iterable[Join], catalog: Catalog,
              "as written.",
              "- Descriptions were drafted by a model and may have been edited "
              "by the data's owner; the schema and values are authoritative.",
+             "- Each table's line says what one row of it is. When a question "
+             "is about one kind of thing and a table has several rows for each, "
+             "group by that thing alone before filtering or comparing on it.",
              "", "Tables:"]
     for name in chosen:
-        lines.append(f"{name}: {notes.tables.get(name) or '(no description)'}")
+        described = notes.tables.get(name) or "(no description)"
+        if not described.endswith((".", ")")):
+            described += "."
+        grain = notes.grains.get(name)
+        lines.append(f"{name}: {described}" + (f" {grain}" if grain else ""))
         for col in catalog.tables[name].columns:
             text = notes.columns.get((name, col.name))
             if text:
@@ -236,6 +295,6 @@ def render_dictionary(notes: Notes, joins: Iterable[Join], catalog: Catalog,
 
 
 def empty_notes() -> Notes:
-    return Notes({}, {})
+    return Notes({}, {}, {})
 
 
