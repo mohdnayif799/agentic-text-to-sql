@@ -86,20 +86,67 @@ columns of the same generic name is refused.
 
 ## Unseen-schema test
 
-`scripts/build_college_dataset.py` writes a seeded college dataset (240
-students, 20 courses, 2,400 exam marks, 18,000 attendance records) as four
-CSV files with no keys declared. `scripts/run_unseen_schema.py` uploads them
-through the real ingest path, drafts descriptions with the model, and runs
-the 10 questions in `eval/college_questions.yaml` on A and D, graded by the
-frozen strict grader. It is separate from the frozen 50.
+A schema no part of the agent was built or tuned on, asked as a visitor's
+upload. Separate from the frozen 50.
 
-| Run | A (baseline) | D (full) |
+**Data.** `scripts/build_college_dataset.py` writes a seeded college dataset
+(240 students, 20 courses, 2,400 exam marks, 18,000 attendance records) as
+CSV files with no keys declared, in two copies of the same rows:
+
+| Copy | Tables | What makes it hard |
 | --- | --- | --- |
-| college-p2, Gemini 3.5 Flash-Lite, 2026-11-12 | 10/10 | 10/10 |
+| clean, `eval/college/` | students, courses, marks, attendance | nothing: readable names |
+| messy, `eval/college_messy/` | stu_mst, crs_mst, exm_mk, att_log, att_sum | cryptic names (`stu_nm`, `mk_obt`, `crd`), codes for values (CSE/ECE/ME/CE, MT/FN, P/A/L) with no lookup table, and a derived summary table (`att_sum` with `att_pct`) beside the log |
 
-Read with care: the questions, the gold SQL and the agent share an author,
-the column names are clear, and every question needs one query, so D never
-escalated. It shows the upload path works end to end (all four joins were
-inferred from the data, and the term-matching question found "Engineering
-Thermodynamics" from "thermodynamics"); it does not show the agent is robust
-on messy schemas. Results: `eval/results/college/college-p2.json`.
+**Questions.** 15 in `eval/college_questions.yaml`, the same text for both
+copies: 10 single-query questions and 5 that need more than one step (for
+example, students under 85% attendance who also failed two or more courses).
+
+**Verified and frozen before any model call.**
+`scripts/check_college_gold.py` checks that the two copies hold the same
+rows, that each question's gold SQL gives the same answer on both, that
+pandas reproduces every answer from the CSV files, and that no answer rests
+on a tie; it then writes `eval/college_FREEZE.sha256`. The runner refuses to
+start if a frozen file has changed.
+
+**Run.** `scripts/run_unseen_schema.py` uploads each copy through the real
+ingest path, lets the model draft the descriptions, and uses them and the
+inferred joins exactly as produced, with no hand edits. A and D answer every
+question; the frozen strict grader scores the final table.
+
+| Run college2, Gemini 3.5 Flash-Lite, 2026-11-13, agent code dd3c8b6 | A (baseline) | D (full) |
+| --- | --- | --- |
+| Clean, all 15 | 15/15 | 15/15 |
+| Clean, 5 multi-step | 5/5 | 5/5 |
+| Messy, all 15 | 14/15 | 14/15 |
+| Messy, 5 multi-step | 4/5 | 4/5 |
+
+What the run shows, and what it does not:
+
+- **The one failure is silent and shared.** On the messy copy, "by how many
+  points does the average final score of students with overall attendance of
+  at least 85% exceed the others'" was answered from `att_sum`, grouped by
+  student and course, so it compared per-course attendance instead of each
+  student's overall attendance: 2.20 instead of 1.95. The query ran, returned
+  one plausible number, and no signal fired. On the clean copy, which has no
+  summary table, the same question passed. The cryptic names did not cause
+  it; the extra table at a different grain did.
+- **D added nothing here.** D's first query is A's first query, so on a
+  direct answer the two are the same call. D escalated once per copy (cm02)
+  and passed where A already passed. Equal scores are the expected result
+  when nothing triggers an escalation, not evidence that D is as good on
+  unseen data as on NorthStar.
+- **Join inference missed the course key on the messy copy.** `stu_id` was
+  recognised and its three joins proposed; `crs_cd` was not, because `_cd`
+  is not among the endings treated as a key. The model joined on it anyway.
+- **The drafted descriptions were thin.** For the messy copy they read
+  "Attendance status code", "Exam type code", "Department code". The codes
+  were resolved from the value lists in the context, not the descriptions.
+- **Limits of the test.** 15 questions on one synthetic dataset, written by
+  the same author as the agent, on small tables with clean values, one run,
+  one model. It shows the upload path works end to end and that cryptic
+  names and coded values alone did not break single-query or multi-step
+  questions. It does not show robustness on real messy data.
+
+Results: `eval/results/college/college2.json`. The first version of this
+test (10 questions, clean copy only) is `college-p2.json`: A 10/10, D 10/10.

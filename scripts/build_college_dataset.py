@@ -11,6 +11,20 @@ ISO text, and tables related only by matching id columns.
 Seeded, so the files are identical on every run. Two patterns are planted so
 questions have clear answers: Mechanical students miss more classes, and
 Computer Science final exams score higher.
+
+It also writes eval/college_messy/: the SAME rows as a legacy system would
+export them, to test the agent where names say little:
+
+* cryptic table and column names (stu_mst.stu_nm, exm_mk.mk_obt, crs_mst.crd);
+* codes instead of words: departments as CSE / ECE / ME / CE, exams as
+  MT / FN, attendance as P / A / L, with no lookup table;
+* a fifth, derived table att_sum (classes held and attended and att_pct per
+  student and course), the kind of summary such systems keep beside the
+  log. A class counts as attended when the log says P or L.
+
+Nothing else differs, so every question has the same answer on both copies
+(apart from a department appearing as its code), which
+scripts/check_college_gold.py verifies.
 """
 
 from __future__ import annotations
@@ -55,9 +69,16 @@ LAST = ("Sharma", "Reddy", "Iyer", "Khan", "Patel", "Nair", "Gupta", "Das",
 SESSIONS = 15
 TERM_START = date(2026, 1, 12)
 
+MESSY_OUT = ROOT / "eval" / "college_messy"
+DEPT_CODES = {"Computer Science": "CSE", "Electronics": "ECE", "Mechanical": "ME",
+              "Civil": "CE"}
+EXAM_CODES = {"midterm": "MT", "final": "FN"}
+STATUS_CODES = {"present": "P", "absent": "A", "late": "L"}
 
-def write(name: str, header: list[str], rows: list[list[object]]) -> None:
-    with (OUT / f"{name}.csv").open("w", newline="", encoding="utf-8") as fh:
+
+def write(name: str, header: list[str], rows: list[list[object]],
+          out: Path = OUT) -> None:
+    with (out / f"{name}.csv").open("w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh, lineterminator="\n")
         writer.writerow(header)
         writer.writerows(rows)
@@ -77,10 +98,10 @@ def main() -> None:
     write("students", ["student_id", "name", "department", "year_of_study",
                        "gender", "admission_date"], students)
 
+    courses = [[cid, title, dept, credits, "2026-Spring", f"Prof. {rng.choice(LAST)}"]
+               for cid, title, dept, credits in COURSES]
     write("courses", ["course_id", "title", "department", "credits", "semester",
-                      "instructor"],
-          [[cid, title, dept, credits, "2026-Spring",
-            f"Prof. {rng.choice(LAST)}"] for cid, title, dept, credits in COURSES])
+                      "instructor"], courses)
 
     by_dept = {d: [c for c in COURSES if c[2] == d] for d in DEPARTMENTS}
     marks, attendance = [], []
@@ -107,6 +128,36 @@ def main() -> None:
           attendance)
     print(f"wrote {OUT}: {len(students)} students, {len(COURSES)} courses, "
           f"{len(marks)} marks, {len(attendance)} attendance rows")
+    write_messy(students, courses, marks, attendance)
+
+
+def write_messy(students: list[list], courses: list[list], marks: list[list],
+                attendance: list[list]) -> None:
+    """The same rows under a legacy system's names and codes. Uses no random
+    numbers, so the clean files above are unaffected by it."""
+    MESSY_OUT.mkdir(parents=True, exist_ok=True)
+    write("stu_mst", ["stu_id", "stu_nm", "dept_cd", "yr", "gndr", "adm_dt"],
+          [[sid, name, DEPT_CODES[dept], year, gender, admitted]
+           for sid, name, dept, year, gender, admitted in students], MESSY_OUT)
+    write("crs_mst", ["crs_cd", "crs_ttl", "dept_cd", "crd", "sem", "instr"],
+          [[cid, title, DEPT_CODES[dept], credits, sem, instructor]
+           for cid, title, dept, credits, sem, instructor in courses], MESSY_OUT)
+    write("exm_mk", ["stu_id", "crs_cd", "exm_typ", "mk_obt", "exm_dt"],
+          [[sid, cid, EXAM_CODES[exam], score, day]
+           for sid, cid, exam, score, day in marks], MESSY_OUT)
+    write("att_log", ["stu_id", "crs_cd", "ses_dt", "att_st"],
+          [[sid, cid, day, STATUS_CODES[status]]
+           for sid, cid, day, status in attendance], MESSY_OUT)
+    held: dict[tuple[int, str], int] = {}
+    attended: dict[tuple[int, str], int] = {}
+    for sid, cid, _, status in attendance:
+        held[(sid, cid)] = held.get((sid, cid), 0) + 1
+        attended[(sid, cid)] = attended.get((sid, cid), 0) + (status != "absent")
+    write("att_sum", ["stu_id", "crs_cd", "cls_hld", "cls_att", "att_pct"],
+          [[sid, cid, n, attended[(sid, cid)], round(100 * attended[(sid, cid)] / n, 2)]
+           for (sid, cid), n in held.items()], MESSY_OUT)
+    print(f"wrote {MESSY_OUT}: the same rows, cryptic names and codes, plus "
+          f"att_sum ({len(held)} rows)")
 
 
 if __name__ == "__main__":
