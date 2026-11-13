@@ -19,7 +19,6 @@ because app.py decides which key pays and charges the caps.
 
 from __future__ import annotations
 
-import threading
 import uuid
 from collections.abc import Callable, MutableMapping
 from typing import Any
@@ -38,7 +37,7 @@ from agentcrew.datasets.source import (
     update_postgres,
     upload_source,
 )
-from agentcrew.datasets.store import Dataset, DatasetStore, dataset_store
+from agentcrew.datasets.store import Dataset, DatasetStore
 from agentcrew.tools import ToolContext
 
 OWNER = "owner"
@@ -90,20 +89,12 @@ DAILY_UPLOAD_MESSAGE = (
 Describer = Callable[[ToolContext], tuple[Notes | None, str | None]]
 """(tools) -> (drafted notes or None, a notice for the visitor or None)."""
 
-_hooked: set[int] = set()
-_hook_lock = threading.Lock()
-
-
 def store(settings: Settings) -> DatasetStore:
-    """The process-wide store, with the cache cleanup hook registered once."""
-    from agentcrew.archs.app_runner import forget_dataset
+    """The process-wide store, with the cache cleanup hook registered once
+    (agentcrew/service.store, shared with the API)."""
+    from agentcrew import service
 
-    found = dataset_store(settings)
-    with _hook_lock:
-        if id(found) not in _hooked:
-            found.on_remove(forget_dataset)
-            _hooked.add(id(found))
-    return found
+    return service.store(settings)
 
 
 def session_owner(state: MutableMapping[str, Any]) -> str:

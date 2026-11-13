@@ -131,6 +131,29 @@ class Settings(BaseSettings):
     AGENTCREW_DATABASE_URL are loaded from and saved to, so they are drafted
     once rather than on every restart. Unset: descriptions live in memory."""
 
+    # ---- REST API (agentcrew/api, docs/API.md) --------------------------------
+    api_keys: SecretStr | None = None
+    """The API keys callers send in X-API-Key, separated by commas or
+    whitespace. On Cloud Run this comes from Secret Manager. Unset: every
+    request except /v1/health is refused. A SecretStr so that printing or
+    logging a Settings object never shows a key; only the API's key ring
+    reads it, and it keeps hashes, not the keys. Keys shorter than 24
+    characters are ignored (generate one with `openssl rand -hex 32`)."""
+    api_rate_limit_per_minute: int = 30
+    """Requests per minute for one API key, over a sliding minute. 0 = no
+    limit. In memory: the API runs as one instance and one process."""
+    api_max_json_kb: int = 64
+    """Largest JSON request body, in KB. Enforced while the body is read. An
+    upload's limit is max_upload_mb / max_excel_upload_mb, as in the UI."""
+    api_datasets_per_key: int = 2
+    """Datasets one API key may hold at a time."""
+    api_dataset_ttl_seconds: int = 1800
+    """An API dataset not used for this long is deleted. The API service's
+    store uses this in place of dataset_ttl_seconds."""
+    api_docs: bool = False
+    """Serve the interactive docs (/docs, /openapi.json). Off by default:
+    they are unauthenticated."""
+
     idle_timeout_seconds: int = 600
     """A browser session with no activity for this long is ended, in the
     browser and on the server, so an idle tab cannot keep the Cloud Run

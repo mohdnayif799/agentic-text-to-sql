@@ -35,6 +35,13 @@ pandas==3.0.5             # 3.x: string cols are `str` dtype, not `object`
 altair==6.2.2             # charts; app.py imports it directly, so it is pinned
                           # here rather than relied on as a streamlit transitive
 
+# ---- REST API (agentcrew/api, docs/API.md) ---------------------------------
+# The same image serves the API when its command is overridden to uvicorn.
+# Plain uvicorn (h11, pure Python): no uvloop or httptools to compile.
+# No python-multipart: an upload is the raw request body, not a form.
+fastapi==0.162.5
+uvicorn==0.54.0
+
 # ---- Model providers (install the one(s) you plan to use) ------------------
 # The UI lets you pick Anthropic, OpenAI or Gemini at runtime, so install
 # whichever you have a key for. google-genai is always installed because the

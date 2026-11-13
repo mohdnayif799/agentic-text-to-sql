@@ -4,8 +4,9 @@ Text-to-SQL router agent (Streamlit, SQLite, Gemini). See README.md and docs/.
 
 ## Current work: v3-production
 
-Branch `v3-production`; the last code commit is Phase 3 (SQL editor). Phases 1
-to 3 are done and pushed; Phase 4 is next. A draft PR to `main` is open and CI runs on every
+Branch `v3-production`. Phases 1 to 3 are done and pushed. Phase 4 (REST API)
+is built and verified but NOT committed yet: it is waiting for approval.
+Phase 5 is next. A draft PR to `main` is open and CI runs on every
 push to it (it does not deploy; only a merge to `main` does).
 
 ### Ground rules
@@ -55,15 +56,42 @@ push to it (it does not deploy; only a merge to `main` does).
   replay of the frozen 50 is still D 45/50 with 0 live calls.
 - A failed run's summary reads "Stopped" and "It stopped before it could
   answer."; a refused one "Refused". Never "answered directly".
-- 1590 tests pass, 7 skipped (live PostgreSQL). Decisions D16 to D23 are in
+- Phase 4, REST API (docs/API.md, decisions D24 to D29):
+  - `agentcrew/service.py` holds the ask flow moved out of app.py unchanged
+    (`answer`, `execute`, `log_run`, `describer`, `run_sql_on`, `store`);
+    app.py and the API are callers. It looks the agent's entry points up on
+    their modules at call time (`app_runner.build_runtime`), so tests that
+    patch the module reach every caller. `Turn.code` says why a run did not
+    happen; `Caller(surface, client)` goes to the run log.
+  - `agentcrew/api/`: `app.py` (`create_app`, the `Gate` ASGI middleware),
+    `auth.py`, `ratelimit.py`, `schemas.py`, `routes.py`, `errors.py`.
+    Endpoints under /v1: health, ask, sql, datasets (POST), datasets/{id}/schema,
+    datasets/{id} (DELETE). Run: `uvicorn agentcrew.api.app:create_app --factory
+    --host 0.0.0.0 --port 8080 --no-access-log`.
+  - The gate runs before the framework reads a body: key (401), per-key rate
+    limit (429), body limit while reading (413), last-resort 500 envelope,
+    one `event: request` log line. Keys: `AGENTCREW_API_KEYS`, SHA-256 digests
+    compared with `hmac.compare_digest`; logs carry a 12-hex `client` hash.
+  - An upload is the raw request body with `?filename=`, one file, through
+    `datasets.ingest`. Datasets are owned by the key's digest: 404 for any
+    other key, 410 for the owner once expired (30 min after last use), 2 per
+    key. The API process builds the store with `api_dataset_ttl_seconds`.
+  - /ask runs on the server key with the demo budgets and charges the daily
+    run and call caps; /sql goes through `sql_editor.run_sql` (daily SQL
+    counter); uploads charge the upload cap. Each Cloud Run service has its
+    own counters, so the total ceiling is the sum of both (docs say so).
+  - No CORS; /docs off unless `AGENTCREW_API_DOCS=true`. New pins: fastapi,
+    uvicorn (httpx in dev). Dockerfile: HEALTHCHECK honours `HEALTH_PATH`.
+  - Verified: tests/test_api.py (real stack, scripted model, fake clock); the
+    image run with the uvicorn command and every endpoint called with curl;
+    offline replay of the frozen 50 still D 45/50 with 0 live calls.
+  - NOT done, by instruction: the `agentcrew-api` Cloud Run service, the
+    `agentcrew-api-keys` secret and any CD change. Console steps are in
+    docs/API.md; the opt-in CD step was proposed as a diff only.
+- 1687 tests pass, 7 skipped (live PostgreSQL). Decisions D16 to D29 are in
   docs/DECISIONS.md.
 
 ### Remaining plan
-- Phase 4, FastAPI under `/v1`: health, ask, run read-only SQL, upload a dataset,
-  get its schema. Shared core with Streamlit. API key header (keys from env),
-  per-key rate limit, request size limits, clear errors. Tests for auth, rate
-  limiting and write SQL refused. A separate Cloud Run service from the same
-  image; ask before touching CD.
 - Phase 5: 10 NorthStar questions in Hindi and Telugu typed in English letters
   only, no native script, no translation step. Add one prompt instruction only
   if several fail; report before and after.
@@ -80,3 +108,9 @@ push to it (it does not deploy; only a merge to `main` does).
 - On uploaded data D adds nothing over A so far; D's metric tools are NorthStar-only.
 - Live PostgreSQL tests need `AGENTCREW_TEST_POSTGRES_URL` (skipped in CI),
   including the SQL editor's.
+- The API's rate limiter, caps and datasets are in memory: the service must
+  stay at one instance and one worker.
+- CI's docker job smoke-tests only the UI command; the API command was
+  smoke-tested by hand (a CI step for it is part of the proposed diff).
+- app.py still re-exports `_log_run` and `trace_content_enabled` from the
+  service because older tests reach them there.

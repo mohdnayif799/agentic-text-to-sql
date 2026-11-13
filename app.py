@@ -39,28 +39,12 @@ from streamlit.delta_generator import DeltaGenerator
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from agentcrew import data_panel, runlog  # noqa: E402
-from agentcrew.archs.app_runner import (  # noqa: E402
-    AppRun,
-    CountingClient,
-    build_runtime,
-    run_arch_question,
-)
-from agentcrew.caps import DailyCap, DailyCapExceeded, daily_cap  # noqa: E402
+from agentcrew import data_panel, runlog, service  # noqa: E402
+from agentcrew.archs.app_runner import AppRun  # noqa: E402
 from agentcrew.config import Settings  # noqa: E402
-from agentcrew.datasets.describe import Notes, draft_notes  # noqa: E402
 from agentcrew.datasets.source import DataSource  # noqa: E402
-from agentcrew.db.engine import DatabaseNotFoundError, scrub_url  # noqa: E402
-from agentcrew.graph.build import RunOutcome, build_deps, run_question  # noqa: E402
-from agentcrew.llm import (  # noqa: E402
-    PROVIDERS,
-    SELECTABLE_PROVIDERS,
-    LLMError,
-    LLMTimeoutError,
-    ProviderSpec,
-    QuotaExhaustedError,
-    build_client,
-)
+from agentcrew.graph.build import RunOutcome  # noqa: E402
+from agentcrew.llm import PROVIDERS, SELECTABLE_PROVIDERS  # noqa: E402
 from agentcrew.presentation import (  # noqa: E402
     FINAL_TABLE,
     arch_summary,
@@ -74,10 +58,24 @@ from agentcrew.presentation import (  # noqa: E402
     step_label,
     summary,
 )
-from agentcrew.refusal import WRITE_REFUSAL, is_write_request  # noqa: E402
 from agentcrew.schemas import ExecutionResult  # noqa: E402
-from agentcrew.sql_editor import EditorRun, run_sql, runs_left  # noqa: E402
-from agentcrew.tools import ToolContext  # noqa: E402
+from agentcrew.service import (  # noqa: E402
+    DEMO_MAX_ATTEMPTS,
+    DEMO_MAX_STEPS,
+    DEMO_RUN_LIMIT,
+    Turn,
+    answer,
+    demo_runs_left,
+    redact,
+    server_key_configured,
+    trace_content_enabled,  # noqa: E402, F401
+)
+from agentcrew.service import deployment_cap as _daily_cap  # noqa: E402
+
+# The names this file had before the ask flow moved to agentcrew/service.py;
+# tests still reach them here.
+from agentcrew.service import log_run as _log_run  # noqa: E402, F401
+from agentcrew.sql_editor import EditorRun, runs_left  # noqa: E402
 
 # One line per run on stderr (Cloud Run sends stderr to Cloud Logging).
 # Streamlit re-executes this file on every rerun but loggers are process-wide,
@@ -328,72 +326,12 @@ def build_chart(df: pd.DataFrame) -> alt.Chart | None:
 CUSTOM_MODEL = "Custom..."
 
 # ---- Demo mode ---------------------------------------------------------------
-# A deployment can configure a server-side key (AGENTCREW_<PROVIDER>_API_KEY) so
-# visitors can try the agent without one. That key is read only through
-# Settings, only at the moment a run is built, and never placed in a widget or
-# in st.session_state: Streamlit sends every widget value to the browser, and a
-# password field has a show/hide toggle. Runs on it are capped per browser
-# session; a visitor's own key is never capped.
-DEMO_RUN_LIMIT = 5
-DEMO_RUNS_USED = "demo_runs_used"  # st.session_state key holding the count
-
-DEMO_LIMIT_MESSAGE = (
-    f"You've used the {DEMO_RUN_LIMIT} free demo runs. Add your own Gemini key "
-    "(free at aistudio.google.com/apikey) under 'Use your own API key' to keep "
-    "going."
-)
-SHARED_QUOTA_MESSAGE = (
-    "The shared demo quota is used up for now. Try again later or add your own key."
-)
-OWN_QUOTA_MESSAGE = (
-    "Your API key hit its provider's quota or rate limit. Wait a moment and try "
-    "again, or check the limits on your key."
-)
-DEMO_UNAVAILABLE_MESSAGE = (
-    "The demo is temporarily unavailable. Try again later, or add your own key "
-    "under 'Use your own API key'."
-)
-# A model call passed its request timeout (GEMINI_TIMEOUT_SECONDS). Shown on
-# either key: it is the provider being slow, not the visitor's key or input.
-SLOW_MODEL_MESSAGE = (
-    "The model is responding slowly right now. Please try again in a minute."
-)
-# Runs on the server key use fixed budgets. Otherwise the sliders would let one
-# counted run make several times as many model calls.
-DEMO_MAX_ATTEMPTS = 3
-DEMO_MAX_STEPS = 3
+# The ask flow (which key pays, the allowances, the daily cap, the run and
+# its log line) lives in agentcrew/service.py, shared with the REST API.
+# This file draws it. The server key is never placed in a widget or in
+# st.session_state: Streamlit sends every widget value to the browser, and
+# a password field has a show/hide toggle.
 DEMO_FIXED_CAPTION = "Fixed in demo mode. Add your own key to change."
-# The process-wide daily cap (agentcrew/caps.py) is the ceiling behind the
-# per-session allowance, which a page reload resets. Same wording family as
-# the other notices: not a failure, and not counted.
-DAILY_LIMIT_MESSAGE = (
-    "The demo has reached its daily limit. Try again tomorrow, or add your own "
-    "key under 'Use your own API key'."
-)
-
-
-def _daily_cap() -> DailyCap:
-    """The deployment's cap, read from the environment once per process."""
-    try:
-        return daily_cap(Settings())
-    except Exception:
-        # Settings could not be built (a malformed variable); the run itself
-        # will fail with a message. The cap still exists, at its defaults.
-        fields = Settings.model_fields
-        return daily_cap(Settings.model_construct(
-            daily_run_cap=fields["daily_run_cap"].default,
-            daily_llm_call_cap=fields["daily_llm_call_cap"].default,
-            daily_sql_run_cap=fields["daily_sql_run_cap"].default,
-        ))
-
-
-def trace_content_enabled() -> bool:
-    """AGENTCREW_TRACE_CONTENT: whether the run log line may carry the question
-    and the final SQL. Off by default and off on the public demo."""
-    try:
-        return bool(Settings().trace_content)
-    except Exception:
-        return False
 
 
 # ---- Idle guard ----------------------------------------------------------------
@@ -502,43 +440,6 @@ def model_options(provider: str, configured_model: str) -> list[str]:
     if configured_model and configured_model not in models:
         models = [configured_model, *models]
     return [*models, CUSTOM_MODEL]
-
-
-def _server_key(provider: str) -> str:
-    """The deployment's key for `provider`, or "". Never store or render this."""
-    try:
-        return getattr(Settings(), PROVIDERS[provider].key_field) or ""
-    except Exception:
-        return ""
-
-
-def server_key_configured(provider: str) -> bool:
-    return bool(_server_key(provider))
-
-
-def demo_runs_left(state: MutableMapping[str, Any]) -> int:
-    return max(0, DEMO_RUN_LIMIT - state.get(DEMO_RUNS_USED, 0))
-
-
-def record_demo_run(state: MutableMapping[str, Any]) -> None:
-    state[DEMO_RUNS_USED] = state.get(DEMO_RUNS_USED, 0) + 1
-
-
-def _database_url() -> str | None:
-    """AGENTCREW_DATABASE_URL (self-hosted), for redaction only."""
-    try:
-        return Settings().database_url_value()
-    except Exception:
-        return None
-
-
-def redact(text: str, secret: str) -> str:
-    """Never echo the key back into the UI, even inside a provider error. The
-    same goes for the self-hosted database URL and its password: every error
-    text the app shows or logs passes through here."""
-    if secret and len(secret) > 8:
-        text = text.replace(secret, "***")
-    return scrub_url(text, _database_url())
 
 
 # ---- Architecture runs (A, C, D) ---------------------------------------------
@@ -739,335 +640,11 @@ def render_run_details(outcome: RunOutcome, slot: int) -> None:
         )
 
 
-@dataclass
-class Turn:
-    """One submitted question and whatever came back.
-
-    Replaces the previous singleton `outcome` / `error` pair. Those could not
-    represent "question 2 failed but question 1's answer is still valid": a new
-    error overwrote `error` while leaving the old `outcome` on screen, so the
-    failure appeared to belong to the previous answer.
-
-    Binding the result (or the error) to the question that produced it makes
-    that state unrepresentable.
-    """
-
-    question: str
-    outcome: RunOutcome | None = None
-    arch_run: AppRun | None = None
-    """Set instead of `outcome` when a v2 architecture (A, C, D) answered."""
-    error: str | None = None
-    notice: str | None = None
-    """Not a failure of the agent: demo limit reached, quota refused, no key."""
-    source_id: str = "northstar"
-    """Which data source answered (source_id()), so the SQL editor runs the
-    answer's SQL only against that source."""
-
-
-def execute(
-    question: str,
-    cfg: dict[str, Any],
-    spec: ProviderSpec,
-    *,
-    own_key: str,
-    show_progress: Callable[[str, float], None] | None = None,
-    budget: DailyCap | None = None,
-    source: DataSource | None = None,
-) -> tuple[Turn, bool]:
-    """Run one question. Failures are returned on the Turn, never raised.
-
-    `cfg` carries the visitor's key when they gave one; otherwise it carries
-    no key at all and Settings reads the server key from the environment, so
-    the server key never passes through the UI. The returned bool says whether
-    the run counts against the demo allowance: only a run that completed does.
-    A quota refusal, a failure to start, or any exception during the run never
-    uses up a visitor's runs.
-
-    `budget` is the daily cap, given for runs on the server key only: each
-    model call is charged against it, and a call that would cross the day's
-    limit ends the run with a notice (not counted either).
-
-    `source` is the session's uploaded dataset or the self-hosted database;
-    None answers from NorthStar exactly as before.
-
-    On the server key, failures show a generic message rather than provider
-    error text; the redacted detail goes to the log instead.
-    """
-    turn = Turn(question=question)
-    secret = own_key or _server_key(spec.key)  # for redaction only
-    started = time.perf_counter()
-    arch = cfg.get("arch", "?")
-    paid = {"own_key": bool(own_key), "question": question}
-    try:
-        settings = Settings(**cfg)
-        arch = settings.arch
-        if arch == "v1" and source is None:
-            deps = build_deps(settings)
-        else:
-            if arch == "v1":  # the original agent only knows NorthStar
-                settings = settings.model_copy(update={"arch": "full"})
-                arch = "full"
-            runtime = (build_runtime(settings) if source is None
-                       else build_runtime(settings, source=source))
-            client = runtime.new_client(budget=budget,
-                                        trace=runtime.start_trace(question))
-    except Exception as exc:
-        _log_run(cfg, "start_failed", started, 0, arch=arch, error=exc,
-                 secret=secret, **paid)
-        if not own_key:
-            turn.error = DEMO_UNAVAILABLE_MESSAGE
-        elif isinstance(exc, DatabaseNotFoundError):
-            turn.error = str(exc)
-        else:
-            turn.error = (
-                f"Could not start the agent: {redact(str(exc), secret)}\n\n"
-                f"Check the API key in the sidebar. If the SDK is missing, run "
-                f"`{spec.install}`."
-            )
-        return turn, False
-
-    def calls_so_far() -> int:
-        return _llm_calls_so_far(deps) if arch == "v1" else client.calls
-
-    def usage_so_far() -> Any:
-        return None if arch == "v1" else getattr(client, "usage", None)
-
-    try:
-        if arch == "v1":
-            turn.outcome = run_question(question, settings=settings, deps=deps)
-        else:
-            on_stage = (stage_reporter(show_progress, settings.max_steps)
-                        if show_progress else None)
-            turn.arch_run = run_arch_question(
-                question, settings=settings, runtime=runtime, client=client,
-                on_stage=on_stage)
-    except QuotaExhaustedError as exc:
-        # Stops the run outright: the provider refused, so there is nothing
-        # to repair and retrying would only be refused again.
-        _log_run(cfg, "quota", started, calls_so_far(), arch=arch, error=exc,
-                 secret=secret, usage=usage_so_far(), **paid)
-        turn.notice = OWN_QUOTA_MESSAGE if own_key else SHARED_QUOTA_MESSAGE
-        return turn, False
-    except DailyCapExceeded as exc:
-        # The day's model calls are used up: the call never reached the
-        # provider. A notice like the per-session limit, not counted.
-        _log_run(cfg, "daily_cap", started, calls_so_far(), arch=arch, error=exc,
-                 secret=secret, usage=usage_so_far(), **paid)
-        turn.notice = DAILY_LIMIT_MESSAGE
-        return turn, False
-    except LLMTimeoutError as exc:
-        # The provider is slow, not broken: a notice rather than an error, the
-        # same on either key, and (like every failed run) not counted.
-        _log_run(cfg, "timeout", started, calls_so_far(), arch=arch, error=exc,
-                 secret=secret, usage=usage_so_far(), **paid)
-        turn.notice = SLOW_MODEL_MESSAGE
-        return turn, False
-    except Exception as exc:
-        _log_run(cfg, "error", started, calls_so_far(), arch=arch, error=exc,
-                 secret=secret, usage=usage_so_far(), **paid)
-        turn.error = (
-            f"Run failed: {type(exc).__name__}: {redact(str(exc), secret)}"
-            if own_key
-            else DEMO_UNAVAILABLE_MESSAGE
-        )
-        return turn, False
-
-    if turn.arch_run is not None:
-        run = turn.arch_run
-        selected = run.outcome.selected
-        _log_run(cfg, run.outcome.status, started, run.llm_calls, arch=arch,
-                 path=run.outcome.path, tools=run.tools, usage=run,
-                 final_sql=selected.sql if selected is not None else None, **paid)
-    else:
-        counters = turn.outcome.trace["counters"]
-        _log_run(cfg, turn.outcome.status, started, counters["llm_calls"],
-                 arch=arch, path="v1",
-                 tools=[["run_sql"] for _ in turn.outcome.step_results],
-                 usage=_Tokens(counters.get("input_tokens", 0),
-                               counters.get("output_tokens", 0)), **paid)
-    return turn, True
-
-
-@dataclass(frozen=True)
-class _Tokens:
-    input_tokens: int = 0
-    output_tokens: int = 0
-    thoughts_tokens: int = 0
-
-
-def _llm_calls_so_far(deps: Any) -> int:
-    """Model calls made before a run raised, read from its tracer."""
-    tracer = getattr(deps, "tracer", None)
-    return tracer.counters.get("llm_calls", 0) if tracer is not None else 0
-
-
-def _log_run(
-    cfg: dict[str, Any],
-    status: str,
-    started: float,
-    llm_calls: int,
-    *,
-    arch: str = "?",
-    path: str = "-",
-    tools: list[list[str]] | None = None,
-    error: BaseException | None = None,
-    secret: str = "",
-    usage: Any = None,
-    own_key: bool = False,
-    question: str | None = None,
-    final_sql: str | None = None,
-) -> str:
-    """One structured JSON line per run on stdout (agentcrew/runlog.py):
-    which key paid, provider, model, architecture, status, path (direct or
-    escalated), the tools of each step, model calls, tokens, seconds and an
-    error's type name. Never the key, never an error's text (it can echo
-    request data: the redacted text goes to a stderr detail line), and the
-    question and final SQL only when AGENTCREW_TRACE_CONTENT is on."""
-    content = trace_content_enabled()
-    line = runlog.emit(runlog.RunRecord(
-        surface="app",
-        key="own" if own_key else "server",
-        provider=str(cfg.get("provider", "?")),
-        model=str(cfg.get("model", "?")),
-        arch=arch,
-        status=status,
-        path=path,
-        tools=tuple(tuple(step) for step in tools or ()),
-        llm_calls=llm_calls,
-        input_tokens=int(getattr(usage, "input_tokens", 0) or 0),
-        output_tokens=int(getattr(usage, "output_tokens", 0) or 0),
-        thoughts_tokens=int(getattr(usage, "thoughts_tokens", 0) or 0),
-        seconds=time.perf_counter() - started,
-        error=type(error).__name__ if error is not None else None,
-        question=question if content else None,
-        final_sql=final_sql if content else None,
-    ))
-    if error is not None:
-        # Collapsed to one line: provider errors often span several.
-        message = " ".join(redact(str(error), secret).split())
-        log.warning("run status=%s error=%s: %s", status, type(error).__name__,
-                    message)
-    return line
-
-
-def answer(
-    question: str,
-    *,
-    provider: str,
-    model: str,
-    own_key: str,
-    max_attempts: int,
-    max_steps: int,
-    state: MutableMapping[str, Any],
-    show_progress: Callable[[str, float], None] | None = None,
-    source: DataSource | None = None,
-) -> Turn:
-    """Choose the key for this run, enforce the demo allowance, and run. A request
-    to change the data is refused first: no model call, no SQL, no run counted."""
-    if is_write_request(question):
-        _log_run({"provider": provider, "model": model}, "refused",
-                 time.perf_counter(), 0)
-        return Turn(question=question, notice=WRITE_REFUSAL)
-    spec = PROVIDERS[provider]
-    own_key = own_key.strip()
-    if not model:
-        return Turn(
-            question=question,
-            notice=(
-                "Enter a custom model ID under 'Advanced settings', or pick one "
-                "from the list."
-            ),
-        )
-    cfg: dict[str, Any] = {
-        "provider": provider,
-        "model": model,
-        "max_attempts_per_step": max_attempts,
-        "max_steps": max_steps,
-    }
-    if own_key:
-        turn, _ = execute(
-            question, {**cfg, spec.key_field: own_key}, spec, own_key=own_key,
-            show_progress=show_progress, source=source,
-        )
-        return turn
-
-    if not server_key_configured(provider):
-        return Turn(
-            question=question,
-            notice=(
-                f"Add your {spec.label} API key under 'Use your own API key' "
-                "to run the agent."
-            ),
-        )
-    if demo_runs_left(state) == 0:
-        return Turn(question=question, notice=DEMO_LIMIT_MESSAGE)
-    cap = _daily_cap()
-    if not cap.allows_run():
-        return Turn(question=question, notice=DAILY_LIMIT_MESSAGE)
-
-    # Enforced here, not only by the disabled sliders: widget values come from
-    # the browser, so the server decides the budgets for its own key.
-    demo_cfg = {
-        **cfg,
-        "max_attempts_per_step": DEMO_MAX_ATTEMPTS,
-        "max_steps": DEMO_MAX_STEPS,
-    }
-    turn, charged = execute(question, demo_cfg, spec, own_key="",
-                            show_progress=show_progress, budget=cap, source=source)
-    if charged:
-        record_demo_run(state)
-        cap.charge_run()
-    return turn
-
-
-NO_KEY_FOR_DESCRIPTIONS = (
-    "No API key is available to draft descriptions, so they are empty. You can "
-    "write them below, or add your own key and upload again."
-)
-DESCRIPTIONS_FAILED = (
-    "The model could not draft descriptions right now, so they are empty. You "
-    "can write them below; questions still work without them."
-)
-
-
 def describer(run: RunChoice) -> data_panel.Describer:
-    """The model call that drafts a dataset's descriptions, paid for the way a
-    run is: the visitor's own key uncapped, or the server key with every call
-    charged to the daily cap. One run-log line records it (arch "describe")."""
-
-    def describe(tools: ToolContext) -> tuple[Notes | None, str | None]:
-        spec = PROVIDERS[run.provider]
-        cfg: dict[str, Any] = {"provider": run.provider, "model": run.model}
-        budget = None
-        if run.own_key:
-            cfg[spec.key_field] = run.own_key
-        elif server_key_configured(run.provider):
-            budget = _daily_cap()
-        else:
-            return None, NO_KEY_FOR_DESCRIPTIONS
-        started = time.perf_counter()
-        client: CountingClient | None = None
-        try:
-            settings = Settings(**cfg)
-            client = CountingClient(build_client(settings), budget=budget)
-            notes = draft_notes(client, tools,
-                                max_tokens=settings.max_output_tokens,
-                                temperature=settings.temperature)
-        except DailyCapExceeded as exc:
-            _log_run(cfg, "daily_cap", started, client.calls if client else 0,
-                     arch="describe", error=exc, own_key=bool(run.own_key))
-            return None, DAILY_LIMIT_MESSAGE
-        except (QuotaExhaustedError, LLMTimeoutError, LLMError) as exc:
-            _log_run(cfg, "error", started, client.calls if client else 0,
-                     arch="describe", error=exc, secret=run.own_key,
-                     usage=client.usage if client else None,
-                     own_key=bool(run.own_key))
-            return None, DESCRIPTIONS_FAILED
-        _log_run(cfg, "done", started, client.calls, arch="describe",
-                 usage=client.usage, own_key=bool(run.own_key))
-        return notes, None
-
-    return describe
+    """Drafts a dataset's descriptions on this session's key choice
+    (agentcrew/service.describer)."""
+    return service.describer(provider=run.provider, model=run.model,
+                             own_key=run.own_key)
 
 
 def render_data_panel(run: RunChoice) -> DataSource | None:
@@ -1164,7 +741,6 @@ SQL_OTHER_SOURCE = (
     "This answer came from a different data source than the one selected now, "
     "so its SQL can't run here."
 )
-SQL_UNAVAILABLE = "The database is not available right now."
 
 
 def source_id(source: DataSource | None) -> str:
@@ -1185,24 +761,9 @@ def final_sql(turn: Turn) -> str | None:
 def run_editor_sql(sql: str, source: DataSource | None,
                    state: MutableMapping[str, Any]) -> tuple[EditorRun, int]:
     """Run the editor's SQL on the agent's own ToolContext for `source`
-    (build_runtime caches it, so it is the very object the agent's runs use).
-    Returns the run and the row cap it ran under. No model call is made."""
-    try:
-        settings = Settings()
-        runtime = (build_runtime(settings) if source is None
-                   else build_runtime(settings, source=source))
-        tools = runtime.tools
-    except Exception as exc:
-        log.warning("sql editor could not start: %s", type(exc).__name__)
-        runlog.emit(runlog.RunRecord(surface="sql_editor", provider="-", model="-",
-                                     arch="-", status="start_failed", key="-",
-                                     error=type(exc).__name__))
-        return EditorRun(message=SQL_UNAVAILABLE, status="start_failed"), 0
-    run = run_sql(sql, tools=tools, state=state,
-                  session_limit=settings.session_sql_run_cap, cap=_daily_cap(),
-                  scrub=lambda text: redact(text, ""),
-                  trace_content=trace_content_enabled())
-    return run, tools.max_rows
+    (agentcrew/service.run_sql_on). Returns the run and the row cap it ran
+    under. No model call is made."""
+    return service.run_sql_on(sql, source, state=state)
 
 
 def _session_sql_cap() -> int:
@@ -1472,7 +1033,8 @@ def main() -> None:
                     max_attempts=run.max_attempts,
                     max_steps=run.max_steps,
                     state=st.session_state,
-                    show_progress=show_progress,
+                    stages=lambda max_steps: stage_reporter(show_progress,
+                                                            max_steps),
                     source=source,
                 )
             turn = replace(turn, source_id=source_id(source))

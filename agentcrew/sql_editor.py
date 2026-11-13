@@ -94,6 +94,7 @@ def run_sql(
     scrub: Callable[[str], str] = lambda text: text,
     trace_content: bool = False,
     surface: str = "sql_editor",
+    client: str | None = None,
 ) -> EditorRun:
     """Check the limits, run `sql` through the agent's own guarded path, and
     write one run-log line (agentcrew/runlog.py) for every call, whatever
@@ -107,7 +108,8 @@ def run_sql(
 
     `cap` is the process-wide daily cap; its SQL-run counter is used, not
     its agent-run counter. `scrub` removes secrets (the self-hosted database
-    URL) from any error text before it is shown.
+    URL) from any error text before it is shown. `surface` and `client` say
+    who ran it, for the log: the API passes "api" and its key's short hash.
     """
     started = time.perf_counter()
     text = (sql or "").strip()
@@ -118,6 +120,7 @@ def run_sql(
         seconds=time.perf_counter() - started, error=run.error, key="-",
         rows=run.result.row_count if run.ok and run.result is not None else None,
         final_sql=text if trace_content and text else None,
+        client=client,
     ))
     return run
 

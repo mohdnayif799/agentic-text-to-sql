@@ -154,8 +154,11 @@ EXPOSE 8080
 # Python's urllib is used because slim images ship neither curl nor wget.
 # Shell form here on purpose, so ${PORT} is expanded when the check runs.
 # (Cloud Run ignores HEALTHCHECK and uses its own startup probe.)
+# HEALTH_PATH is for this image run as the REST API (docs/API.md), whose
+# health endpoint is /v1/health: "docker run -e HEALTH_PATH=/v1/health ...".
+# Unset, the check is Streamlit's, exactly as before.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD python -c "import urllib.request as u; u.urlopen('http://127.0.0.1:${PORT}/_stcore/health', timeout=4)" || exit 1
+    CMD python -c "import urllib.request as u; u.urlopen('http://127.0.0.1:${PORT}${HEALTH_PATH:-/_stcore/health}', timeout=4)" || exit 1
 
 # Why not the plain exec form, CMD ["streamlit", ..., "--server.port=${PORT}"]?
 #   No shell runs it, so "${PORT}" would reach Streamlit as literal text.
@@ -168,4 +171,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 # loopback: traffic from "docker run -p" or Cloud Run arrives on the
 # container's network interface, never on 127.0.0.1. Stated explicitly rather
 # than left to Streamlit's default.
+#
+# The REST API is this same image with the command overridden (docs/API.md):
+#   uvicorn agentcrew.api.app:create_app --factory --host 0.0.0.0 --port 8080
 CMD ["sh", "-c", "exec streamlit run app.py --server.address=0.0.0.0 --server.port=${PORT}"]

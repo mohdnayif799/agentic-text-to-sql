@@ -584,3 +584,97 @@ three things changed together.
 **Open.** On uploaded data D has added nothing over A: a direct answer is A's
 own first call, and D escalated at most once per run. D's metric tools are
 NorthStar-only by design.
+
+---
+
+## D24. The SQL editor and the API run SQL through the agent's own tool
+
+**Evidence.** Phases 3 and 4 each add a way to run SQL that is not the
+agent. A second path with its own connection or its own checks would be a
+second, weaker way into the database, and nothing would keep the two equal.
+
+**Chosen.** One function, `sql_editor.run_sql`, calls
+`tools.execute_readonly_sql` on the agent's cached `ToolContext`
+(`build_runtime(...).tools`), so the read-only connection, the sqlglot
+guard, the injected LIMIT, the row cap and the timeout are the agent's, on
+NorthStar, uploads and PostgreSQL. The editor and `POST /v1/sql` add only
+limits, a plain error sentence and a run-log line. SQL runs have their own
+daily counter: they make no model call and must not use up the agent's runs.
+
+---
+
+## D25. One ask flow, two callers
+
+**Evidence.** The path from a question to an answer (which key pays, the
+allowances, the daily cap, the run, every failure as a message, the log
+line) lived in `app.py`. An API written beside it would have been a copy,
+and the copy would drift on exactly the parts that bound spend.
+
+**Chosen.** That path moved, unchanged, to `agentcrew/service.py`; `app.py`
+and `agentcrew/api/` are callers. What differs is passed in: a browser
+session's allowance (none for the API, which rate-limits per key) and who is
+calling, for the log. The service reports why a run did not happen as a
+`code`, and each caller words it for its own audience. NorthStar's prompts
+are unchanged (the frozen 50 replays offline at 45/50 with no cache miss).
+
+---
+
+## D26. The API's checks run in a gate, before the framework reads a body
+
+**Evidence.** FastAPI reads and parses a request body before it resolves
+dependencies, so key checking as a dependency would let an anonymous caller
+make the server read 10 MB first. And a body limit applied to a body
+already in memory is measured after the cost.
+
+**Chosen.** One ASGI middleware, in this order: the key (from headers; 401
+without reading the body), the key's rate limit, then a counter on the
+body as it is read (a declared length over the limit is refused before
+reading; a body with no length is cut at the chunk that crosses it). The
+same gate turns any escaped exception into the 500 envelope, so no stack
+trace can reach a caller whatever the framework does. D22 again: every limit
+is enforced before or during the work.
+
+**Trade-off.** Keys are compared as SHA-256 digests with
+`hmac.compare_digest`, against every configured key; only digests are kept
+after start-up, and logs name a caller by 12 hex characters of its digest.
+
+---
+
+## D27. An upload is the raw request body, not a multipart form
+
+**Chosen.** `POST /v1/datasets?filename=students.csv` with the file as the
+body. The body limit then applies to exactly the file, in the one place
+every body is counted; there is no form parser to bound separately (parts,
+headers, field sizes) and no extra dependency.
+
+**Trade-off.** One file per request. The UI's "several CSVs become several
+tables" is not offered; a workbook or a SQLite file carries several tables.
+
+---
+
+## D28. API datasets: bound to the key, 404 for anyone else, 410 when expired
+
+**Chosen.** A dataset's owner is the SHA-256 of the key that uploaded it.
+To any other key the id does not exist: the same 404 as an id never issued,
+so an id leaks nothing. The owner alone is told `410 dataset_expired` after
+30 minutes without use, because "upload it again" is the fix. Two datasets
+per key and the UI's store limits bound the memory.
+
+**Trade-off.** Rotating a key orphans its datasets (they expire). The
+record of who owned an expired id is in memory and bounded, so after a
+restart an expired dataset is a plain 404.
+
+---
+
+## D29. The API is a second Cloud Run service from the same image
+
+**Chosen.** Same image, command overridden to uvicorn, service
+`agentcrew-api`: one build, one set of dependencies, no drift between what
+the UI and the API run. Separate services so each scales to zero on its own
+and the UI's websockets never hold an API instance alive.
+
+**Trade-off, stated in the docs.** The daily caps, the rate limiter and the
+dataset store are in each process. Each service counts its own day, so the
+ceiling on total spend is the sum of both services' caps; the provider's
+quota on the key is the hard stop behind them. Both run at most one
+instance for the same reason.

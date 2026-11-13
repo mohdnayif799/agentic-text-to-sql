@@ -9,6 +9,7 @@
 
 pytest==9.1.1
 ruff==0.16.4
+httpx==0.28.1             # fastapi.testclient (tests/test_api.py)
 
 # Optional extras, installed here so `pytest` covers the MCP adapter and
 # every provider client. (google-genai is a runtime dependency now, so it

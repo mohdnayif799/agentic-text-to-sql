@@ -26,8 +26,15 @@ can spend, from the inside out.
   process is the whole deployment, and there is no store behind it: a cold
   start (scale-to-zero, a deploy) starts the day's count at zero. The provider
   quota is the hard stop behind this one.
-- Both caps also apply to uploads (Phase 2) and the API (Phase 4), which
-  charge the same counters.
+- Both caps also apply to uploads: the description draft's model calls are
+  charged to the call cap.
+- The REST API (docs/API.md) charges the same kinds of counter for every
+  request, but it is a separate Cloud Run service, so a separate process
+  with its own counters. Each service counts its own day: the ceiling on
+  total spend is the sum of both services' caps (with the defaults, up to
+  2 x 150 runs and 2 x 1,000 model calls a day). Set each service's
+  `AGENTCREW_DAILY_RUN_CAP` and `AGENTCREW_DAILY_LLM_CALL_CAP` with that in
+  mind. The provider quota on the key is shared and is the hard stop.
 - The SQL editor makes no model call, so it has counters of its own and never
   uses up the day's agent runs. They apply whichever key the visitor uses
   (the cost is database time, not the key). A run is counted once it passes
@@ -65,6 +72,11 @@ fields (`"-"`), `rows` when it ran, and `error` set to the failure kind
 (`blocked`, `syntax`, `timeout`...). Statuses: `done`, `refused`, `failed`,
 `error`, `invalid`, `session_limit`, `daily_cap`, `start_failed`. The SQL text
 is included only with `AGENTCREW_TRACE_CONTENT=true`.
+
+The API writes the same run lines with `"surface":"api"` and `client` (a
+short hash of the caller's key, never the key), plus one `"event":"request"`
+line per HTTP request: method, route template, status, seconds, error code
+and request id (docs/API.md).
 
 Useful queries in Logs Explorer:
 

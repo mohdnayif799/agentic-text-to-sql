@@ -15,6 +15,9 @@ What a line holds, by design:
               out / thinking, seconds, and on failure the exception's type name
   sql_editor  also the row count; no model, so provider, model, arch and
               key are "-", and error is the failure kind (blocked, syntax...)
+  api         also client, a short hash of the caller's API key; and one
+              "request" line per HTTP request (method, route template,
+              status, seconds, error code), whatever became of it
   only with   the question text and the final SQL (AGENTCREW_TRACE_CONTENT,
   trace_content   off by default and off on the public demo)
   never       prompts, completions, result rows, previews, values from an
@@ -69,6 +72,9 @@ class RunRecord:
     """Only set when trace_content is on."""
     rows: int | None = None
     """Rows returned, for a SQL editor run that ran; None otherwise."""
+    client: str | None = None
+    """API only: a short hash of the caller's API key (agentcrew/api/auth.py),
+    so one caller's lines can be found without the key ever being logged."""
 
 
 def tools_text(tools: Sequence[Sequence[str]]) -> str:
@@ -108,11 +114,63 @@ def to_dict(record: RunRecord) -> dict[str, Any]:
     }
     if record.rows is not None:
         payload["rows"] = record.rows
+    if record.client is not None:
+        payload["client"] = record.client
     if record.question is not None:
         payload["question"] = record.question
     if record.final_sql is not None:
         payload["final_sql"] = record.final_sql
     return payload
+
+
+@dataclass(frozen=True)
+class RequestRecord:
+    """One API request, whatever became of it (agentcrew/api). The run lines
+    above record what an agent or SQL run did; this records that a request
+    arrived, who sent it and how it was answered, including the ones refused
+    before any run (401, 413, 429)."""
+
+    method: str
+    route: str
+    """The route template (/v1/datasets/{dataset_id}/schema), never the raw
+    path or the query string."""
+    status: int
+    seconds: float
+    client: str | None = None
+    """A short hash of the API key; None when the request had no valid key."""
+    code: str | None = None
+    """The error envelope's code, when the request failed."""
+    request_id: str = ""
+
+
+def request_dict(record: RequestRecord) -> dict[str, Any]:
+    failed = record.status >= 400
+    return {
+        "severity": "WARNING" if record.status >= 500 else "INFO",
+        "time": datetime.now(UTC).isoformat(timespec="milliseconds"),
+        "event": "request",
+        "message": (
+            f"request {record.method} {record.route} status={record.status} "
+            f"seconds={record.seconds:.1f}"
+            + (f" code={record.code}" if failed and record.code else "")
+        ),
+        "surface": "api",
+        "method": record.method,
+        "route": record.route,
+        "status": record.status,
+        "seconds": round(record.seconds, 3),
+        "client": record.client,
+        "code": record.code,
+        "request_id": record.request_id,
+    }
+
+
+def emit_request(record: RequestRecord, logger: logging.Logger = log) -> str:
+    """Log one API request line and return it."""
+    line = json.dumps(request_dict(record), ensure_ascii=False,
+                      separators=(",", ":"))
+    logger.log(logging.WARNING if record.status >= 500 else logging.INFO, line)
+    return line
 
 
 def emit(record: RunRecord, logger: logging.Logger = log) -> str:
