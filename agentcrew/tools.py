@@ -25,7 +25,7 @@ from sqlalchemy import Engine
 
 from agentcrew.db import dialect as sql_dialect
 from agentcrew.db.engine import execute_select
-from agentcrew.db.introspect import Catalog, build_catalog
+from agentcrew.db.introspect import Catalog, build_catalog, quote_name
 from agentcrew.db.safety import UnsafeSQLError, guard_sql
 from agentcrew.schemas import ExecutionResult, FailureKind
 
@@ -125,7 +125,8 @@ def get_sample_rows(ctx: ToolContext, table: str, limit: int = 5) -> dict[str, A
     limit = max(1, min(int(limit), 20))
     result = execute_select(
         ctx.engine,
-        f'SELECT * FROM "{table}" LIMIT {limit}',  # noqa: S608 - name validated above
+        # The name is in the catalog (checked above) and quoted by the dialect.
+        f"SELECT * FROM {quote_name(ctx.engine, table)} LIMIT {limit}",  # noqa: S608
         max_rows=limit,
         timeout=ctx.timeout,
     )

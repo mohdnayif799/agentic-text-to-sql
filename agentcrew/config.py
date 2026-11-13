@@ -104,6 +104,9 @@ class Settings(BaseSettings):
     max_excel_upload_mb: float = 10.0
     """Largest Excel file accepted, in MB. Separate because an .xlsx file is
     zipped XML and takes far more memory to read than its size suggests."""
+    max_converted_mb: float = 50.0
+    """Largest SQLite file one upload may become, in MB. The conversion stops
+    when the file reaches it (or the room left in the store, if less)."""
     upload_store_max_mb: float = 150.0
     """All converted datasets together, in MB. A new upload that would exceed
     it is refused until others expire."""

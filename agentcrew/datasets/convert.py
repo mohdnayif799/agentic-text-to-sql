@@ -44,6 +44,7 @@ import io
 import sqlite3
 import zipfile
 from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from pathlib import Path
@@ -51,7 +52,7 @@ from typing import Any
 
 import pandas as pd
 
-from agentcrew.datasets.errors import UploadError
+from agentcrew.datasets.errors import ConvertedTooLarge, UploadError
 from agentcrew.datasets.names import to_identifier, unique_identifiers
 
 #: Rows written to SQLite per insert batch (Excel is streamed in these too).
@@ -68,6 +69,11 @@ class Limits:
     max_rows: int = 500_000
     max_columns: int = 200
     max_tables: int = 30
+    max_bytes: int = 50_000_000
+    """Largest SQLite file a conversion may write. Enforced by SQLite itself
+    while it writes (PRAGMA max_page_count), not by measuring afterwards: on
+    Cloud Run the file is in memory, and a workbook of highly repetitive
+    cells can unzip to many times its upload size."""
 
 
 DEFAULT_LIMITS = Limits()
@@ -131,6 +137,49 @@ def _write(conn: sqlite3.Connection, table: str, df: pd.DataFrame,
               chunksize=5_000)
 
 
+def _is_full(exc: BaseException) -> bool:
+    """SQLite's "database or disk is full", raised when max_page_count is
+    reached. pandas wraps it in its own DatabaseError, so the cause chain is
+    read too."""
+    seen: BaseException | None = exc
+    while seen is not None:
+        if "full" in str(seen).lower():
+            return True
+        seen = seen.__cause__ or seen.__context__
+    return False
+
+
+@contextmanager
+def _destination(dest: Path, limits: Limits) -> Iterator[sqlite3.Connection]:
+    """The SQLite file being written, capped at limits.max_bytes and always
+    closed.
+
+    Closed explicitly: `with sqlite3.connect(...)` only commits, and pandas
+    keeps the connection in a reference cycle, so without this the file stays
+    open until the garbage collector runs. On Windows an open file cannot be
+    deleted, which left a removed dataset's folder behind.
+
+    Capped by page count: once the file would grow past the cap SQLite
+    refuses the write, the conversion stops at that row, and the caller
+    deletes the partial file. Several CSV files written one after another
+    share the cap, because each opens the same file with the same limit.
+    """
+    conn = sqlite3.connect(dest)
+    try:
+        page = int(conn.execute("PRAGMA page_size").fetchone()[0])
+        conn.execute(f"PRAGMA max_page_count = {max(limits.max_bytes // page, 1)}")
+        yield conn
+        conn.commit()
+    except (sqlite3.Error, pd.errors.DatabaseError) as exc:
+        if _is_full(exc):
+            raise ConvertedTooLarge(
+                f"The converted data is larger than {limits.max_bytes / 1e6:g} "
+                "MB.") from exc
+        raise
+    finally:
+        conn.close()
+
+
 # ---------------------------------------------------------------------------
 # CSV
 # ---------------------------------------------------------------------------
@@ -149,6 +198,15 @@ def _delimiter(text: str) -> str:
         return ","
 
 
+def _header_width(text: str, delimiter: str) -> int:
+    """How many fields the first line has, read without parsing the file."""
+    try:
+        return len(next(csv.reader(io.StringIO(text), delimiter=delimiter), []))
+    except csv.Error as exc:  # e.g. one field longer than csv's field limit
+        raise UploadError("The first line could not be read as a CSV "
+                          "header.") from exc
+
+
 def csv_to_sqlite(data: bytes, dest: Path, *, label: str,
                   limits: Limits = DEFAULT_LIMITS,
                   table: str | None = None,
@@ -160,8 +218,15 @@ def csv_to_sqlite(data: bytes, dest: Path, *, label: str,
     text = _decode(data)
     if not text.strip():
         raise UploadError(f"{name} is empty.")
+    delimiter = _delimiter(text)
+    # Before the parse, not after it: a 10 MB header line of a million empty
+    # fields would otherwise become a million-column frame in memory first.
+    width = _header_width(text, delimiter)
+    if width > limits.max_columns:
+        raise UploadError(f"{name} has {width} columns; the limit is "
+                          f"{limits.max_columns}.")
     try:
-        df = pd.read_csv(io.StringIO(text), sep=_delimiter(text),
+        df = pd.read_csv(io.StringIO(text), sep=delimiter,
                          nrows=limits.max_rows + 1, low_memory=False)
     except (pd.errors.ParserError, pd.errors.EmptyDataError, ValueError) as exc:
         raise UploadError(f"{name} could not be read as CSV: "
@@ -177,7 +242,7 @@ def csv_to_sqlite(data: bytes, dest: Path, *, label: str,
     df.columns = unique_identifiers(df.columns)
     table = table or to_identifier(Path(label).stem, fallback="data")
     _say(progress, f"Converting {name}: {len(df):,} rows")
-    with sqlite3.connect(dest) as conn:
+    with _destination(dest, limits) as conn:
         _write(conn, table, _normalise_frame(df), first=True)
     return [TableInfo(table, label, len(df), tuple(df.columns))]
 
@@ -258,7 +323,7 @@ def excel_to_sqlite(data: bytes, dest: Path, *, label: str,
                               f"{limits.max_tables}.")
         names = unique_identifiers([s.title for s in sheets], fallback="sheet")
         tables: list[TableInfo] = []
-        with sqlite3.connect(dest) as conn:
+        with _destination(dest, limits) as conn:
             for sheet, name in zip(sheets, names, strict=True):
                 _say(progress, f"Converting sheet {sheet.title!r}")
                 written = _sheet_to_sqlite(conn, sheet, name, limits, progress)

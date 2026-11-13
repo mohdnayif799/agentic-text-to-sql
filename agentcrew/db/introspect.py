@@ -20,6 +20,23 @@ from functools import lru_cache
 from sqlalchemy import Engine, inspect, text
 
 
+def quote_name(engine: Engine, name: str) -> str:
+    """`name` as a quoted identifier in the engine's dialect.
+
+    Every internal query that names a table or column (row counts, value
+    profiles, key uniqueness, join inference, sample rows) builds its SQL
+    with this. The names come from introspection, which was safe to splice
+    while the only database was NorthStar; an uploaded SQLite file or a
+    company's PostgreSQL schema can hold any name, including one with a
+    double quote in it, and a hand-written f'"{name}"' would let such a name
+    close the quotes and continue as SQL. The dialect's identifier preparer
+    always quotes and doubles embedded quote characters, so the name stays a
+    name. For a plain name the output is exactly what was written before
+    ("orders"), so NorthStar's internal queries are unchanged.
+    """
+    return engine.dialect.identifier_preparer.quote_identifier(name)
+
+
 @dataclass(frozen=True)
 class Column:
     name: str
@@ -112,10 +129,12 @@ def build_catalog(engine: Engine) -> Catalog:
     with engine.connect() as conn:
         for name, table in catalog.tables.items():
             try:
-                # Table names come from introspection, not user input.
-                stmt = text(f'SELECT count(*) FROM "{name}"')  # noqa: S608
+                # Introspected name, quoted by the dialect (quote_name).
+                quoted = quote_name(engine, name)
+                stmt = text(f"SELECT count(*) FROM {quoted}")  # noqa: S608
                 table.row_count = int(conn.execute(stmt).scalar() or 0)
             except Exception:
+                conn.rollback()  # PostgreSQL: clear the aborted transaction
                 table.row_count = -1
 
     return catalog
@@ -144,7 +163,8 @@ def sample_values(
     """
     # noqa justification: table/column names come from SQLAlchemy introspection
     # of this database, never from user input. They cannot carry injection.
-    q = text(f'SELECT COUNT(DISTINCT "{column}") FROM "{table}"')  # noqa: S608
+    c, t = quote_name(engine, column), quote_name(engine, table)
+    q = text(f"SELECT COUNT(DISTINCT {c}) FROM {t}")  # noqa: S608
     try:
         with engine.connect() as conn:
             distinct = int(conn.execute(q).scalar() or 0)
@@ -152,8 +172,8 @@ def sample_values(
                 return []
             rows = conn.execute(
                 text(
-                    f'SELECT DISTINCT "{column}" FROM "{table}" '  # noqa: S608
-                    f'WHERE "{column}" IS NOT NULL LIMIT {int(limit)}'
+                    f"SELECT DISTINCT {c} FROM {t} "  # noqa: S608
+                    f"WHERE {c} IS NOT NULL LIMIT {int(limit)}"
                 )
             ).fetchall()
         return [str(r[0]) for r in rows]

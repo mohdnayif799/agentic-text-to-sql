@@ -25,7 +25,16 @@ changes, so its prompts did not change.
 
 Also: at most 500,000 rows and 200 columns per table, 30 tables, 3 uploads
 per browser session, 50 per day across the demo (`AGENTCREW_DAILY_UPLOAD_CAP`),
-and 150 MB of converted data held at once (`AGENTCREW_UPLOAD_STORE_MAX_MB`).
+50 MB per upload once converted (`AGENTCREW_MAX_CONVERTED_MB`), and 150 MB of
+converted data held at once (`AGENTCREW_UPLOAD_STORE_MAX_MB`).
+
+**Limits are enforced before or while the work happens, not after.** The CSV
+column count is read from the header line before the file is parsed. A full
+store refuses an upload before anything is converted. The file being written
+is capped by SQLite itself (`PRAGMA max_page_count`) at the per-upload limit
+or the room left in the store, whichever is smaller, so an oversized
+conversion stops at the row that crosses the line and its partial file is
+deleted.
 
 **Conversion.** Names become lower-case identifiers (`Student ID` ->
 `student_id`; reserved words get a trailing underscore). Excel dates become
@@ -35,9 +44,18 @@ month first would silently change the data.
 
 **An uploaded SQLite file is untrusted.** Its header is checked before it is
 parsed; it is opened read-only with defensive mode and `trusted_schema=OFF`;
-`PRAGMA integrity_check` must pass; virtual tables are refused; and the agent
-reads a copy SQLite writes itself with its backup API, never the bytes that
-were uploaded.
+`PRAGMA integrity_check` must pass; virtual tables are refused, recognised
+from SQLite's own `PRAGMA table_list` and not from the text of the CREATE
+statement, which the uploader controls; table and column names with quote or
+control characters are refused; and the agent reads a copy SQLite writes
+itself with its backup API, never the bytes that were uploaded.
+
+**Names are never trusted as SQL.** Every internal query that names a table
+or column (row counts, value lists, key checks, join inference, sample rows)
+quotes it through the database dialect's identifier preparer
+(`db/introspect.quote_name`), for uploads and for a self-hosted PostgreSQL
+schema alike. Join inference runs under the same statement timeout as the
+agent's queries and a 20-second budget in all.
 
 **Lifetime.** One dataset per session. It is deleted when the visitor
 removes it, uploads another, leaves it unused for 15 minutes

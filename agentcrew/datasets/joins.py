@@ -25,12 +25,14 @@ name.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine
 
-from agentcrew.db.introspect import Catalog, ForeignKey
+from agentcrew.db.engine import execute_select
+from agentcrew.db.introspect import Catalog, ForeignKey, quote_name
 from agentcrew.db.selector import tokenize
 
 #: Column names that appear in many unrelated tables. Never a join by name.
@@ -49,6 +51,13 @@ GENERIC_COLUMNS = frozenset("""
 KEY_SUFFIXES = ("_id", "id", "_code", "_no", "_num", "_number", "_key", "_ref")
 
 MIN_OVERLAP = 0.9
+#: Each data check runs through execute_select, so it has the statement
+#: timeout the agent's queries have: the overlap check is the one internal
+#: query whose cost grows with the product of two tables.
+QUERY_TIMEOUT = 5.0
+#: All checks together. When it runs out, the joins found so far are kept:
+#: a missing proposal costs a hint, a hung upload costs the visitor.
+BUDGET_SECONDS = 20.0
 
 
 @dataclass(frozen=True)
@@ -117,41 +126,50 @@ def _candidates(catalog: Catalog) -> Iterable[tuple[str, str, str, str, str]]:
 
 
 def _scalar(engine: Engine, sql: str) -> int:
-    with engine.connect() as conn:
-        try:
-            return int(conn.execute(text(sql)).scalar() or 0)
-        except Exception:  # a type mismatch or timeout: not a join
-            conn.rollback()
-            return -1
+    """One number, or -1 when the query failed or timed out (not a join)."""
+    result = execute_select(engine, sql, max_rows=1, timeout=QUERY_TIMEOUT)
+    if not result.ok or not result.rows:
+        return -1
+    try:
+        return int(result.rows[0][0] or 0)
+    except (TypeError, ValueError):
+        return -1
 
 
 def _unique(engine: Engine, table: str, column: str) -> bool:
-    # Names come from introspection of this database, not from input.
-    total = _scalar(engine, f'SELECT COUNT("{column}") FROM "{table}"')  # noqa: S608
-    distinct = _scalar(
-        engine, f'SELECT COUNT(DISTINCT "{column}") FROM "{table}"')  # noqa: S608
+    # Introspected names, quoted by the dialect (introspect.quote_name).
+    c, t = quote_name(engine, column), quote_name(engine, table)
+    total = _scalar(engine, f"SELECT COUNT({c}) FROM {t}")  # noqa: S608
+    distinct = _scalar(engine, f"SELECT COUNT(DISTINCT {c}) FROM {t}")  # noqa: S608
     return total > 0 and total == distinct
 
 
 def _overlap(engine: Engine, a: str, ca: str, b: str, cb: str) -> float:
-    values = _scalar(engine, f'SELECT COUNT(DISTINCT "{ca}") FROM "{a}"')  # noqa: S608
+    qa, qca = quote_name(engine, a), quote_name(engine, ca)
+    qb, qcb = quote_name(engine, b), quote_name(engine, cb)
+    values = _scalar(engine, f"SELECT COUNT(DISTINCT {qca}) FROM {qa}")  # noqa: S608
     if values <= 0:
         return 0.0
     found = _scalar(engine, (
-        f'SELECT COUNT(*) FROM (SELECT DISTINCT "{ca}" AS v FROM "{a}" '  # noqa: S608
-        f'WHERE "{ca}" IS NOT NULL) x '
-        f'WHERE EXISTS (SELECT 1 FROM "{b}" WHERE "{b}"."{cb}" = x.v)'))
+        f"SELECT COUNT(*) FROM (SELECT DISTINCT {qca} AS v FROM {qa} "  # noqa: S608
+        f"WHERE {qca} IS NOT NULL) x "
+        f"WHERE EXISTS (SELECT 1 FROM {qb} WHERE {qb}.{qcb} = x.v)"))
     return max(found, 0) / values
 
 
 def infer_joins(engine: Engine, catalog: Catalog, *,
-                min_overlap: float = MIN_OVERLAP) -> list[Join]:
+                min_overlap: float = MIN_OVERLAP,
+                budget: float = BUDGET_SECONDS) -> list[Join]:
     """Joins the names suggest and the data confirms, excluding any the
-    catalog already has as a foreign key. Sorted for a stable display."""
+    catalog already has as a foreign key. Sorted for a stable display.
+    Stops proposing after `budget` seconds and returns what it has."""
     existing = {(fk.from_table, fk.from_columns, fk.to_table, fk.to_columns)
                 for fk in catalog.foreign_keys}
     found: dict[tuple[str, str, str, str], Join] = {}
+    deadline = time.monotonic() + budget
     for a, ca, b, cb, rule in _candidates(catalog):
+        if time.monotonic() > deadline:
+            break
         if (a, (ca,), b, (cb,)) in existing or (b, (cb,), a, (ca,)) in existing:
             continue
         if not _unique(engine, b, cb):

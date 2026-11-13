@@ -44,7 +44,7 @@ from agentcrew.compute.metrics import (
     has_components,
     validate_call,
 )
-from agentcrew.db.introspect import Catalog
+from agentcrew.db.introspect import Catalog, quote_name
 from agentcrew.schemas import ExecutionResult
 from agentcrew.tools import ToolContext, get_sample_rows
 
@@ -266,8 +266,9 @@ class ValueIndex:
                 for col in catalog.tables[table].columns:
                     if "TEXT" not in col.type.upper():
                         continue
-                    # Names come from introspection of this database.
-                    c, t = f'"{col.name}"', f'"{table}"'
+                    # Introspected names, quoted by the dialect.
+                    c = quote_name(engine, col.name)
+                    t = quote_name(engine, table)
                     try:
                         count = conn.execute(
                             text(f"SELECT COUNT(DISTINCT {c}) FROM {t}")  # noqa: S608
@@ -368,8 +369,8 @@ def lookup(action: NextAction, tools: ToolContext) -> ExecutionResult:
         if problem:
             return _error(problem)
         # Names come from the catalog (introspection), never from the model.
-        sql = (f'SELECT DISTINCT "{column}" FROM "{table}" '  # noqa: S608
-               f'ORDER BY 1 LIMIT 100')
+        sql = (f"SELECT DISTINCT {quote_name(tools.engine, column)} "  # noqa: S608
+               f"FROM {quote_name(tools.engine, table)} ORDER BY 1 LIMIT 100")
         with tools.engine.connect() as conn:
             rows = [[v] for v in conn.execute(text(sql)).scalars()]
         return _result([column], rows, f"-- get_distinct_values\n{sql}")

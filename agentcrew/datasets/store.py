@@ -105,6 +105,11 @@ class DatasetStore:
         with self._lock:
             return sum(d.size_bytes for d in self._datasets.values())
 
+    def remaining_bytes(self) -> int:
+        """Room left under the store's limit (never negative). ingest checks
+        it before converting and uses it to cap the file being written."""
+        return max(0, self.max_bytes - self.total_bytes())
+
     def add(self, dataset: Dataset) -> Dataset:
         """Register a converted dataset. Raises StoreFull (and deletes its
         folder) when it does not fit."""

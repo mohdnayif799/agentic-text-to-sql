@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import Engine, text
 
-from agentcrew.db.introspect import Catalog
+from agentcrew.db.introspect import Catalog, quote_name
 
 MAX_DISTINCT = 200
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
@@ -72,8 +72,9 @@ def profile_columns(
         for table_name in sorted(catalog.tables):
             for col in catalog.tables[table_name].columns:
                 kind = col.type.upper()
-                # Names come from introspection of this database, not input.
-                c, t = f'"{col.name}"', f'"{table_name}"'
+                # Introspected names, quoted by the dialect (quote_name).
+                c = quote_name(engine, col.name)
+                t = quote_name(engine, table_name)
                 if "TEXT" not in kind and "CHAR" not in kind:
                     # A typed date column (PostgreSQL DATE / TIMESTAMP): its
                     # range, which a TEXT date column gets below. NorthStar
