@@ -48,7 +48,14 @@ push to it (it does not deploy; only a merge to `main` does).
   expander is keyed with `on_change="rerun"` so a Run click does not collapse
   it. v1 uses the shared NorthStar context, not its own deps. Checked in a real
   browser on NorthStar and an uploaded CSV.
-- 1566 tests pass, 7 skipped (live PostgreSQL). Decisions D16 to D23 are in
+- Structured replies (`agentcrew/llm.py`): `json_candidates()` finds every JSON
+  object in a reply (any fenced block, an unclosed fence, stray text around
+  it) and `complete_structured` validates each in turn before its one repair
+  retry, which CountingClient counts and charges. Prompts unchanged: offline
+  replay of the frozen 50 is still D 45/50 with 0 live calls.
+- A failed run's summary reads "Stopped" and "It stopped before it could
+  answer."; a refused one "Refused". Never "answered directly".
+- 1590 tests pass, 7 skipped (live PostgreSQL). Decisions D16 to D23 are in
   docs/DECISIONS.md.
 
 ### Remaining plan
@@ -73,7 +80,3 @@ push to it (it does not deploy; only a merge to `main` does).
 - On uploaded data D adds nothing over A so far; D's metric tools are NorthStar-only.
 - Live PostgreSQL tests need `AGENTCREW_TEST_POSTGRES_URL` (skipped in CI),
   including the SQL editor's.
-- Gemini sometimes returns the SqlDraft JSON in a ```json fence or with stray
-  text, and the run fails with a pydantic json_invalid error (2 of 4 runs in
-  the Phase 3 browser check). The failed reply's summary line still says "One
-  query was enough, so it answered directly", which is misleading.
