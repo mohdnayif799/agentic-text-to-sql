@@ -4,9 +4,8 @@ Text-to-SQL router agent (Streamlit, SQLite, Gemini). See README.md and docs/.
 
 ## Current work: v3-production
 
-Branch `v3-production`. Phases 1 to 3 are done and pushed. Phase 4 (REST API)
-is built and verified but NOT committed yet: it is waiting for approval.
-Phase 5 is next. A draft PR to `main` is open and CI runs on every
+Branch `v3-production`. Phases 1 to 4 are done and pushed (Phase 4, the REST
+API, is `60da5cb`). Phase 5 is next. A draft PR to `main` is open and CI runs on every
 push to it (it does not deploy; only a merge to `main` does).
 
 ### Ground rules
@@ -85,9 +84,14 @@ push to it (it does not deploy; only a merge to `main` does).
   - Verified: tests/test_api.py (real stack, scripted model, fake clock); the
     image run with the uvicorn command and every endpoint called with curl;
     offline replay of the frozen 50 still D 45/50 with 0 live calls.
-  - NOT done, by instruction: the `agentcrew-api` Cloud Run service, the
-    `agentcrew-api-keys` secret and any CD change. Console steps are in
-    docs/API.md; the opt-in CD step was proposed as a diff only.
+  - CI's docker job also runs the image with the uvicorn command and checks
+    /v1/health returns 200 (no keys needed).
+  - NOT done, by decision: the `agentcrew-api` Cloud Run service and the
+    `agentcrew-api-keys` secret. The owner creates them by hand (console
+    steps in docs/API.md) only AFTER the PR is merged to `main`, so the
+    deployed image includes Phase 4. The deploy job is untouched; the opt-in
+    CD step for the API (repository variable DEPLOY_API) was proposed as a
+    diff only and is not applied.
 - 1687 tests pass, 7 skipped (live PostgreSQL). Decisions D16 to D29 are in
   docs/DECISIONS.md.
 
@@ -110,7 +114,5 @@ push to it (it does not deploy; only a merge to `main` does).
   including the SQL editor's.
 - The API's rate limiter, caps and datasets are in memory: the service must
   stay at one instance and one worker.
-- CI's docker job smoke-tests only the UI command; the API command was
-  smoke-tested by hand (a CI step for it is part of the proposed diff).
 - app.py still re-exports `_log_run` and `trace_content_enabled` from the
   service because older tests reach them there.
