@@ -434,3 +434,153 @@ removed. The suite now passes with a populated `.env` and with hostile shell
 variables (`AGENTCREW_PROVIDER`, `AGENTCREW_MODEL`, `AGENTCREW_MAX_LLM_CALLS`)
 set.
 
+
+---
+
+## D16. Process-wide daily cap with no store behind it
+
+**Originally considered.** Persisting the day's run count in Firestore or
+Secret Manager, so a restart could not reset it.
+
+**Evidence.** The per-session allowance (5 runs in `st.session_state`) is
+reset by a page reload, so alone it bounds nothing. The service runs at most
+one instance, so one process is the whole deployment. The filesystem is tmpfs
+and vanishes on scale-to-zero.
+
+**Chosen.** `agentcrew/caps.py`: thread-safe counters per UTC day for runs,
+model calls and uploads, in memory. A run is refused up front when the day is
+used up, each model call is charged before it is made, and a run counts only
+when it completes. A visitor's own key is never counted.
+
+**Trade-off, stated honestly.** A cold start resets the day's count. A store
+for one integer would be a new service to run and secure; the provider's own
+quota is the hard stop behind this one.
+
+---
+
+## D17. The idle guard lives in the page, not in the component iframe
+
+**Evidence.** Streamlit's client reconnects its websocket by itself, so an
+idle tab keeps a request in flight and Cloud Run's request timeout never
+frees the instance. The first guard navigated away from inside a
+`components.html` iframe and was refused by the browser: the iframe is
+sandboxed without `allow-top-navigation`. Only a real browser check showed
+this; AppTest has no browser.
+
+**Chosen.** The iframe, which is same-origin with scripts allowed, adds a
+script to the page itself. The timer lives in the page, leaves for the static
+`static/idle.html` after `AGENTCREW_IDLE_TIMEOUT_SECONDS` without input, and
+that unloads the client. Server side, a stale session is cleared and its
+uploaded data deleted. Verified in the Docker image.
+
+**Open.** `st.components.v1.html` is deprecated in favour of `st.iframe`; it
+must be replaced before any Streamlit upgrade.
+
+---
+
+## D18. The run log is the trace; Langfuse is an extra
+
+**Originally considered.** Langfuse as the production trace of the router path.
+
+**Chosen.** One JSON line per run on stdout (`agentcrew/runlog.py`): path,
+tools, model calls, tokens, latency, status, error type. Cloud Logging parses
+it with no setup. Langfuse is on only when both keys are set, imported
+lazily, never flushed on the request path, and its first failure is logged
+once. `AGENTCREW_TRACE_CONTENT` (off by default, off on the demo) adds the
+question and the final SQL to both. Prompts, completions, result rows and an
+error's message text are never recorded.
+
+**Why.** Debuggability must not depend on a SaaS being reachable or on a
+secret being configured.
+
+---
+
+## D19. Uploads are converted to SQLite, not queried in place
+
+**Originally considered.** Querying CSV and Excel with pandas or DuckDB.
+
+**Chosen.** Every upload becomes a new SQLite file, reopened through the same
+read-only engine, sqlglot guard, row cap and timeout as NorthStar. An
+uploaded SQLite file is untrusted: header check, `mode=ro`, defensive mode,
+`trusted_schema=OFF`, integrity check, virtual tables refused (read from
+`PRAGMA table_list`), and the agent reads a copy written by the backup API.
+
+**Why.** The read-only guarantee is a property of the connection (D5). A
+second query engine would need its own guarantee and its own tests.
+
+**Storage.** One dataset per session, in memory (tmpfs), deleted on remove,
+replace, 15 unused minutes or an idle session. Measured in the image at 1 GiB:
+a 10 MB CSV peaks +109 MB, a 10 MB workbook +64 MB, the app holds about
+230 MB, so the 10 MB limits stayed.
+
+---
+
+## D20. Self-hosted mode is PostgreSQL only; MySQL is deferred
+
+**Chosen.** `AGENTCREW_DATABASE_URL` accepts PostgreSQL and refuses anything
+else at startup. Read-only is enforced three ways: a read-only role (the real
+guarantee, documented), a read-only session with a statement timeout, and
+`SET TRANSACTION READ ONLY` per query; the guard also denies server functions
+that change settings or reach outside the database. Checked against
+PostgreSQL 17 with a role that can write. The URL is a `SecretStr` and is
+scrubbed from every error, log line and traceback.
+
+**Why not MySQL.** Different identifier quoting and read-only semantics, and
+no live test. The dialect is a parameter (`db/dialect.py`) so it can be added.
+
+**Prompts.** NorthStar's prompts say "SQLite" and are frozen byte for byte, so
+a PostgreSQL run rewrites that one word on the way to the model instead of
+keeping a second copy of every prompt.
+
+---
+
+## D21. Joins are inferred only when the name and the data agree
+
+**Chosen.** For schemas without foreign keys, a join is proposed when a
+key-like column matches by name (same key column, or a column naming another
+table) AND the referenced side is unique AND 90% of values are found.
+Generic columns (`id`, `name`, `date`, `status`, ...) never make a join. The
+owner can untick, fix or add joins beside the descriptions.
+
+**Evidence.** On the college data all joins were found from the data alone;
+`dept_cd`, shared by students and courses, joined nothing because neither
+side is unique. `_cd` was added as a key ending after the messy copy's course
+key was missed.
+
+---
+
+## D22. Every limit is enforced before or during the work, never after
+
+**Evidence.** A security review of the upload commit found the CSV column
+limit checked after the full parse, the store limit checked after
+conversion, no cap on the converted file, identifiers spliced between
+hand-written quotes, and virtual tables recognised by text the uploader
+controls.
+
+**Chosen.** The header is counted before parsing; a full store refuses
+before converting; SQLite caps the file while writing (`max_page_count`);
+every internal identifier goes through the dialect's preparer
+(`introspect.quote_name`); join inference runs under the statement timeout.
+One test class per finding in `tests/test_upload_security.py`.
+
+---
+
+## D23. What one row means is part of a table's description
+
+**Evidence.** Unseen-schema test, messy copy (college2): a per-student
+question was answered from a summary table at student-and-course grain, 2.20
+instead of 1.95. The query ran, returned one plausible number, no signal
+fired, and A and D failed identically.
+
+**Chosen.** The description draft states what one row of each table is; the
+line is editable and printed on the table's line of the dataset dictionary,
+as NorthStar's hand-written dictionary already has it. NorthStar's prompts
+are unchanged (the frozen 50 replays offline with no cache miss).
+
+**Measured, with its limit.** Rerun on the same 15 questions: 14/15 to 15/15
+for A and D. Not a holdout: the fix came from one of those questions, and
+three things changed together.
+
+**Open.** On uploaded data D has added nothing over A: a direct answer is A's
+own first call, and D escalated at most once per run. D's metric tools are
+NorthStar-only by design.
