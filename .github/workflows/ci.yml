@@ -271,3 +271,27 @@ jobs:
           done
           echo "$LIVE_URL/_stcore/health did not return 200 within about 5 minutes."
           exit 1
+
+      # Opt-in: also roll the REST API service (docs/API.md) to the same
+      # digest. Runs only when the repository variable DEPLOY_API is "true".
+      # It never creates anything: `services update` fails if agentcrew-api
+      # does not exist, so the service, its secret and its command stay
+      # console-managed. Only the image changes.
+      - name: Deploy the API service
+        if: vars.DEPLOY_API == 'true'
+        run: gcloud run services update agentcrew-api --region="$REGION" --image="$PUSHED_IMAGE"
+
+      - name: Check the API's health endpoint
+        if: vars.DEPLOY_API == 'true'
+        run: |
+          url="$(gcloud run services describe agentcrew-api --region="$REGION" --format='value(status.url)')"
+          for attempt in $(seq 1 30); do
+            if curl -fsS --max-time 10 "$url/v1/health"; then
+              echo
+              echo "API live after ${attempt} attempt(s)."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "$url/v1/health did not return 200 within about 5 minutes."
+          exit 1

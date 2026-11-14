@@ -333,9 +333,13 @@ Result rows, uploaded data and keys never do.
 ## Deploying as its own Cloud Run service
 
 The API is the same image as the UI with the container command overridden to
-uvicorn, as a second service, `agentcrew-api`. The CD workflow does not
-create or deploy it; these are the console steps (project
-`text-to-sql-demo`, region `asia-south1`).
+uvicorn, as a second service, `agentcrew-api`. The CD workflow never
+creates it; these are the console steps (project `text-to-sql-demo`, region
+`asia-south1`). Once it exists, setting the repository variable `DEPLOY_API`
+to `true` makes the deploy job roll it to the same image digest as the UI
+after every merge to `main` and check its `/v1/health` (only the image
+changes; `github-deployer` needs the same role on `agentcrew-api` as on
+`agentcrew`).
 
 **1. The keys, in Secret Manager.** Generate one key per caller:
 
