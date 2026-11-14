@@ -132,3 +132,11 @@ class TestFingerprint:
 
     def test_handles_unparseable_input(self) -> None:
         assert fingerprint("not sql at all (((") == fingerprint("not sql at all (((")
+
+
+def test_select_into_and_row_locks_are_refused_in_sqlite_too() -> None:
+    from agentcrew.db.safety import UnsafeSQLError, guard_sql
+
+    for sql in ("SELECT a INTO newt FROM t", "SELECT a FROM t FOR UPDATE"):
+        with pytest.raises(UnsafeSQLError):
+            guard_sql(sql, max_rows=10)

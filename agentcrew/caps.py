@@ -3,11 +3,12 @@
 Why this exists
 ---------------
 The public demo answers on the server's key. The per-session allowance
-(app.py, five runs in ``st.session_state``) is a courtesy limit: a page
-reload starts a new session and a new allowance, so on its own it bounds
-nothing. This module is the ceiling on total spend. One counter per UTC day
-for runs and one for model calls, shared by every session, every upload and
-(later) every API request in the process.
+(agentcrew/service.py, five runs in the session's state) is a courtesy
+limit: a page reload starts a new session and a new allowance, so on its own
+it bounds nothing. This module is the ceiling on total spend. One counter
+per UTC day each for runs, model calls, SQL runs and uploads, shared by
+every session and every request in the process. The UI and the REST API are
+separate services, so separate processes: each counts its own day.
 
 Why process-wide is enough
 --------------------------
@@ -20,16 +21,31 @@ so, and the provider's own daily quota remains the hard stop behind this one.
 
 Where it is enforced
 --------------------
-* ``allows_run()`` before a run on the server key starts (app.py). A run that
-  cannot make a single call is refused up front rather than failing after the
-  question was typed.
+* ``allows_run()`` before a run on the server key starts
+  (service.answer). It is false when the day's runs OR the day's model calls
+  are used up: a run that cannot make a single call is refused up front
+  rather than failing after the question was typed.
 * ``charge_call()`` on every model call (archs/app_runner.CountingClient), so
   a run that would cross the line stops at the call that crosses it.
 * ``charge_run()`` once a run completed, the same moment the per-session
   allowance is charged.
-* ``allows_sql_run()`` / ``charge_sql_run()`` for the SQL editor
-  (agentcrew/sql_editor.py). A counter of its own: editor runs make no model
+* ``reserve_sql_run()`` for the SQL editor and the API's /sql
+  (agentcrew/sql_editor.py). A counter of its own: these runs make no model
   call, so they must not use up the day's agent runs.
+* ``reserve_upload()`` / ``release_upload()`` for an upload, from the UI
+  (agentcrew/data_panel.py) and the API (agentcrew/api/routes.py).
+
+Check and count in one step
+---------------------------
+API requests run on a thread pool and UI sessions on a thread each, so two
+can reach a limit at the same moment. ``reserve_*`` checks and counts under
+one lock, so they cannot both take the last one; a separate "allowed?" then
+"charge" would let both through. Model calls were always counted this way
+(``charge_call``). The run counter is the exception: it is checked before a
+run and charged only when the run completes, so runs in flight can take it a
+few past its limit. The model-call cap, which is exact, is the bound on
+spend. ``allows_upload`` remains as a cheap early check before a file is
+read; the reservation that follows is what decides.
 
 A visitor's own key is never counted: they pay for those calls.
 """
@@ -135,16 +151,13 @@ class DailyCap:
             self._calls += 1
 
     def allows_upload(self) -> bool:
-        """Whether one more dataset may be uploaded today. An upload's
-        description calls are counted by charge_call like any other."""
+        """Whether one more dataset may be uploaded today: a cheap early
+        answer, before a file is read. It counts nothing; reserve_upload is
+        what decides. An upload's description calls are counted by
+        charge_call like any other."""
         with self._lock:
             self._roll()
             return self.max_uploads == 0 or self._uploads < self.max_uploads
-
-    def charge_upload(self) -> None:
-        with self._lock:
-            self._roll()
-            self._uploads += 1
 
     def reserve_upload(self) -> bool:
         """Check and count one upload in a single step, for callers that can
@@ -163,16 +176,16 @@ class DailyCap:
             self._roll()
             self._uploads = max(0, self._uploads - 1)
 
-    def allows_sql_run(self) -> bool:
-        """Whether the SQL editor may run one more statement today."""
+    def reserve_sql_run(self) -> bool:
+        """Check and count one SQL run in a single step, so simultaneous
+        requests cannot all pass the check on the day's last run. False when
+        the day's SQL runs are used up (nothing is counted then)."""
         with self._lock:
             self._roll()
-            return self.max_sql_runs == 0 or self._sql_runs < self.max_sql_runs
-
-    def charge_sql_run(self) -> None:
-        with self._lock:
-            self._roll()
+            if self.max_sql_runs and self._sql_runs >= self.max_sql_runs:
+                return False
             self._sql_runs += 1
+            return True
 
     def snapshot(self) -> CapSnapshot:
         with self._lock:

@@ -30,9 +30,12 @@ from agentcrew.db.safety import UnsafeSQLError, guard_sql
 from agentcrew.schemas import ExecutionResult, FailureKind
 
 
-@dataclass
+@dataclass(frozen=True)
 class ToolContext:
-    """Everything the tools need. Constructed once per run."""
+    """Everything the tools need. One per data source, cached and shared by
+    every session and every API thread (archs/app_runner.py), so it is
+    frozen: it holds the guard's inputs (allow_write, max_rows, timeout,
+    dialect), and a change to one would change them for every caller."""
 
     engine: Engine
     catalog: Catalog

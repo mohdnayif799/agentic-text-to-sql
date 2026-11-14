@@ -54,7 +54,8 @@ from agentcrew.datasets.ingest import STORE_FULL, ingest
 from agentcrew.datasets.source import DataSource, postgres_source, upload_source
 from agentcrew.datasets.store import Dataset
 from agentcrew.refusal import WRITE_REFUSAL
-from agentcrew.service import Caller
+from agentcrew.service import Caller, TurnCode
+from agentcrew.sql_editor import EditorStatus
 
 router = APIRouter()
 
@@ -72,8 +73,9 @@ DATASET_LIMIT = (
 )
 SQL_DAILY_CAP = "SQL runs have reached their daily limit. Try again tomorrow."
 
-#: service.Turn.code -> the API's error for it.
-_TURN_ERRORS: dict[str, tuple[int, str, str]] = {
+#: service.Turn.code -> the API's error for it (write_refused is a 200
+#: answer, handled where the response is built).
+_TURN_ERRORS: dict[TurnCode, tuple[int, str, str]] = {
     "no_model": (503, "not_configured", NOT_CONFIGURED),
     "no_key": (503, "not_configured", NOT_CONFIGURED),
     "daily_cap": (429, "daily_cap", errors.DAILY_CAP),
@@ -90,7 +92,12 @@ def _api(request: Request) -> ApiState:
 
 
 def _client(request: Request) -> Client:
-    return request.state.client
+    """The caller the gate authenticated. A route that is somehow reached
+    without one fails closed, as unauthorized, instead of running."""
+    client = getattr(request.state, "client", None)
+    if not isinstance(client, Client):
+        raise ApiError(401, "unauthorized", errors.UNAUTHORIZED)
+    return client
 
 
 def _caller(client: Client) -> Caller:
@@ -135,8 +142,10 @@ def _source(api: ApiState, client: Client,
 
 # ---- Endpoints ---------------------------------------------------------------------
 @router.get("/health", response_model=Health)
-def health() -> Health:
-    """Liveness only. Says nothing about keys, caps or data."""
+async def health() -> Health:
+    """Liveness only. Says nothing about keys, caps or data. Async, so it is
+    answered on the event loop and never waits behind questions that are
+    using the worker threads."""
     return Health()
 
 
@@ -147,7 +156,9 @@ def ask(body: AskRequest, request: Request) -> AskResponse:
     settings = api.settings
     try:
         model = settings.resolved_model()
-    except Exception:
+    except Exception as exc:
+        # Logged with its type: "not configured" must not hide a bug.
+        service.log.error("api: model not resolved: %s", type(exc).__name__)
         raise ApiError(503, "not_configured", NOT_CONFIGURED) from None
     turn = service.answer(
         body.question, provider=settings.provider, model=model, own_key="",
@@ -162,6 +173,8 @@ def _ask_response(turn: service.Turn, dataset_id: str | None,
         return AskResponse(status="refused", answer=WRITE_REFUSAL,
                            dataset_id=dataset_id)
     if turn.code is not None:
+        if turn.code not in _TURN_ERRORS:
+            service.log.error("api: no error mapped for turn code %r", turn.code)
         status, code, message = _TURN_ERRORS.get(
             turn.code, (500, "agent_error", AGENT_ERROR))
         raise ApiError(status, code, message)
@@ -206,16 +219,28 @@ def sql(body: SqlRequest, request: Request) -> SqlResponse:
                            seconds=round(run.result.duration_ms / 1000, 3),
                            **table(run.result, max_rows))
     message = run.message or AGENT_ERROR
-    failures: dict[str, tuple[int, str, str]] = {
+    failures = _sql_failures(message)
+    if run.status not in failures:
+        service.log.error("api: no error mapped for sql status %r", run.status)
+    status, code, text = failures.get(run.status, (500, "internal_error",
+                                                   errors.INTERNAL))
+    raise ApiError(status, code, text)
+
+
+def _sql_failures(message: str) -> dict[EditorStatus, tuple[int, str, str]]:
+    """Every way a SQL run can end without a table -> the API's error.
+    `message` is the run's own plain sentence, for the two it applies to."""
+    return {
         "refused": (403, "sql_refused", message),
         "failed": (400, "sql_error", message),
         "invalid": (422, "invalid_request", message),
         "daily_cap": (429, "daily_cap", SQL_DAILY_CAP),
+        # The API passes no session limit, so this cannot happen; mapped so
+        # that it would be a limit and not a server error if it ever did.
+        "session_limit": (429, "daily_cap", SQL_DAILY_CAP),
         "start_failed": (503, "unavailable", UNAVAILABLE),
+        "error": (500, "internal_error", errors.INTERNAL),
     }
-    status, code, text = failures.get(run.status, (500, "internal_error",
-                                                   errors.INTERNAL))
-    raise ApiError(status, code, text)
 
 
 @router.post("/datasets", response_model=DatasetCreated, status_code=201)
@@ -226,9 +251,26 @@ async def create_dataset(
     """The file is the raw request body; its name (which decides CSV, Excel
     or SQLite) is the `filename` query parameter. The gate has already
     stopped the body at the upload limit while it was read."""
+    api, client = _api(request), _client(request)
+    # The refusals that need no file are made before the file is read, so a
+    # caller who cannot upload anyway does not make the server take 10 MB.
+    # They are checked again, atomically, once the file is here.
+    _refuse_upload_early(api, client)
     data = await request.body()
-    return await run_in_threadpool(_create_dataset, _api(request),
-                                   _client(request), filename, data)
+    return await run_in_threadpool(_create_dataset, api, client, filename, data)
+
+
+def _refuse_upload_early(api: ApiState, client: Client) -> None:
+    settings = api.settings
+    if not settings.uploads_enabled:
+        raise ApiError(403, "uploads_disabled", UPLOADS_DISABLED)
+    limit = settings.api_datasets_per_key
+    store = service.store(settings)
+    store.sweep()
+    if len(store.owned_by(client.owner)) >= limit:
+        raise ApiError(409, "dataset_limit", DATASET_LIMIT.format(limit=limit))
+    if not service.deployment_cap().allows_upload():
+        raise errors.daily_cap()
 
 
 _upload_locks: dict[str, threading.Lock] = {}
@@ -283,8 +325,12 @@ def _create_dataset(api: ApiState, client: Client, filename: str,
                                      caller=_caller(client))
         notes, _ = describe(upload_source(dataset, settings).tool_context(settings))
         if notes is not None:
-            dataset = store.update(dataset.id, client.owner, notes=notes) or dataset
-            described = True
+            updated = store.update(dataset.id, client.owner, notes=notes)
+            if updated is None:  # removed or expired while it was described
+                service.log.warning("api: drafted descriptions had no dataset "
+                                    "to go to")
+            else:
+                dataset, described = updated, True
     except Exception as exc:
         # Descriptions are a help, not a requirement: the dataset stands.
         service.log.warning("api: descriptions not drafted: %s", type(exc).__name__)

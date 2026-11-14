@@ -106,15 +106,14 @@ class TestUploads:
     def test_upload_cap(self, clock: Clock) -> None:
         cap = DailyCap(max_runs=0, max_llm_calls=0, max_uploads=1, today=clock)
         assert cap.allows_upload()
-        cap.charge_upload()
-        assert not cap.allows_upload()
+        assert cap.reserve_upload()
+        assert not cap.allows_upload() and not cap.reserve_upload()
         clock.today = date(2026, 11, 13)
         assert cap.allows_upload() and cap.snapshot().uploads == 0
 
     def test_uploads_unlimited_by_default(self, clock: Clock) -> None:
         cap = DailyCap(max_runs=0, max_llm_calls=0, today=clock)
-        for _ in range(100):
-            cap.charge_upload()
+        assert all(cap.reserve_upload() for _ in range(100))
         assert cap.allows_upload()
 
 
@@ -154,3 +153,74 @@ def test_reserve_upload_checks_and_counts_in_one_step() -> None:
     for _ in range(9):
         unlimited.release_upload()
     assert unlimited.snapshot().uploads == 0
+
+
+def test_reserve_sql_run_checks_and_counts_in_one_step() -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    from agentcrew.caps import DailyCap
+
+    cap = DailyCap(max_runs=0, max_llm_calls=0, max_sql_runs=25)
+    with ThreadPoolExecutor(16) as pool:
+        granted = list(pool.map(lambda _: cap.reserve_sql_run(), range(400)))
+    assert sum(granted) == 25 and cap.snapshot().sql_runs == 25
+    assert all(DailyCap(max_runs=0, max_llm_calls=0).reserve_sql_run()
+               for _ in range(5))
+
+
+@pytest.mark.parametrize("name", ["daily_run_cap", "daily_llm_call_cap",
+                                  "daily_sql_run_cap", "daily_upload_cap",
+                                  "session_sql_run_cap"])
+def test_a_negative_cap_is_refused_not_read_as_unlimited(name: str) -> None:
+    from pydantic import ValidationError
+
+    from agentcrew.config import Settings
+
+    assert getattr(Settings(**{name: 0}), name) == 0  # 0 is "no cap"
+    with pytest.raises(ValidationError):
+        Settings(**{name: -1})
+
+
+class TestDeploymentCapWithBrokenSettings:
+    """A configuration that cannot be read never becomes the process's cap."""
+
+    def test_fallback_is_separate_logged_and_temporary(
+            self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import logging
+
+        from agentcrew import service
+
+        seen: list[str] = []
+
+        class Collect(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                seen.append(record.getMessage())
+
+        handler = Collect()
+        logger = logging.getLogger("agentcrew.app")
+        logger.addHandler(handler)
+        monkeypatch.setattr(service, "_fallback_cap", None)
+        monkeypatch.setenv("AGENTCREW_DAILY_RUN_CAP", "not-a-number")
+        try:
+            broken = service.deployment_cap()
+            assert service.deployment_cap() is broken
+        finally:
+            logger.removeHandler(handler)
+        assert caps._cap is None, "the real cap was not built from bad settings"
+        assert broken.max_runs == 150 and broken.max_llm_calls == 1000
+        assert broken.max_uploads == 50 and broken.max_sql_runs == 1000
+        errors = [text for text in seen if "settings could not be read" in text]
+        assert len(errors) == 1, "logged once, with the type only"
+        assert "ValidationError" in errors[0] and "not-a-number" not in errors[0]
+
+        monkeypatch.setenv("AGENTCREW_DAILY_RUN_CAP", "7")
+        fixed = service.deployment_cap()
+        assert fixed is not broken and fixed is caps._cap and fixed.max_runs == 7
+
+    def test_a_negative_cap_falls_back_to_the_default_not_to_unlimited(
+            self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from agentcrew import service
+
+        monkeypatch.setattr(service, "_fallback_cap", None)
+        monkeypatch.setenv("AGENTCREW_DAILY_RUN_CAP", "-1")
+        assert service.deployment_cap().max_runs == 150

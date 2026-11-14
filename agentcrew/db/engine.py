@@ -230,6 +230,12 @@ def execute_select(
             # The first statement of the transaction SQLAlchemy just began:
             # this one query runs read-only whatever the session default says.
             conn.exec_driver_sql("SET TRANSACTION READ ONLY")
+            # A server-side cursor: rows are fetched as they are read, so
+            # fetchmany below is what bounds memory. The default cursor
+            # downloads the whole result first, and a statement that brings
+            # its own huge LIMIT (the guard adds none then) could fill the
+            # process's memory inside the statement timeout.
+            conn = conn.execution_options(stream_results=True)
 
         cursor = conn.execute(text(sql))
         columns = list(cursor.keys())

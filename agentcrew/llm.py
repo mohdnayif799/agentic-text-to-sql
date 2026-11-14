@@ -191,7 +191,9 @@ def json_candidates(raw: str) -> list[str]:
         while i != -1 and len(found) < _MAX_CANDIDATES:
             try:
                 obj, end = decoder.raw_decode(text, i)
-            except ValueError:
+            except (ValueError, RecursionError):
+                # RecursionError: a reply nested a thousand levels deep is an
+                # invalid reply to repair, not a reason to abort the run.
                 i = text.find("{", i + 1)
                 continue
             piece = text[i:end]

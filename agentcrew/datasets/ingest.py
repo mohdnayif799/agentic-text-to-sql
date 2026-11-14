@@ -113,62 +113,71 @@ def ingest(store: DatasetStore, *, owner: str, settings: Any,
     # becomes the cap on the file being written, so a conversion that would
     # overfill the store stops at the row that crosses the line, instead of
     # being measured (and refused) only once it is complete.
-    room = store.remaining_bytes()
-    if room <= 0 or sum(len(content) for _, content in files) > room:
-        raise UploadError(STORE_FULL)
+    # The room is reserved, not just read: uploads convert at the same time,
+    # and each writes its file before it is registered, so two that both saw
+    # the same free room could together write far past the limit.
     per_upload = int(settings.max_converted_mb * 1e6)
-    limits = Limits(max_rows=settings.max_upload_rows,
-                    max_columns=settings.max_upload_columns,
-                    max_tables=settings.max_upload_tables,
-                    max_bytes=min(per_upload, room))
-    label = label_of([name for name, _ in files])
-    dataset_id, folder = store.new_folder()
-    dest = folder / DB_NAME
+    room = store.reserve(per_upload)
     try:
-        if kind == "csv":
-            tables = unique_identifiers([Path(n).stem for n, _ in files],
-                                        fallback="data")
-            for (name, content), table in zip(files, tables, strict=True):
-                csv_to_sqlite(content, dest, label=name, limits=limits, table=table,
-                              progress=progress)
-        elif kind == "excel":
-            excel_to_sqlite(files[0][1], dest, label=label, limits=limits,
-                            progress=progress)
-        else:
-            say(f"Checking {label}")
-            raw = folder / "upload.bin"
-            raw.write_bytes(files[0][1])
-            try:
-                check_and_copy(raw, dest, max_bytes=size_limit(kind, settings),
-                               max_tables=limits.max_tables,
-                               max_columns=limits.max_columns)
-            finally:
-                raw.unlink(missing_ok=True)
-        say("Reading the tables and looking for joins")
-        engine = read_only_engine(dest, timeout=settings.sql_timeout_seconds)
+        # What was free before this reservation: the uploaded bytes must fit
+        # in the store, whatever the cap on one converted file is.
+        free = room + store.remaining_bytes()
+        if room <= 0 or sum(len(content) for _, content in files) > free:
+            raise UploadError(STORE_FULL)
+        limits = Limits(max_rows=settings.max_upload_rows,
+                        max_columns=settings.max_upload_columns,
+                        max_tables=settings.max_upload_tables,
+                        max_bytes=room)
+        label = label_of([name for name, _ in files])
+        dataset_id, folder = store.new_folder()
+        dest = folder / DB_NAME
         try:
-            catalog = build_catalog(engine)
-            joins = tuple(infer_joins(engine, catalog))
-        finally:
-            engine.dispose()
-        dataset = Dataset(
-            id=dataset_id, owner=owner, label=label, kind=kind, path=dest,
-            size_bytes=dest.stat().st_size, tables=tuple(sorted(catalog.tables)),
-            joins=joins)
-    except ConvertedTooLarge as exc:
-        store.discard_folder(dataset_id)
-        if room < per_upload:  # the cap that was hit was the store's room
+            if kind == "csv":
+                tables = unique_identifiers([Path(n).stem for n, _ in files],
+                                            fallback="data")
+                for (name, content), table in zip(files, tables, strict=True):
+                    csv_to_sqlite(content, dest, label=name, limits=limits, table=table,
+                                  progress=progress)
+            elif kind == "excel":
+                excel_to_sqlite(files[0][1], dest, label=label, limits=limits,
+                                progress=progress)
+            else:
+                say(f"Checking {label}")
+                raw = folder / "upload.bin"
+                raw.write_bytes(files[0][1])
+                try:
+                    check_and_copy(raw, dest, max_bytes=size_limit(kind, settings),
+                                   max_tables=limits.max_tables,
+                                   max_columns=limits.max_columns)
+                finally:
+                    raw.unlink(missing_ok=True)
+            say("Reading the tables and looking for joins")
+            engine = read_only_engine(dest, timeout=settings.sql_timeout_seconds)
+            try:
+                catalog = build_catalog(engine)
+                joins = tuple(infer_joins(engine, catalog))
+            finally:
+                engine.dispose()
+            dataset = Dataset(
+                id=dataset_id, owner=owner, label=label, kind=kind, path=dest,
+                size_bytes=dest.stat().st_size, tables=tuple(sorted(catalog.tables)),
+                joins=joins)
+        except ConvertedTooLarge as exc:
+            store.discard_folder(dataset_id)
+            if room < per_upload:  # the cap that was hit was the store's room
+                raise UploadError(STORE_FULL) from exc
+            raise UploadError(
+                f"The data is larger than {per_upload / 1e6:g} MB once converted. "
+                "Upload fewer rows or fewer files.") from exc
+        except UploadError:
+            store.discard_folder(dataset_id)
+            raise
+        except Exception as exc:
+            store.discard_folder(dataset_id)
+            raise UploadError("The upload could not be converted.") from exc
+        try:
+            return store.add(dataset)
+        except StoreFull as exc:
             raise UploadError(STORE_FULL) from exc
-        raise UploadError(
-            f"The data is larger than {per_upload / 1e6:g} MB once converted. "
-            "Upload fewer rows or fewer files.") from exc
-    except UploadError:
-        store.discard_folder(dataset_id)
-        raise
-    except Exception as exc:
-        store.discard_folder(dataset_id)
-        raise UploadError("The upload could not be converted.") from exc
-    try:
-        return store.add(dataset)
-    except StoreFull as exc:
-        raise UploadError(STORE_FULL) from exc
+    finally:
+        store.release(room)

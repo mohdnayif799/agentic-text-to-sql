@@ -50,3 +50,36 @@ class RateLimiter:
                 return max(1, math.ceil(self.window - (now - hits[0])))
             hits.append(now)
             return 0
+
+
+class InFlight:
+    """How many requests each API key has in progress right now.
+
+    The rate limiter above bounds requests per minute; this bounds requests
+    at the same moment. A question can run for many seconds on a worker
+    thread, so a key allowed 30 requests a minute could otherwise hold 30
+    threads at once. `limit` of 0 means no limit.
+    """
+
+    def __init__(self, limit: int) -> None:
+        self.limit = max(0, int(limit))
+        self._lock = threading.Lock()
+        self._running: dict[str, int] = {}
+
+    def enter(self, client: str) -> bool:
+        """Count one request in. False (and nothing counted) when the key is
+        already at its limit."""
+        with self._lock:
+            running = self._running.get(client, 0)
+            if self.limit and running >= self.limit:
+                return False
+            self._running[client] = running + 1
+            return True
+
+    def leave(self, client: str) -> None:
+        with self._lock:
+            running = self._running.get(client, 0) - 1
+            if running > 0:
+                self._running[client] = running
+            else:
+                self._running.pop(client, None)

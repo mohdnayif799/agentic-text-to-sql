@@ -463,8 +463,15 @@ class TestEnvelope:
                            for name in response.headers)
 
     def test_docs_are_off_by_default(self, api: Api) -> None:
-        assert api.client.get("/docs").status_code == 404
-        assert api.client.get("/openapi.json").status_code == 404
+        for path in ("/docs", "/openapi.json"):
+            assert api.client.get(path).status_code == 401, "no key: nothing shown"
+            assert api.client.get(path, headers=_auth(KEY_A)).status_code == 404
+
+    def test_docs_can_be_switched_on(self, make_api: Callable[..., Api]) -> None:
+        api = make_api(api_docs="true")
+        assert api.client.get("/openapi.json").status_code == 200
+        assert api.client.get("/docs").status_code == 200
+        assert api.post("/sql", {"sql": COUNT}, key=None).status_code == 401
 
 
 # ---------------------------------------------------------------------------
@@ -723,7 +730,9 @@ class TestDatasets:
                 lambda key: api.upload("a.csv", PEOPLE_CSV, key=key), keys))
 
     def test_simultaneous_uploads_cannot_pass_the_per_key_limit(
-            self, api: Api, monkeypatch: pytest.MonkeyPatch) -> None:
+            self, make_api: Callable[..., Api],
+            monkeypatch: pytest.MonkeyPatch) -> None:
+        api = make_api(api_max_concurrent_per_key=10)  # so all six get in
         self._slow_ingest(monkeypatch)
         assert self._together(api, [KEY_A] * 6) == [201, 201, 409, 409, 409, 409]
         owner = KeyRing(KEY_A).identify(KEY_A).owner
@@ -889,3 +898,386 @@ class TestLogs:
         api = make_api(trace_content="true")
         api.post("/sql", {"sql": COUNT})
         assert api.runs()[-1]["final_sql"].startswith("SELECT COUNT")
+
+
+# ---------------------------------------------------------------------------
+# The gate fails closed (review findings)
+# ---------------------------------------------------------------------------
+class TestGateFailsClosed:
+    """Every path but health needs a key, whatever prefix a proxy adds."""
+
+    @pytest.mark.parametrize("path", ["/", "/anything", "/v2/ask", "/v1", "/v1/",
+                                      "/v1/health/", "/v1/health/x"])
+    def test_unknown_paths_need_a_key_too(self, api: Api, path: str) -> None:
+        response = api.client.get(path)
+        assert response.status_code == 401
+        assert error(response)["code"] == "unauthorized"
+
+    def test_a_root_path_prefix_does_not_open_the_routes(
+            self, make_api: Callable[..., Api]) -> None:
+        """With an ASGI root_path (a proxy prefix), the raw path is
+        /api/v1/..., while the router matches /v1/...: the gate must decide
+        on the same path the router does."""
+        api = make_api()
+        prefixed = TestClient(api.client.app, root_path="/api")
+        sql = {"sql": COUNT}
+        assert prefixed.post("/api/v1/sql", json=sql).status_code == 401
+        assert prefixed.post("/api/v1/datasets?filename=a.csv", content=PEOPLE_CSV
+                             ).status_code == 401
+        big = b"x" * 500_000
+        assert prefixed.post("/api/v1/sql", content=big).status_code == 401
+        ok = prefixed.post("/api/v1/sql", json=sql, headers=_auth(KEY_A))
+        assert ok.status_code == 200 and ok.json()["rows"] == [[1400]]
+        over = prefixed.post("/api/v1/sql", headers=_auth(KEY_A),
+                             json={"sql": "SELECT 1 -- " + "x" * 70_000})
+        assert over.status_code == 413, "the body limit applies under a prefix too"
+        assert prefixed.get("/api/v1/health").status_code == 200
+
+    def test_a_route_without_a_client_is_unauthorized_not_a_crash(self) -> None:
+        from types import SimpleNamespace
+
+        from agentcrew.api.errors import ApiError
+        from agentcrew.api.routes import _client
+
+        with pytest.raises(ApiError) as caught:
+            _client(SimpleNamespace(state=SimpleNamespace()))  # type: ignore[arg-type]
+        assert caught.value.status == 401
+
+
+class TestRequestsInProgress:
+    def test_a_key_is_limited_in_how_many_run_at_once(
+            self, make_api: Callable[..., Api],
+            monkeypatch: pytest.MonkeyPatch) -> None:
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+
+        api = make_api(api_max_concurrent_per_key=2)
+        started, release = threading.Semaphore(0), threading.Event()
+
+        def slow_answer(question: str, **_: Any) -> service.Turn:
+            started.release()
+            release.wait(10)
+            return service.Turn(question=question, notice="x", code="write_refused")
+
+        monkeypatch.setattr(service, "answer", slow_answer)
+        ask = {"question": "How many customers?"}
+        with ThreadPoolExecutor(2) as pool:
+            running = [pool.submit(api.post, "/ask", ask) for _ in range(2)]
+            assert started.acquire(timeout=10) and started.acquire(timeout=10)
+            # Two are in progress: a third from the same key is turned away,
+            # another key is not, and health is answered at once.
+            third = api.post("/sql", {"sql": COUNT})
+            other = api.post("/sql", {"sql": COUNT}, key=KEY_B)
+            health = api.client.get("/v1/health")
+            release.set()
+            done = [f.result(timeout=10).status_code for f in running]
+        assert third.status_code == 429
+        assert error(third)["code"] == "too_many_concurrent"
+        assert third.headers["retry-after"] == "1"
+        assert other.status_code == 200 and health.status_code == 200
+        assert done == [200, 200]
+        assert api.post("/sql", {"sql": COUNT}).status_code == 200, "freed again"
+
+    def test_a_failed_request_frees_its_place(
+            self, make_api: Callable[..., Api],
+            monkeypatch: pytest.MonkeyPatch) -> None:
+        api = make_api(api_max_concurrent_per_key=1)
+
+        def boom(*_: Any, **__: Any) -> None:
+            raise RuntimeError("x")
+
+        monkeypatch.setattr(service, "answer", boom)
+        for _ in range(3):
+            assert api.post("/ask", {"question": "q"}).status_code == 500
+        assert api.post("/sql", {"sql": COUNT}).status_code == 200
+
+    def test_in_flight_unit(self) -> None:
+        from agentcrew.api.ratelimit import InFlight
+
+        counter = InFlight(2)
+        assert [counter.enter("a") for _ in range(3)] == [True, True, False]
+        assert counter.enter("b")
+        counter.leave("a")
+        assert counter.enter("a")
+        for _ in range(5):
+            counter.leave("a")
+        assert counter._running.get("a") is None, "never negative, no leftover"
+        assert all(InFlight(0).enter("a") for _ in range(50))
+
+
+class TestUploadRefusedBeforeTheFileIsRead:
+    @staticmethod
+    def _body_must_not_be_read(monkeypatch: pytest.MonkeyPatch) -> None:
+        from starlette.requests import Request
+
+        async def body(self: Any) -> bytes:
+            raise AssertionError("the upload body was read")
+
+        monkeypatch.setattr(Request, "body", body)
+
+    def test_at_the_dataset_limit(self, api: Api,
+                                  monkeypatch: pytest.MonkeyPatch) -> None:
+        api.upload("a.csv", PEOPLE_CSV)
+        api.upload("b.csv", PEOPLE_CSV)
+        self._body_must_not_be_read(monkeypatch)
+        response = api.upload("c.csv", PEOPLE_CSV)
+        assert response.status_code == 409
+
+    def test_when_uploads_are_off(self, make_api: Callable[..., Api],
+                                  monkeypatch: pytest.MonkeyPatch) -> None:
+        api = make_api(uploads_enabled="false")
+        self._body_must_not_be_read(monkeypatch)
+        assert api.upload("a.csv", PEOPLE_CSV).status_code == 403
+
+    def test_when_the_daily_upload_cap_is_reached(
+            self, make_api: Callable[..., Api],
+            monkeypatch: pytest.MonkeyPatch) -> None:
+        api = make_api(daily_upload_cap=1)
+        api.upload("a.csv", PEOPLE_CSV)
+        self._body_must_not_be_read(monkeypatch)
+        assert api.upload("b.csv", PEOPLE_CSV).status_code == 429
+
+
+# ---------------------------------------------------------------------------
+# Closed sets: every way a run can end is mapped to an error (review findings)
+# ---------------------------------------------------------------------------
+class TestEveryOutcomeIsMapped:
+    def test_every_turn_code_has_an_api_error(self) -> None:
+        from typing import get_args
+
+        from agentcrew.api.routes import _TURN_ERRORS
+        from agentcrew.service import TurnCode
+
+        assert set(get_args(TurnCode)) == set(_TURN_ERRORS) | {"write_refused"}
+
+    def test_every_editor_status_but_done_has_an_api_error(self) -> None:
+        from typing import get_args
+
+        from agentcrew.api.routes import _sql_failures
+        from agentcrew.sql_editor import EditorStatus
+
+        assert set(get_args(EditorStatus)) == set(_sql_failures("m")) | {"done"}
+
+    def test_an_editor_run_must_say_how_it_ended(self) -> None:
+        from agentcrew.schemas import ExecutionResult
+        from agentcrew.sql_editor import EditorRun
+
+        with pytest.raises(TypeError):
+            EditorRun()  # type: ignore[call-arg]
+        with pytest.raises(ValueError, match="unknown editor status"):
+            EditorRun(status="finished")  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="done exactly when"):
+            EditorRun(status="done", message="no result")
+        good = ExecutionResult(ok=True, sql="SELECT 1", columns=["a"], rows=[[1]],
+                               row_count=1)
+        with pytest.raises(ValueError, match="done exactly when"):
+            EditorRun(status="failed", result=good)
+        assert EditorRun(status="done", result=good).ok
+
+    def test_nothing_that_holds_a_secret_prints_it(
+            self, make_api: Callable[..., Api]) -> None:
+        from agentcrew.config import Settings
+
+        api = make_api()
+        state = api.client.app.state.api
+        client = KeyRing(KEY_A).identify(KEY_A)
+        shown = " ".join([repr(state), repr(client), repr(Settings()),
+                          repr(state.settings)])
+        assert SERVER_MODEL_KEY not in shown and KEY_A not in shown
+        assert client.owner not in shown, "the key's full digest stays out too"
+        assert client.id in shown
+
+
+class TestFailuresAreLogged:
+    def test_an_unresolvable_model_is_logged_with_its_type(
+            self, api: Api, monkeypatch: pytest.MonkeyPatch) -> None:
+        from agentcrew.config import Settings
+
+        def boom(self: Any) -> str:
+            raise KeyError("SECRET-DETAIL")
+
+        monkeypatch.setattr(Settings, "resolved_model", boom)
+        response = api.post("/ask", {"question": "How many customers?"})
+        assert response.status_code == 503
+        assert error(response)["code"] == "not_configured"
+        assert any("model not resolved: KeyError" in text for text in api.texts)
+        assert not any("SECRET-DETAIL" in text for text in api.texts)
+
+    def test_descriptions_are_drafted_only_if_they_were_stored(
+            self, api: Api, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(type(api.store), "update",
+                            lambda self, *a, **k: None)
+        made = api.upload("college.xlsx", COLLEGE)
+        assert made.status_code == 201
+        assert made.json()["descriptions"] == "empty"
+        assert any("no dataset to go to" in text for text in api.texts)
+
+
+# ---------------------------------------------------------------------------
+# The gate, called as ASGI: what it reads, and when (review findings)
+# ---------------------------------------------------------------------------
+async def _call(app: Any, *, path: str, method: str = "POST", key: str | None = None,
+                headers: list[tuple[bytes, bytes]] | None = None,
+                chunks: int = 100, chunk: bytes = b"x" * 8_000,
+                query: bytes = b"") -> tuple[int, dict[str, Any], int]:
+    """Send one request straight to the ASGI app with a body that arrives in
+    chunks and never declares its length. Returns (status, json, how many
+    times the app asked for more of the body)."""
+    asked = 0
+    sent: list[dict[str, Any]] = []
+    head = list(headers or [])
+    if key is not None:
+        head.append((b"x-api-key", key.encode()))
+
+    async def receive() -> dict[str, Any]:
+        nonlocal asked
+        asked += 1
+        return {"type": "http.request", "body": chunk,
+                "more_body": asked < chunks}
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
+             "method": method, "path": path, "raw_path": path.encode(),
+             "root_path": "", "scheme": "http", "query_string": query,
+             "headers": head, "client": ("testclient", 1), "server": ("test", 80)}
+    await app(scope, receive, send)
+    start = next(m for m in sent if m["type"] == "http.response.start")
+    body = b"".join(m.get("body", b"") for m in sent
+                    if m["type"] == "http.response.body")
+    return start["status"], (json.loads(body) if body else {}), asked
+
+
+class TestWhatTheGateReads:
+    def _app(self, api: Api) -> Any:
+        return api.client.app
+
+    def test_no_key_means_the_body_is_never_asked_for(self, api: Api) -> None:
+        import anyio
+
+        for path in ("/v1/sql", "/v1/ask", "/v1/datasets", "/somewhere/else"):
+            status, body, asked = anyio.run(
+                lambda path=path: _call(self._app(api), path=path))
+            assert (status, body["error"]["code"], asked) == (401, "unauthorized", 0)
+
+    def test_a_rate_limited_request_is_not_read_either(
+            self, make_api: Callable[..., Api]) -> None:
+        import anyio
+
+        api = make_api(per_minute=1)
+        assert api.post("/sql", {"sql": COUNT}).status_code == 200
+        status, body, asked = anyio.run(
+            lambda: _call(self._app(api), path="/v1/sql", key=KEY_A))
+        assert (status, body["error"]["code"], asked) == (429, "rate_limited", 0)
+
+    def test_a_json_body_is_cut_at_the_chunk_that_crosses_the_limit(
+            self, api: Api) -> None:
+        """64 KB limit, 8 KB chunks: the app may ask nine times, not a hundred."""
+        import anyio
+
+        status, body, asked = anyio.run(lambda: _call(
+            self._app(api), path="/v1/sql", key=KEY_A,
+            headers=[(b"content-type", b"application/json")]))
+        assert (status, body["error"]["code"]) == (413, "body_too_large")
+        assert asked == 9, "64 KB / 8 KB, plus the chunk that crossed the line"
+        assert api.runs() == []
+
+    def test_an_upload_is_cut_while_it_is_read_and_charges_nothing(
+            self, make_api: Callable[..., Api]) -> None:
+        import anyio
+
+        api = make_api(max_upload_mb=0.01, max_excel_upload_mb=0.01)  # 10 KB
+        status, body, asked = anyio.run(lambda: _call(
+            self._app(api), path="/v1/datasets", key=KEY_A,
+            query=b"filename=a.csv", chunk=b"1,2\n" * 250, chunks=30))
+        assert (status, body["error"]["code"]) == (413, "body_too_large")
+        assert asked <= 12, "10 KB limit, 1 KB chunks"
+        owner = KeyRing(KEY_A).identify(KEY_A).owner
+        assert api.store.owned_by(owner) == []
+        assert caps._cap is None or caps._cap.snapshot().uploads == 0
+        assert api.store.remaining_bytes() == api.store.max_bytes
+
+    def test_only_http_is_served(self, api: Api) -> None:
+        """The gate passes other ASGI scopes through untouched, so there must
+        be nothing for them to reach: a websocket route would be open."""
+        from starlette.routing import Mount, WebSocketRoute
+
+        routes = self._app(api).routes
+        assert not [r for r in routes if isinstance(r, (WebSocketRoute, Mount))]
+        with pytest.raises(Exception):  # noqa: B017, PT011 - any refusal will do
+            with api.client.websocket_connect("/v1/ask"):
+                pass
+
+
+class TestSlotsAndReservationsComeBack:
+    def test_refused_requests_do_not_hold_a_keys_place(
+            self, make_api: Callable[..., Api]) -> None:
+        api = make_api(api_max_concurrent_per_key=1)
+        for _ in range(4):
+            over = api.post("/sql", {"sql": "SELECT 1 -- " + "x" * 70_000})
+            assert over.status_code == 413
+            assert api.post("/sql", {"sql": "DROP TABLE customers"}).status_code == 403
+            assert api.post("/ask", {}).status_code == 422
+        assert api.post("/sql", {"sql": COUNT}).status_code == 200
+
+    def test_an_unexpected_failure_while_uploading_gives_everything_back(
+            self, make_api: Callable[..., Api],
+            monkeypatch: pytest.MonkeyPatch) -> None:
+        api = make_api(daily_upload_cap=1)
+
+        def disk_full() -> Any:
+            raise OSError("disk full: SECRET-DETAIL")
+
+        real_new_folder = api.store.new_folder
+        monkeypatch.setattr(api.store, "new_folder", disk_full)
+        response = api.upload("a.csv", PEOPLE_CSV)
+        assert response.status_code == 500
+        assert error(response)["code"] == "internal_error"
+        assert "SECRET-DETAIL" not in response.text
+        assert not any("SECRET-DETAIL" in text for text in api.texts)
+        assert caps._cap.snapshot().uploads == 0, "the daily slot came back"
+        assert api.store.remaining_bytes() == api.store.max_bytes, "and the room"
+        monkeypatch.setattr(api.store, "new_folder", real_new_folder)
+        assert api.upload("a.csv", PEOPLE_CSV).status_code == 201, (
+            "the one upload of the day is still available")
+
+    def test_a_csv_over_its_own_limit_is_refused_by_the_upload_checks(
+            self, make_api: Callable[..., Api]) -> None:
+        """The gate allows the larger of the two upload limits; the kind's own
+        limit is then applied by the same check as the UI's."""
+        api = make_api(max_upload_mb=0.01, max_excel_upload_mb=1)
+        response = api.upload("big.csv", b"a,b\n" + b"1,2\n" * 5_000)  # 20 KB
+        assert response.status_code == 400
+        assert error(response)["code"] == "upload_refused"
+
+    def test_no_key_or_digest_reaches_a_log_on_failure_paths(
+            self, make_api: Callable[..., Api],
+            capfd: pytest.CaptureFixture[str],
+            caplog: pytest.LogCaptureFixture,
+            monkeypatch: pytest.MonkeyPatch) -> None:
+        api = make_api(per_minute=6)
+        with caplog.at_level(logging.DEBUG):
+            api.client.post(f"/v1/sql?api_key={KEY_A}", json={"sql": COUNT})
+            api.client.get(f"/v1/{KEY_A}")
+            api.get(f"/{KEY_B}")  # an unknown path that holds a key, with a key
+            api.post("/sql", {"sql": "SELECT 1 -- " + "x" * 70_000})
+            api.upload("notes.pdf", b"x")
+            monkeypatch.setattr(service, "answer",
+                                lambda *a, **k: (_ for _ in ()).throw(RuntimeError()))
+            api.post("/ask", {"question": "q"})
+            for _ in range(8):
+                api.post("/sql", {"sql": COUNT})
+        out, err = capfd.readouterr()
+        # The test's own HTTP client logs the URLs it requests; that is the
+        # caller's log, not the server's, so it is left out.
+        server_side = [r.getMessage() for r in caplog.records
+                       if not r.name.startswith("httpx")]
+        everything = "\n".join([*api.texts, *server_side, out, err])
+        digest = KeyRing(KEY_A).identify(KEY_A).owner.removeprefix("api:")
+        for secret in (KEY_A, KEY_B, SERVER_MODEL_KEY, digest):
+            assert secret not in everything
+        unmatched = [line for line in api.requests() if line["status"] == 404]
+        assert unmatched and all(line["route"] == "-" for line in unmatched)
+        assert {line["status"] for line in api.requests()} >= {401, 404, 413, 400,
+                                                               500, 429}

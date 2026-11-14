@@ -286,24 +286,37 @@ class TestDailyUploadCapIsReserved:
             describe=lambda tools: (None, None),
             reserve_upload=cap.reserve_upload, release_upload=cap.release_upload)
 
-    def test_two_sessions_at_once_get_one_upload(self, tmp_path) -> None:
+    def test_two_sessions_at_once_get_one_upload(self, tmp_path,
+                                                 monkeypatch) -> None:
+        """Both uploads are held inside the conversion at the same time (or
+        the second has already been refused): exactly one may have the day's
+        last slot, however the threads are scheduled."""
         import threading
         from concurrent.futures import ThreadPoolExecutor
 
+        from agentcrew import data_panel
         from agentcrew.caps import DailyCap
         from agentcrew.data_panel import DAILY_UPLOAD_MESSAGE
 
         cap = DailyCap(max_runs=0, max_llm_calls=0, max_uploads=1)
-        inside = threading.Barrier(2, timeout=5)
-        real_reserve = cap.reserve_upload
+        go = threading.Event()
+        real = data_panel.ingest
 
-        def reserve() -> bool:
-            inside.wait()  # both sessions reach the cap check together
-            return real_reserve()
+        def held(*args, **kwargs):
+            go.wait(10)
+            return real(*args, **kwargs)
 
-        cap.reserve_upload = reserve  # type: ignore[method-assign]
+        monkeypatch.setattr(data_panel, "ingest", held)
         with ThreadPoolExecutor(2) as pool:
-            results = list(pool.map(lambda _: self._upload(cap, tmp_path), range(2)))
+            futures = [pool.submit(self._upload, cap, tmp_path) for _ in range(2)]
+            # One upload is refused at the cap without ever converting; wait
+            # for that, with the other still held inside its conversion.
+            for _ in range(200):
+                if any(f.done() for f in futures):
+                    break
+                threading.Event().wait(0.05)
+            go.set()
+            results = [f.result(timeout=10) for f in futures]
         errors = [error for _, _, error in results]
         assert sorted(e is None for e in errors) == [False, True]
         assert DAILY_UPLOAD_MESSAGE in errors
@@ -318,3 +331,108 @@ class TestDailyUploadCapIsReserved:
         dataset, _, error = self._upload(cap, tmp_path)
         assert dataset is not None and error is None
         assert cap.snapshot().uploads == 1
+
+
+class TestUploadFailurePaths:
+    """Whatever fails after the daily slot is reserved gives it back, and a
+    failed description draft is a notice, not a crash (review findings)."""
+
+    def test_a_failure_before_ingest_releases_the_slot(self, tmp_path,
+                                                       monkeypatch) -> None:
+        from agentcrew import data_panel
+        from agentcrew.caps import DailyCap
+        from agentcrew.config import Settings
+
+        def broken_store(settings):
+            raise PermissionError("cannot create the upload folder")
+
+        monkeypatch.setattr(data_panel, "store", broken_store)
+        cap = DailyCap(max_runs=0, max_llm_calls=0, max_uploads=1)
+        with pytest.raises(PermissionError):
+            data_panel.handle_upload(
+                [("a.csv", b"a,b\n1,2\n")], state={},
+                settings=Settings(upload_dir=tmp_path / "uploads"),
+                describe=lambda tools: (None, None),
+                reserve_upload=cap.reserve_upload,
+                release_upload=cap.release_upload)
+        assert cap.snapshot().uploads == 0, "the slot was given back"
+
+    def test_a_failed_description_draft_is_a_notice(self, tmp_path) -> None:
+        from agentcrew.caps import DailyCap
+        from agentcrew.config import Settings
+        from agentcrew.data_panel import DESCRIPTIONS_FAILED, handle_upload
+
+        def describe(tools):
+            raise RuntimeError("provider SDK missing: SECRET-DETAIL")
+
+        cap = DailyCap(max_runs=0, max_llm_calls=0, max_uploads=5)
+        state: dict = {}
+        dataset, notice, error = handle_upload(
+            [("a.csv", b"a,b\n1,2\n")], state=state,
+            settings=Settings(upload_dir=tmp_path / "uploads"), describe=describe,
+            reserve_upload=cap.reserve_upload, release_upload=cap.release_upload)
+        assert error is None and dataset is not None, "the upload stands"
+        assert notice == DESCRIPTIONS_FAILED and "SECRET" not in notice
+        assert state["dataset_id"] == dataset.id
+        assert cap.snapshot().uploads == 1, "a stored upload keeps its slot"
+
+
+class TestReplacingADataset:
+    """The previous dataset is replaced only once the new upload succeeded."""
+
+    @staticmethod
+    def _upload(state, tmp_path, name, data):
+        from agentcrew.config import Settings
+        from agentcrew.data_panel import handle_upload
+
+        settings = Settings(upload_dir=tmp_path / "uploads")
+        return settings, handle_upload([(name, data)], state=state, settings=settings,
+                                       describe=lambda tools: (None, None))
+
+    @pytest.mark.parametrize(("name", "data"), [
+        ("notes.pdf", b"%PDF-1.4"),            # a kind that is not accepted
+        ("empty.csv", b""),                    # refused before parsing
+        ("broken.xlsx", b"not a workbook"),    # refused while converting
+        ("fake.db", b"not sqlite" * 20),       # refused by the SQLite checks
+    ])
+    def test_a_refused_upload_keeps_the_previous_dataset(self, tmp_path, name,
+                                                         data) -> None:
+        from agentcrew.data_panel import current_dataset, store
+        from agentcrew.datasets.source import reset_sources, upload_source
+        from agentcrew.tools import execute_readonly_sql
+
+        state: dict = {}
+        settings, (first, _, error) = self._upload(
+            state, tmp_path, "first.csv", b"a,b\n1,2\n3,4\n")
+        assert error is None and first is not None
+
+        _, (refused, _, error) = self._upload(state, tmp_path, name, data)
+        assert refused is None and error, "the second upload was refused"
+
+        kept = current_dataset(state, settings)
+        assert kept is not None and kept.id == first.id, "still the session's data"
+        assert state["dataset_id"] == first.id and first.path.exists()
+        assert [d.id for d in store(settings).owned_by(first.owner)] == [first.id]
+        tools = upload_source(kept, settings).tool_context(settings)
+        result = execute_readonly_sql(tools, "SELECT COUNT(*) FROM first")
+        assert result.ok and result.rows == [[2]], "and it still answers queries"
+        assert state["uploads_used"] == 1, "a refused upload is not counted"
+        store(settings).remove_owner(first.owner)
+        reset_sources()
+
+    def test_a_successful_upload_replaces_it(self, tmp_path) -> None:
+        from agentcrew.data_panel import store
+        from agentcrew.datasets.source import reset_sources
+
+        state: dict = {}
+        settings, (first, _, _) = self._upload(
+            state, tmp_path, "first.csv", b"a,b\n1,2\n")
+        _, (second, _, error) = self._upload(
+            state, tmp_path, "second.csv", b"c,d\n5,6\n")
+        assert error is None and second is not None and second.id != first.id
+        assert state["dataset_id"] == second.id
+        owned = store(settings).owned_by(second.owner)
+        assert [d.id for d in owned] == [second.id], "one dataset per session"
+        assert not first.path.exists(), "the old file is deleted"
+        store(settings).remove_owner(second.owner)
+        reset_sources()

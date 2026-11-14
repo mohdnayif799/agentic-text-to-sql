@@ -392,3 +392,43 @@ class TestRunLog:
                 runlog.log.removeHandler(caplog.handler)
         payload = json.loads(caplog.records[-1].getMessage())
         assert payload["surface"] == "sql_editor" and payload["rows"] == 1
+
+
+def test_the_shared_tool_context_cannot_be_changed(northstar: ToolContext) -> None:
+    """One ToolContext serves every session and API thread: its guard inputs
+    must not be assignable."""
+    import dataclasses
+
+    for name, value in (("allow_write", True), ("max_rows", 10**9),
+                        ("timeout", 3600.0)):
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            setattr(northstar, name, value)
+
+
+class TestTimeoutAndScrubThroughRunSql:
+    def test_a_runaway_query_is_stopped_at_the_timeout(
+            self, northstar: ToolContext) -> None:
+        import time
+
+        tools = ToolContext(engine=northstar.engine, catalog=northstar.catalog,
+                            timeout=0.3)
+        started = time.perf_counter()
+        out = run("WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c) "
+                  "SELECT COUNT(*) FROM c", tools)
+        assert time.perf_counter() - started < 10
+        assert out.status == "failed" and out.result is not None
+        assert out.result.failure == FailureKind.TIMEOUT
+        assert out.message == "The query took longer than 0.3 seconds and was stopped."
+        assert run("SELECT 1", tools).ok, "the connection is usable afterwards"
+
+    def test_scrub_reaches_the_message_run_sql_returns(
+            self, northstar: ToolContext, monkeypatch: pytest.MonkeyPatch) -> None:
+        failed = ExecutionResult(
+            ok=False, sql="x", failure=FailureKind.OTHER,
+            error_message="cannot reach postgresql://u:hunter2@h/db")
+        monkeypatch.setattr("agentcrew.sql_editor.execute_readonly_sql",
+                            lambda *_: failed)
+        out = run_sql("SELECT 1", tools=northstar, state={}, session_limit=0,
+                      cap=None, scrub=lambda text: text.replace("hunter2", "***"))
+        assert out.message is not None and "hunter2" not in out.message
+        assert "***" in out.message

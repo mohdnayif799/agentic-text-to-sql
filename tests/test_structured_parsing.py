@@ -112,3 +112,11 @@ def test_the_instruction_and_repair_prompts_are_unchanged() -> None:
     assert user2.startswith("USER\n\nYour previous reply was rejected.\n"
                             "--- your reply ---\nbad\n--- validation error ---\n")
     assert user2.endswith("Return corrected JSON only.")
+
+
+def test_a_deeply_nested_reply_is_an_invalid_reply_not_a_crash() -> None:
+    deep = '{"a":' + "[" * 5000
+    assert json_candidates(deep) == []
+    llm = FakeClient([deep, GOOD])
+    draft, usage = llm.complete_structured(system="s", user="u", schema=Draft)
+    assert draft.sql == "SELECT 1" and usage.calls == 2

@@ -12,8 +12,13 @@
 services:
   agentcrew:
     build: .
+    # Bound to this machine only. The app has no login and can read every
+    # table its database role can: anyone who reaches this port can query
+    # your data and spend your model key. To share it, put a reverse proxy
+    # with authentication in front, or change this to "8080:8080" only on a
+    # network you trust.
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     env_file: .env
     environment:
       # The provider and model the UI starts on; any of anthropic, openai,

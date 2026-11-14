@@ -28,6 +28,7 @@ anyone else.
 
 from __future__ import annotations
 
+import logging
 import re
 import shutil
 import threading
@@ -41,6 +42,8 @@ from typing import Any
 from agentcrew.datasets.describe import Notes, empty_notes
 from agentcrew.datasets.joins import Join
 
+log = logging.getLogger("agentcrew.app")
+
 SWEEP_SECONDS = 60
 DB_NAME = "data.db"
 
@@ -48,7 +51,7 @@ DB_NAME = "data.db"
 @dataclass(frozen=True)
 class Dataset:
     id: str
-    owner: str
+    owner: str = field(repr=False)
     label: str
     """The file name the visitor uploaded."""
     kind: str
@@ -84,6 +87,8 @@ class DatasetStore:
         self._datasets: dict[str, Dataset] = {}
         self._last_used: dict[str, float] = {}
         self._on_remove: list[Callable[[Dataset], None]] = []
+        self._reserved = 0
+        """Bytes promised to conversions still in progress (reserve)."""
         self.root.mkdir(parents=True, exist_ok=True)
         if sweep:
             threading.Thread(target=self._sweep_forever, name="dataset-sweeper",
@@ -106,9 +111,30 @@ class DatasetStore:
             return sum(d.size_bytes for d in self._datasets.values())
 
     def remaining_bytes(self) -> int:
-        """Room left under the store's limit (never negative). ingest checks
-        it before converting and uses it to cap the file being written."""
-        return max(0, self.max_bytes - self.total_bytes())
+        """Room left under the store's limit (never negative), after the
+        datasets it holds and the room reserved for conversions in progress."""
+        with self._lock:
+            return self._remaining()
+
+    def _remaining(self) -> int:
+        used = sum(d.size_bytes for d in self._datasets.values())
+        return max(0, self.max_bytes - used - self._reserved)
+
+    def reserve(self, wanted: int) -> int:
+        """Set aside up to `wanted` bytes for a conversion about to start and
+        return how many were granted (0 when the store is full). Uploads
+        convert at the same time, and a conversion writes its file before it
+        is registered: without a reservation each would see the same free
+        room and together they could write far past the limit. Give the
+        grant back with release() when the conversion ends, either way."""
+        with self._lock:
+            granted = max(0, min(int(wanted), self._remaining()))
+            self._reserved += granted
+            return granted
+
+    def release(self, granted: int) -> None:
+        with self._lock:
+            self._reserved = max(0, self._reserved - int(granted))
 
     def add(self, dataset: Dataset) -> Dataset:
         """Register a converted dataset. Raises StoreFull (and deletes its
@@ -137,8 +163,16 @@ class DatasetStore:
             self._last_used[dataset_id] = self._clock()
             return found
 
-    def update(self, dataset_id: str, owner: str, **changes: Any) -> Dataset | None:
-        """A new Dataset with `changes` (notes, joins) and the next revision."""
+    def update(self, dataset_id: str, owner: str, *, notes: Notes | None = None,
+               joins: tuple[Join, ...] | None = None) -> Dataset | None:
+        """A new Dataset with the edited notes and/or joins and the next
+        revision. Only those two can change: the owner, the id and the path
+        are what `get` trusts."""
+        changes: dict[str, Any] = {}
+        if notes is not None:
+            changes["notes"] = notes
+        if joins is not None:
+            changes["joins"] = joins
         with self._lock:
             found = self._datasets.get(dataset_id)
             if found is None or found.owner != owner:
@@ -164,8 +198,10 @@ class DatasetStore:
         for hook in hooks:
             try:
                 hook(found)
-            except Exception:  # noqa: S110 - a cache hook must not block deletion
-                pass
+            except Exception as exc:
+                # A cache hook must not block deletion, but a hook that fails
+                # leaves an engine or a cache entry behind: say so.
+                log.warning("dataset removal hook failed: %s", type(exc).__name__)
         self.discard_folder(dataset_id)
         return True
 
@@ -191,8 +227,8 @@ class DatasetStore:
             time.sleep(SWEEP_SECONDS)
             try:
                 self.sweep()
-            except Exception:  # noqa: S110 - keep sweeping; the next pass retries
-                pass
+            except Exception as exc:  # keep sweeping; the next pass retries
+                log.warning("dataset sweep failed: %s", type(exc).__name__)
 
 
 _store: DatasetStore | None = None

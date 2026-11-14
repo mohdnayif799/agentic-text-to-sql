@@ -29,7 +29,7 @@ import re
 import time
 from collections.abc import Callable, MutableMapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal, get_args
 
 from agentcrew import runlog
 from agentcrew.caps import DailyCap
@@ -57,20 +57,36 @@ DAILY_LIMIT_MESSAGE = (
 FAILED_MESSAGE = "The query could not run."
 
 
+EditorStatus = Literal["done", "refused", "failed", "error", "invalid",
+                       "session_limit", "daily_cap", "start_failed"]
+"""Every way a run can end. done: it ran. refused: the guard blocked it.
+failed: the database rejected it. error: an unexpected exception. invalid:
+empty or over-long input. session_limit, daily_cap: a limit was reached.
+start_failed: the database could not be opened (set by the caller)."""
+
+
 @dataclass(frozen=True)
 class EditorRun:
     """One press of Run: the result when the statement ran, or a short
     message saying why it did not (or why it failed)."""
 
+    status: EditorStatus
+    """Required, with no default: a run that forgot to say how it ended must
+    not read as "done". Callers map it to their own wording (the API to an
+    HTTP status), so it is checked against the closed set on construction."""
     result: ExecutionResult | None = None
     message: str | None = None
     charged: bool = False
     """Whether this run counted against the session and daily limits."""
-    status: str = "done"
-    """For the run log: done, refused, failed, error, invalid, session_limit
-    or daily_cap."""
     error: str | None = None
     """For the run log: the failure kind or exception type name, never text."""
+
+    def __post_init__(self) -> None:
+        if self.status not in get_args(EditorStatus):
+            raise ValueError(f"unknown editor status {self.status!r}")
+        if (self.status == "done") != self.ok:
+            raise ValueError("an editor run is done exactly when it has an ok "
+                             "result")
 
     @property
     def ok(self) -> bool:
@@ -134,12 +150,11 @@ def _run(text: str, *, tools: ToolContext, state: MutableMapping[str, Any],
         return EditorRun(message=TOO_LONG_MESSAGE, status="invalid")
     if runs_left(state, session_limit) == 0:
         return EditorRun(message=SESSION_LIMIT_MESSAGE, status="session_limit")
-    if cap is not None and not cap.allows_sql_run():
+    # Checked and counted in one step: API requests run at the same time,
+    # and a separate check and charge would let several pass on the last run.
+    if cap is not None and not cap.reserve_sql_run():
         return EditorRun(message=DAILY_LIMIT_MESSAGE, status="daily_cap")
-
     state[SQL_RUNS_USED] = int(state.get(SQL_RUNS_USED, 0)) + 1
-    if cap is not None:
-        cap.charge_sql_run()
 
     try:
         result = execute_readonly_sql(tools, text)
@@ -153,7 +168,7 @@ def _run(text: str, *, tools: ToolContext, state: MutableMapping[str, Any],
                          message=plain_error(result, tools.timeout, scrub),
                          status="refused" if refused else "failed",
                          error=str(result.failure))
-    return EditorRun(result=result, charged=True)
+    return EditorRun(result=result, charged=True, status="done")
 
 
 _DRIVER_PREFIX = re.compile(r"^\((?:[\w.]+\.)?\w+(?:Error|Exception|Warning)\)\s*")

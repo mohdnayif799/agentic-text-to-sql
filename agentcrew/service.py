@@ -35,7 +35,7 @@ import threading
 import time
 from collections.abc import Callable, MutableMapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from agentcrew import llm as llm_module
 from agentcrew import runlog
@@ -140,19 +140,36 @@ StageReporter = Callable[[int], Callable[[str], None]]
 
 
 # ---- Deployment settings ---------------------------------------------------------
+_fallback_cap: DailyCap | None = None
+_fallback_lock = threading.Lock()
+
+
 def deployment_cap() -> DailyCap:
-    """The deployment's cap, read from the environment once per process."""
+    """The deployment's cap, read from the environment once per process.
+
+    When Settings cannot be built (a malformed variable), nothing can run
+    anyway: every run, upload and SQL run builds Settings first and fails
+    with a message. Callers still need a cap object to ask, so they get a
+    stand-in at the default limits. It is kept apart from the real cap on
+    purpose: the real one is built from the first VALID Settings, so a
+    broken configuration can never become the process's limits, and the
+    failure is logged rather than silent."""
+    global _fallback_cap
     try:
         return daily_cap(Settings())
-    except Exception:
-        # Settings could not be built (a malformed variable); the run itself
-        # will fail with a message. The cap still exists, at its defaults.
-        fields = Settings.model_fields
-        return daily_cap(Settings.model_construct(
-            daily_run_cap=fields["daily_run_cap"].default,
-            daily_llm_call_cap=fields["daily_llm_call_cap"].default,
-            daily_sql_run_cap=fields["daily_sql_run_cap"].default,
-        ))
+    except Exception as exc:
+        with _fallback_lock:
+            if _fallback_cap is None:
+                log.error("settings could not be read (%s); using the default "
+                          "daily caps until they can", type(exc).__name__)
+                fields = Settings.model_fields
+                _fallback_cap = DailyCap(
+                    max_runs=fields["daily_run_cap"].default,
+                    max_llm_calls=fields["daily_llm_call_cap"].default,
+                    max_uploads=fields["daily_upload_cap"].default,
+                    max_sql_runs=fields["daily_sql_run_cap"].default,
+                )
+            return _fallback_cap
 
 
 def trace_content_enabled() -> bool:
@@ -202,6 +219,12 @@ def redact(text: str, secret: str) -> str:
 
 
 # ---- One question ----------------------------------------------------------------
+TurnCode = Literal["write_refused", "no_model", "no_key", "session_limit",
+                   "daily_cap", "quota", "timeout", "start_failed", "error"]
+"""Why there was no run. A caller that maps these to its own wording (the
+API, to HTTP errors) must cover every one: tests/test_api.py checks that."""
+
+
 @dataclass
 class Turn:
     """One submitted question and whatever came back.
@@ -212,7 +235,10 @@ class Turn:
     failure appeared to belong to the previous answer.
 
     Binding the result (or the error) to the question that produced it makes
-    that state unrepresentable.
+    that state unrepresentable. Which of the fields is set is by convention,
+    kept by answer() and execute(), the only places that build one: a run
+    (`outcome` or `arch_run`, with no `code`), or a `code` with a `notice` or
+    an `error`.
     """
 
     question: str
@@ -225,10 +251,9 @@ class Turn:
     source_id: str = "northstar"
     """Which data source answered (source_id()), so the SQL editor runs the
     answer's SQL only against that source."""
-    code: str | None = None
+    code: TurnCode | None = None
     """Why there is no run, for a caller that maps it to its own wording (the
-    API): write_refused, no_model, no_key, session_limit, daily_cap, quota,
-    timeout, start_failed or error. None when the agent ran to an outcome."""
+    API). None when the agent ran to an outcome."""
 
 
 def execute(

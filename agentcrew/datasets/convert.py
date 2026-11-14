@@ -62,6 +62,12 @@ SNIFF_BYTES = 64 * 1024
 #: An .xlsx file whose members unzip to more than this many times the file's
 #: own size is refused as a likely zip bomb.
 MAX_UNZIP_RATIO = 60
+#: And however small the file, never more than this in all. The ratio alone
+#: lets a 10 MB workbook claim 600 MB of XML.
+MAX_UNZIPPED_BYTES = 200_000_000
+#: The shared-strings part is read whole into memory by the reader, even in
+#: streaming mode, so it has a smaller limit of its own.
+MAX_SHARED_STRINGS_BYTES = 50_000_000
 
 
 @dataclass(frozen=True)
@@ -253,10 +259,14 @@ def csv_to_sqlite(data: bytes, dest: Path, *, label: str,
 def _check_zip(data: bytes) -> None:
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as zf:
-            unzipped = sum(info.file_size for info in zf.infolist())
+            members = zf.infolist()
     except zipfile.BadZipFile as exc:
         raise UploadError("The file is not a valid .xlsx workbook.") from exc
-    if unzipped > MAX_UNZIP_RATIO * max(len(data), 1):
+    unzipped = sum(info.file_size for info in members)
+    shared = sum(info.file_size for info in members
+                 if info.filename.lower().endswith("sharedstrings.xml"))
+    if (unzipped > MAX_UNZIP_RATIO * max(len(data), 1)
+            or unzipped > MAX_UNZIPPED_BYTES or shared > MAX_SHARED_STRINGS_BYTES):
         raise UploadError("The workbook expands to far more data than its size "
                           "suggests, so it was refused.")
 

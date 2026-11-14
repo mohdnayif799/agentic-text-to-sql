@@ -94,6 +94,16 @@ _POSTGRES_DENIED_FUNCTIONS = frozenset({
 })
 
 
+#: Whole families, matched by prefix, so a variant not listed above (the
+#: shared and try_ forms of the advisory locks, say) is refused too. An
+#: advisory lock taken in a read-only transaction outlives it on a pooled
+#: connection and can block the database's real applications.
+_POSTGRES_DENIED_PREFIXES = (
+    "pg_advisory", "pg_try_advisory", "pg_logical_", "pg_file_", "pg_create_",
+    "pg_replication_", "lo_", "dblink",
+)
+
+
 class UnsafeSQLError(Exception):
     """Raised when a statement fails the guard."""
 
@@ -113,7 +123,8 @@ def _denied_function(tree: exp.Expression, dialect: str) -> str | None:
         return None
     for node in tree.find_all(exp.Func):
         name = _function_name(node)
-        if name in _POSTGRES_DENIED_FUNCTIONS:
+        if (name in _POSTGRES_DENIED_FUNCTIONS
+                or name.startswith(_POSTGRES_DENIED_PREFIXES)):
             return name
     return None
 
@@ -239,6 +250,17 @@ def guard_sql(
             name = str(cmd.this or "").strip().lower()
             if name.startswith(_DENIED_COMMAND_PREFIXES):
                 raise UnsafeSQLError(f"Embedded '{name}' command is not permitted.")
+        for select in tree.find_all(exp.Select):
+            # SELECT ... INTO creates a table; FOR UPDATE / FOR SHARE take row
+            # locks. A read-only transaction refuses them, but the guard is
+            # the layer that should say so first.
+            if select.args.get("into") is not None:
+                raise UnsafeSQLError(
+                    "SELECT ... INTO is not permitted: this agent only reads data.")
+            if select.args.get("locks"):
+                raise UnsafeSQLError(
+                    "Row locks (FOR UPDATE / FOR SHARE) are not permitted: this "
+                    "agent only reads data.")
         denied = _denied_function(tree, dialect)
         if denied:
             raise UnsafeSQLError(

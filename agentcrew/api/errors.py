@@ -33,6 +33,10 @@ def envelope(code: str, message: str, request_id: str) -> dict[str, Any]:
 # ---- The failures every route can meet -------------------------------------------
 UNAUTHORIZED = "Send a valid API key in the X-API-Key header."
 RATE_LIMITED = "Too many requests for this API key. Try again shortly."
+TOO_MANY_AT_ONCE = (
+    "This API key already has as many requests in progress as it may. Wait "
+    "for one to finish."
+)
 BODY_TOO_LARGE = "The request body is larger than this endpoint accepts."
 INTERNAL = "Something went wrong on the server."
 NOT_FOUND = "No such endpoint."

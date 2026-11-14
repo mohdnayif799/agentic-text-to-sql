@@ -75,6 +75,42 @@ class TestGuardInPostgresDialect:
         with sql_dialect.using("postgres"), pytest.raises(UnsafeSQLError):
             guard_sql(sql, max_rows=10)
 
+    @pytest.mark.parametrize("sql", [
+        "SELECT pg_try_advisory_lock_shared(42)",
+        "SELECT pg_try_advisory_xact_lock(42)",
+        "SELECT pg_advisory_xact_lock_shared(42)",
+        "SELECT pg_try_advisory_xact_lock_shared(1, 2)",
+        "SELECT pg_advisory_unlock_all()",
+        "SELECT pg_logical_emit_message(true, 'x', 'y')",
+        "SELECT pg_create_restore_point('x')",
+        "SELECT pg_file_write('/tmp/x', 'y', false)",
+        "SELECT lo_creat(-1)",
+        "SELECT * FROM dblink_get_result('c') AS t(a int)",
+    ])
+    def test_whole_function_families_are_denied(self, sql: str) -> None:
+        with sql_dialect.using("postgres"), pytest.raises(UnsafeSQLError,
+                                                          match="not permitted"):
+            guard_sql(sql, max_rows=10)
+
+    @pytest.mark.parametrize("sql", [
+        "SELECT a INTO newt FROM t",
+        "SELECT a FROM t FOR UPDATE",
+        "SELECT a FROM t FOR SHARE",
+        "SELECT * FROM (SELECT a FROM t FOR UPDATE) s",
+    ])
+    def test_select_into_and_row_locks_are_refused(self, sql: str) -> None:
+        with sql_dialect.using("postgres"), pytest.raises(UnsafeSQLError,
+                                                          match="not permitted"):
+            guard_sql(sql, max_rows=10)
+
+    @pytest.mark.parametrize("sql", [
+        "SELECT lower(name), log(2, 8), localtime FROM t",
+        "SELECT pg_typeof(a), pg_column_size(a) FROM t",
+    ])
+    def test_ordinary_functions_with_similar_names_pass(self, sql: str) -> None:
+        with sql_dialect.using("postgres"):
+            assert guard_sql(sql, max_rows=10).sql
+
     def test_ordinary_reads_pass_with_a_limit(self) -> None:
         with sql_dialect.using("postgres"):
             out = guard_sql("SELECT date_trunc('month', created_at) AS m, "
@@ -155,6 +191,25 @@ class TestLiveServer:
             with pytest.raises(Exception, match="read-only"):
                 conn.exec_driver_sql("SET TRANSACTION READ ONLY")
                 conn.exec_driver_sql("CREATE TABLE ac_x (a int)")
+        engine.dispose()
+
+    def test_the_row_cap_bounds_what_is_fetched(self, seeded) -> None:
+        """A statement that brings its own huge LIMIT gets none from the
+        guard. The result is read through a server-side cursor, so only the
+        capped rows travel: 20 million rows would otherwise be downloaded
+        (or hit the statement timeout) before the cap applied."""
+        from agentcrew.tools import ToolContext, execute_readonly_sql
+
+        engine = postgres_read_only_engine(LIVE_URL, timeout=5)
+        tools = ToolContext.create(engine, dialect="postgres", metrics=False,
+                                   max_rows=50)
+        result = execute_readonly_sql(
+            tools, "SELECT g FROM generate_series(1, 20000000) AS g LIMIT 100000000")
+        assert result.ok, result.error_message
+        assert result.row_count == 50 and result.truncated
+        assert result.duration_ms < 3000
+        again = execute_readonly_sql(tools, "SELECT COUNT(*) FROM ac_marks")
+        assert again.ok and again.rows == [[3]], "the connection is reusable"
         engine.dispose()
 
     def test_source_profile_joins_and_dates(self, seeded) -> None:

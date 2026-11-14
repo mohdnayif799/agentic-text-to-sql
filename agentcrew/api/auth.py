@@ -26,7 +26,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 MIN_KEY_CHARS = 24
 MAX_KEY_CHARS = 256
@@ -41,8 +41,9 @@ class Client:
 
     id: str
     """For logs: the first 12 hex characters of the key's SHA-256."""
-    owner: str
-    """What the dataset store binds this caller's datasets to."""
+    owner: str = field(repr=False)
+    """What the dataset store binds this caller's datasets to: the key's
+    full digest, so it is kept out of the repr."""
 
 
 def _digest(key: str) -> bytes:

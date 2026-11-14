@@ -160,6 +160,35 @@ class TestExcel:
         with pytest.raises(UploadError, match="expands"):
             excel_to_sqlite(data, tmp_path / "d.db", label="s.xlsx")
 
+    def test_absolute_unzipped_size_is_capped(self, tmp_path: Path,
+                                              monkeypatch) -> None:
+        """The ratio alone would let a 10 MB file claim 600 MB."""
+        monkeypatch.setattr(convert, "MAX_UNZIPPED_BYTES", 1_000)
+        data = xlsx({"S": [["n"], *[[i] for i in range(200)]]})
+        with pytest.raises(UploadError, match="expands"):
+            excel_to_sqlite(data, tmp_path / "d.db", label="s.xlsx")
+
+    def test_shared_strings_are_capped_separately(self, tmp_path: Path,
+                                                  monkeypatch) -> None:
+        """openpyxl reads xl/sharedStrings.xml whole, even in streaming mode,
+        so that one member has a limit of its own. The check runs on the zip
+        directory before the workbook is opened."""
+        import zipfile
+
+        plain = xlsx({"S": [["name"], ["a"]]})
+        buf = io.BytesIO()
+        with zipfile.ZipFile(io.BytesIO(plain)) as src, \
+                zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as dst:
+            for item in src.infolist():
+                dst.writestr(item, src.read(item.filename))
+            dst.writestr("xl/sharedStrings.xml", "<si><t>x</t></si>" * 200)
+        data = buf.getvalue()
+        monkeypatch.setattr(convert, "MAX_UNZIP_RATIO", 10_000)
+        convert._check_zip(data)  # within every limit
+        monkeypatch.setattr(convert, "MAX_SHARED_STRINGS_BYTES", 500)
+        with pytest.raises(UploadError, match="expands"):
+            excel_to_sqlite(data, tmp_path / "d.db", label="s.xlsx")
+
     def test_sheet_limit(self, tmp_path: Path) -> None:
         data = xlsx({f"S{i}": [["a"], [1]] for i in range(3)})
         with pytest.raises(UploadError, match="3 sheets"):
@@ -585,3 +614,82 @@ class TestAgentOnUpload:
         planner = [s for s in analyst.systems if s.startswith("You plan the next")]
         assert planner and full.NO_METRICS in planner[0]
         assert "order_items" not in json.dumps(analyst.systems)
+
+
+class TestStoreReservation:
+    """Room is reserved for a conversion in progress, so uploads converting
+    at the same time cannot together write past the store's limit."""
+
+    def test_reserve_and_release(self, tmp_path: Path) -> None:
+        store = DatasetStore(tmp_path / "s", max_bytes=1000, ttl_seconds=60,
+                             sweep=False)
+        assert store.reserve(600) == 600 and store.remaining_bytes() == 400
+        assert store.reserve(600) == 400 and store.remaining_bytes() == 0
+        assert store.reserve(1) == 0
+        store.release(600)
+        assert store.remaining_bytes() == 600
+        store.release(10_000)
+        assert store.remaining_bytes() == 1000, "never above the limit"
+
+    def test_a_second_upload_sees_the_firsts_reservation(
+            self, tmp_path: Path, monkeypatch) -> None:
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+
+        from agentcrew.datasets import ingest as ingest_module
+        from agentcrew.datasets.ingest import STORE_FULL
+
+        # Room for one conversion (max_converted_mb), not two.
+        settings = make_settings(tmp_path, max_converted_mb=1.0)
+        store = DatasetStore(tmp_path / "s", max_bytes=1_500_000, ttl_seconds=60,
+                             sweep=False)
+        inside, go = threading.Semaphore(0), threading.Event()
+        real = ingest_module.csv_to_sqlite
+        caps_seen: list[int] = []
+
+        def slow(*args: Any, **kwargs: Any) -> Any:
+            caps_seen.append(kwargs["limits"].max_bytes)
+            inside.release()
+            go.wait(10)
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(ingest_module, "csv_to_sqlite", slow)
+
+        def upload(name: str) -> Any:
+            try:
+                return ingest(store, owner=name, filename=f"{name}.csv",
+                              data=b"a,b\n1,2\n", settings=settings)
+            except UploadError as exc:
+                return str(exc)
+
+        with ThreadPoolExecutor(2) as pool:
+            first = pool.submit(upload, "one")
+            assert inside.acquire(timeout=10)
+            # While the first converts, a second may write only what is left.
+            second = pool.submit(upload, "two")
+            assert inside.acquire(timeout=10)
+            go.set()
+            results = [first.result(timeout=10), second.result(timeout=10)]
+        assert sorted(caps_seen) == [500_000, 1_000_000]
+        assert sum(caps_seen) <= store.max_bytes
+        assert all(not isinstance(r, str) or r == STORE_FULL for r in results)
+        assert store.remaining_bytes() == store.max_bytes - store.total_bytes(), (
+            "every reservation was released")
+
+
+class TestStoreUpdate:
+    def test_only_notes_and_joins_can_change(self, tmp_path: Path) -> None:
+        store = DatasetStore(tmp_path / "s", max_bytes=10**8, ttl_seconds=60,
+                             sweep=False)
+        owner = "OWNER-SENTINEL-93"
+        dataset = ingest(store, owner=owner, filename="a.csv", data=b"a,b\n1,2\n",
+                         settings=make_settings(tmp_path))
+        with pytest.raises(TypeError):
+            store.update(dataset.id, owner, owner="someone-else")  # type: ignore[call-arg]
+        assert store.update(dataset.id, "someone-else", joins=()) is None
+        assert store.get(dataset.id, "someone-else") is None
+        updated = store.update(dataset.id, owner, joins=())
+        assert updated is not None and updated.revision == dataset.revision + 1
+        assert updated.owner == owner and owner not in repr(updated)
+        store.remove(dataset.id)
+        assert store.update(dataset.id, owner, joins=()) is None, "gone"

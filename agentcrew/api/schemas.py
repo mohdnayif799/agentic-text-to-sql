@@ -57,7 +57,8 @@ class AskResponse(Result):
     sql: str | None = None
     """The SQL behind the final table, when there is one."""
     path: str = "-"
-    """direct (one query was enough) or escalated."""
+    """direct (one query was enough) or escalated; "v1" when the deployment
+    runs the original agent (AGENTCREW_ARCH=v1), "-" when nothing ran."""
     llm_calls: int = 0
     caveats: list[str] = Field(default_factory=list)
     dataset_id: str | None = None

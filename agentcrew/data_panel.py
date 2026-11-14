@@ -19,6 +19,7 @@ because app.py decides which key pays and charges the caps.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from collections.abc import Callable, MutableMapping
 from typing import Any
@@ -85,6 +86,12 @@ UPLOAD_LIMIT_MESSAGE = (
 DAILY_UPLOAD_MESSAGE = (
     "The demo has reached its daily limit on uploads. Try again tomorrow."
 )
+DESCRIPTIONS_FAILED = (
+    "Descriptions could not be drafted right now, so they are empty. You can "
+    "write them below; questions still work without them."
+)
+
+log = logging.getLogger("agentcrew.app")
 
 Describer = Callable[[ToolContext], tuple[Notes | None, str | None]]
 """(tools) -> (drafted notes or None, a notice for the visitor or None)."""
@@ -150,7 +157,12 @@ def handle_upload(files: list[tuple[str, bytes]], *,
     """Ingest one upload (one or several files) for this session. Returns
     (dataset, notice, error):
     a notice is information (descriptions could not be drafted), an error
-    means nothing was stored. The session's previous upload is deleted.
+    means nothing was stored.
+
+    A session has one dataset. The new file is checked and converted first;
+    the previous dataset is deleted only once the new one is stored, so a
+    refused upload (a wrong file type, a file over a limit, a full store)
+    leaves the data the visitor was working with exactly as it was.
 
     `reserve_upload` checks the daily upload cap and counts this upload in
     one step (DailyCap.reserve_upload), so two sessions uploading at the same
@@ -160,11 +172,12 @@ def handle_upload(files: list[tuple[str, bytes]], *,
         return None, None, UPLOAD_LIMIT_MESSAGE
     if not reserve_upload():
         return None, None, DAILY_UPLOAD_MESSAGE
-    owner = session_owner(state)
-    the_store = store(settings)
-    the_store.remove_owner(owner)  # one dataset per session
-    state[DATASET_ID] = None
+    # Everything after the reservation is inside the try: whatever fails
+    # before the upload is stored gives the day's slot back.
     try:
+        owner = session_owner(state)
+        the_store = store(settings)
+        previous = [d.id for d in the_store.owned_by(owner)]
         dataset = ingest(the_store, owner=owner, files=files, settings=settings,
                          progress=progress)
     except UploadError as exc:
@@ -173,12 +186,21 @@ def handle_upload(files: list[tuple[str, bytes]], *,
     except BaseException:
         release_upload()
         raise
+    # Only now, with the new dataset stored: one dataset per session.
+    for old in previous:
+        the_store.remove(old)
     state[DATASET_ID] = dataset.id
     state[UPLOADS_USED] = state.get(UPLOADS_USED, 0) + 1
     if progress is not None:
         progress("Drafting descriptions of the tables and columns")
-    tools = upload_source(dataset, settings).tool_context(settings)
-    notes, notice = describe(tools)
+    try:
+        tools = upload_source(dataset, settings).tool_context(settings)
+        notes, notice = describe(tools)
+    except Exception as exc:
+        # The upload is stored and usable; descriptions are a help, not a
+        # requirement. The type goes to the log, a plain notice to the page.
+        log.warning("descriptions not drafted: %s", type(exc).__name__)
+        return dataset, DESCRIPTIONS_FAILED, None
     if notes is not None:
         dataset = the_store.update(dataset.id, owner, notes=notes) or dataset
     return dataset, notice, None

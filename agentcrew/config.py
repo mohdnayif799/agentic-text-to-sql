@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -32,9 +32,11 @@ class Settings(BaseSettings):
     goes through the PROVIDERS registry in llm.py - see resolved_model()."""
     temperature: float = 0.0
     max_output_tokens: int = 2048
-    anthropic_api_key: str | None = None
-    openai_api_key: str | None = None
-    gemini_api_key: str | None = None
+    # repr=False: printing or logging a Settings object (an assertion diff,
+    # a debugger, an error reporter that captures locals) never shows a key.
+    anthropic_api_key: str | None = Field(default=None, repr=False)
+    openai_api_key: str | None = Field(default=None, repr=False)
+    gemini_api_key: str | None = Field(default=None, repr=False)
     openai_base_url: str | None = None
 
     # ---- Database --------------------------------------------------------
@@ -80,22 +82,24 @@ class Settings(BaseSettings):
     allow_write_mode: bool = False
     """When False the agent is structurally incapable of writing. Default off."""
 
-    # ---- Cost and abuse guard (agentcrew/caps.py, app.py) -----------------
-    daily_run_cap: int = 150
+    # ---- Cost and abuse guard (agentcrew/caps.py, agentcrew/service.py) ----
+    # 0 means "no cap", so a negative value is refused (ge=0) rather than
+    # read as a typo for unlimited.
+    daily_run_cap: int = Field(default=150, ge=0)
     """Runs per UTC day on the server's key, across every session. 0 = no cap.
     The per-session allowance in app.py is reset by a page reload; this is
     the ceiling on total spend. Resets on a cold start (no store)."""
-    daily_llm_call_cap: int = 1000
+    daily_llm_call_cap: int = Field(default=1000, ge=0)
     """Model calls per UTC day on the server's key. 0 = no cap. A run makes
     about 2 (direct) to 7 (escalated) calls, so this is the finer bound."""
-    session_sql_run_cap: int = 30
+    session_sql_run_cap: int = Field(default=30, ge=0)
     """SQL editor runs per browser session (agentcrew/sql_editor.py). 0 = no
     cap. No model call is made, so it applies whichever key the visitor uses."""
-    daily_sql_run_cap: int = 1000
+    daily_sql_run_cap: int = Field(default=1000, ge=0)
     """SQL editor runs per UTC day across every session. 0 = no cap. Its own
     counter, separate from daily_run_cap: editor runs make no model call and
     must not use up the demo's agent runs."""
-    daily_upload_cap: int = 50
+    daily_upload_cap: int = Field(default=50, ge=0)
     """Uploaded datasets per UTC day across every session. 0 = no cap. Each
     upload also spends model calls on drafting descriptions, which the daily
     call cap counts when the server key pays."""
@@ -142,6 +146,11 @@ class Settings(BaseSettings):
     api_rate_limit_per_minute: int = 30
     """Requests per minute for one API key, over a sliding minute. 0 = no
     limit. In memory: the API runs as one instance and one process."""
+    api_max_concurrent_per_key: int = 4
+    """Requests one API key may have in progress at once. 0 = no limit. A
+    question can take many seconds, and the rate limit counts requests per
+    minute, not requests in flight: without this, a few keys could occupy
+    every worker thread and starve the cheap endpoints."""
     api_max_json_kb: int = 64
     """Largest JSON request body, in KB. Enforced while the body is read. An
     upload's limit is max_upload_mb / max_excel_upload_mb, as in the UI."""

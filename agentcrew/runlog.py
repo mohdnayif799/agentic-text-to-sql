@@ -16,8 +16,10 @@ What a line holds, by design:
   sql_editor  also the row count; no model, so provider, model, arch and
               key are "-", and error is the failure kind (blocked, syntax...)
   api         also client, a short hash of the caller's API key; and one
-              "request" line per HTTP request (method, route template,
-              status, seconds, error code), whatever became of it
+              "request" line per HTTP request except the health check
+              (method, route template, status, seconds, error code),
+              whatever became of it; client is null when the key was
+              missing or wrong
   only with   the question text and the final SQL (AGENTCREW_TRACE_CONTENT,
   trace_content   off by default and off on the public demo)
   never       prompts, completions, result rows, previews, values from an

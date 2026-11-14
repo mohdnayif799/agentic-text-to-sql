@@ -12,16 +12,22 @@ The gate
 parsing, because the order matters and a route cannot enforce it:
 
 1. The key is checked from the headers. A request without a valid key is
-   answered 401 without its body being read at all.
-2. The key's rate limit is checked (429 with Retry-After).
+   answered 401 without its body being read at all. This is the default for
+   every path: only the health endpoint (and the docs, when switched on) is
+   open, so a path the gate does not recognise can never reach a route
+   unauthenticated. The path is the one the router will match, with any
+   ASGI root_path removed, so a proxy prefix cannot make the two disagree.
+2. The key's rate limit is checked (429 with Retry-After), then how many
+   requests the key already has in progress.
 3. The body limit is enforced while the body is read: a declared
    Content-Length over the limit is refused before reading, and a body that
    lies about its length (or sends none) is cut off at the first chunk that
    crosses the line. Nothing is buffered and then measured.
 4. Any exception that escapes a route becomes the 500 envelope here, so no
    stack trace can reach a caller, whatever the framework would have done.
-5. One request line is logged (agentcrew/runlog.py), with the caller's key
-   hash, the route template, the status and the error code.
+5. One request line is logged (agentcrew/runlog.py) for every request
+   except the health check, with the route template, the status, the error
+   code and the caller's key hash (none when the key was missing or wrong).
 
 There is no CORS middleware: the API sends no Access-Control headers, so a
 browser on another origin cannot read its responses. It is meant to be
@@ -48,7 +54,7 @@ from agentcrew import runlog
 from agentcrew.api import errors
 from agentcrew.api.auth import Client, KeyRing, presented_key
 from agentcrew.api.errors import ApiError, envelope
-from agentcrew.api.ratelimit import RateLimiter
+from agentcrew.api.ratelimit import InFlight, RateLimiter
 from agentcrew.config import Settings
 
 log = logging.getLogger("agentcrew.app")
@@ -56,6 +62,7 @@ log = logging.getLogger("agentcrew.app")
 PREFIX = "/v1"
 HEALTH_PATH = f"{PREFIX}/health"
 UPLOAD_PATH = f"{PREFIX}/datasets"
+DOCS_PATHS = frozenset({"/docs", "/openapi.json", "/docs/oauth2-redirect"})
 KNOWN_DATASETS = 4096
 
 Scope = MutableMapping[str, Any]
@@ -90,12 +97,19 @@ class Known:
 class ApiState:
     """What the gate and the routes share. Built once per application."""
 
-    settings: Settings
+    settings: Settings = field(repr=False)
     """The deployment's settings, with the dataset lifetime set to the
-    API's (api_dataset_ttl_seconds)."""
+    API's (api_dataset_ttl_seconds). Kept out of the repr: it holds keys."""
     keys: KeyRing
     limiter: RateLimiter
+    inflight: InFlight
     known: Known = field(default_factory=Known)
+
+    @property
+    def open_paths(self) -> frozenset[str]:
+        """The only paths that need no key."""
+        docs = DOCS_PATHS if self.settings.api_docs else frozenset()
+        return frozenset({HEALTH_PATH}) | docs
 
     @property
     def json_limit(self) -> int:
@@ -129,7 +143,7 @@ class Gate:
         request_id = uuid.uuid4().hex[:16]
         state = scope.setdefault("state", {})
         state["request_id"] = request_id
-        path, method = scope.get("path", ""), scope.get("method", "")
+        path, method = _route_path(scope), scope.get("method", "")
         seen = {"status": 0, "started": False, "over": False, "replaced": False}
         base_headers = [
             (b"x-request-id", request_id.encode()),
@@ -153,9 +167,10 @@ class Gate:
 
         too_large = ApiError(413, "body_too_large", errors.BODY_TOO_LARGE)
         client: Client | None = None
+        entered = False
         limit = 0
         try:
-            if path.startswith(f"{PREFIX}/") and path != HEALTH_PATH:
+            if path not in self.api.open_paths:
                 client = self.api.keys.identify(presented_key(scope["headers"]))
                 if client is None:
                     await respond(ApiError(401, "unauthorized", errors.UNAUTHORIZED))
@@ -165,6 +180,12 @@ class Gate:
                 if wait:
                     await respond(ApiError(429, "rate_limited", errors.RATE_LIMITED,
                                            {"Retry-After": str(wait)}))
+                    return
+                entered = self.api.inflight.enter(client.id)
+                if not entered:
+                    await respond(ApiError(429, "too_many_concurrent",
+                                           errors.TOO_MANY_AT_ONCE,
+                                           {"Retry-After": "1"}))
                     return
                 limit = (self.api.upload_limit
                          if method == "POST" and path == UPLOAD_PATH
@@ -209,19 +230,43 @@ class Gate:
                 log.error("api request failed: %s", type(exc).__name__)
                 if not seen["started"]:
                     await respond(ApiError(500, "internal_error", errors.INTERNAL))
+                else:
+                    # Too late to change the status; the request line at
+                    # least must not read as a clean success.
+                    state["error_code"] = "aborted_after_start"
             if seen["over"] and not seen["started"]:
                 await respond(too_large)
         finally:
+            if entered and client is not None:
+                self.api.inflight.leave(client.id)
             if path != HEALTH_PATH:
-                runlog.emit_request(runlog.RequestRecord(
-                    method=method,
-                    route=_route_template(scope, path),
-                    status=int(seen["status"]),
-                    seconds=time.perf_counter() - started,
-                    client=client.id if client else None,
-                    code=state.get("error_code"),
-                    request_id=request_id,
-                ))
+                try:
+                    runlog.emit_request(runlog.RequestRecord(
+                        method=method,
+                        route=_route_template(scope, path),
+                        status=int(seen["status"]),
+                        seconds=time.perf_counter() - started,
+                        client=client.id if client else None,
+                        code=state.get("error_code"),
+                        request_id=request_id,
+                    ))
+                except Exception as exc:  # never let the log line replace the outcome
+                    log.error("api request line not written: %s",
+                              type(exc).__name__)
+
+
+def _route_path(scope: Scope) -> str:
+    """The path the router matches: `path` with the ASGI `root_path` (a proxy
+    or mount prefix) removed, exactly as Starlette removes it. The gate must
+    decide on this path and not the raw one, or a prefix would make a
+    protected route look like an unknown path here and still match there."""
+    path = scope.get("path", "")
+    root = scope.get("root_path", "")
+    if not root or not path.startswith(root):
+        return path
+    if path == root:
+        return ""
+    return path[len(root):] if path[len(root)] == "/" else path
 
 
 def _route_template(scope: Scope, path: str) -> str:
@@ -296,7 +341,8 @@ def create_app(settings: Settings | None = None, *,
                     "except %s will be refused", HEALTH_PATH)
     api = ApiState(
         settings=settings, keys=keys,
-        limiter=limiter or RateLimiter(settings.api_rate_limit_per_minute))
+        limiter=limiter or RateLimiter(settings.api_rate_limit_per_minute),
+        inflight=InFlight(settings.api_max_concurrent_per_key))
 
     docs = settings.api_docs
     app = FastAPI(
