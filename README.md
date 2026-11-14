@@ -14,6 +14,8 @@
 
 Most text-to-SQL questions need exactly one good query. An earlier version of this project ran a full multi-step agent on every question, and a strict re-grade showed a single query beat it. So the current design starts with a single query and adds agent work only where it measurably helps: an error, an empty or suspicious result, a question that asks *why*, or one that asks for a forecast. On a pre-registered, frozen 50-question evaluation it passed 44 questions against 37 for the single-query baseline (p = 0.039). Most of that margin is on the 33 questions seen during development; on the 17 new ones it was 11 against 10. After four bugs found there were fixed, a non-primary rerun gave 45 against 37. The [evaluation](#evaluation) reports both runs and their limits.
 
+Version 3 takes the same agent beyond its sample database. You can [upload a CSV, Excel or SQLite file](#your-own-data), point a self-hosted copy at your own PostgreSQL database, [edit and rerun the SQL](#sql-editor) behind any answer, or call it over a [REST API](#rest-api). Every one of those paths reads through the same three layers: a read-only connection, an AST-based SQL guard, and a row cap with a timeout.
+
 ---
 
 ## Table of contents
@@ -27,6 +29,9 @@ Most text-to-SQL questions need exactly one good query. An earlier version of th
 - [Budgets and demo limits](#budgets-and-demo-limits)
 - [Observability](#observability)
 - [The dataset](#the-dataset)
+- [Your own data](#your-own-data)
+- [SQL editor](#sql-editor)
+- [REST API](#rest-api)
 - [Evaluation](#evaluation)
 - [Multi-provider support](#multi-provider-support)
 - [MCP server](#mcp-server)
@@ -192,12 +197,15 @@ Delete every other check and the agent still cannot write, because the handle ph
 
 - **Per question:** at most 3 steps (the first query counts as one) and 3 attempts per step for A, C and D. B keeps its own budgets (steps, attempts, a 30-call ceiling, a 180-second wall clock) and loop detection.
 - **Demo mode:** on the server's key, each browser session gets 5 runs at those fixed budgets. The limits are enforced server-side, whatever the sidebar sends. A visitor's own key is never capped. A quota refusal shows a friendly message and does not use up a demo run.
+- **Daily ceiling:** a page reload starts a new session, so the session allowance bounds nothing by itself. A process-wide cap does: 150 runs and 1,000 model calls per UTC day on the server's key, 50 uploads, and 1,000 SQL-editor runs on a counter of its own. A run that would cross the call limit stops at that call. The counters live in memory (the service runs one instance) and reset on a cold start; the provider's quota on the key is the hard stop behind them ([docs/OPERATIONS.md](docs/OPERATIONS.md)).
+- **Idle sessions:** a tab with no activity for 10 minutes is ended in the browser and on the server, so an open tab cannot keep the instance from scaling to zero.
 
 ---
 
 ## Observability
 
-- **One log line per run** on stderr: provider, model, architecture, status, path (direct or escalated), the tools of each step (for example `run_sql>compute:decompose_change>stack`), seconds and LLM calls. Never the question text and never a key.
+- **One JSON line per run** on stdout, which Cloud Logging stores as a structured, filterable entry: which key paid, provider, model, architecture, status, path (direct or escalated), the tools of each step (for example `run_sql>compute:decompose_change>stack`), model calls, tokens and seconds. SQL-editor runs and API requests write lines of their own. Never a key, never an error's text, never result rows or uploaded data; the question and SQL text only with `AGENTCREW_TRACE_CONTENT=true`, which is off on the demo.
+- **Langfuse (optional):** set its two keys to get one trace per run with one generation per model call. It cannot break or slow a run, and it records nothing the run log would not.
 - **Evaluation traces:** every evaluated question writes a trace with every query, result preview, LLM call (live or cached), repair and judge verdict, with keys redacted.
 - **B's traces:** the original agent also writes JSONL traces to `data/traces/`, with optional Langfuse forwarding.
 
@@ -228,6 +236,68 @@ erDiagram
 | `marketing_spend` | 288 |
 
 The data is not uniform noise. Signals are planted so diagnostic questions have discoverable answers: an APAC churn spike in Q3 2025 and a Hardware-driven revenue decline.
+
+---
+
+## Your own data
+
+NorthStar is the default. Two other sources are supported, and both are read through the same layers as NorthStar ([docs/DATA_SOURCES.md](docs/DATA_SOURCES.md)).
+
+**Uploads.** Under "Your data" in the app, upload one or more CSV files (one table each), an Excel workbook (one table per sheet) or a SQLite file, up to 10 MB.
+- The file is converted to SQLite and opened read-only. The model drafts a short description of each table and column, including what one row of each table means, and joins are inferred where both the column names and the data agree. You can edit both.
+- An uploaded file is treated as untrusted. Limits on size, rows, columns and tables are enforced before or during the work, never after. A SQLite upload is checked, refused if it has virtual tables or unsafe names, and copied with SQLite's own backup API before the agent reads it.
+- A dataset belongs to one browser session, lives in the server's temporary directory (memory, on Cloud Run), and is deleted when you remove it, after 15 minutes without use, or when the session ends. Nothing is written to a bucket, a database or a log. The public demo is not for sensitive data.
+
+**Self-hosted PostgreSQL.** A company can run its own copy against its own database ([docs/SELF_HOSTED.md](docs/SELF_HOSTED.md)):
+
+```bash
+docker compose -f docker-compose.selfhosted.yml up --build
+```
+
+- The database URL comes from the server's environment only (`AGENTCREW_DATABASE_URL`); a browser can never supply one, and the public demo does not set it.
+- Connect as a read-only role. The app also forces read-only transactions and a statement timeout, and the SQL guard runs in the PostgreSQL dialect.
+- The URL holds a password, so it is stored as a secret and scrubbed from every log line and error message.
+- PostgreSQL only. MySQL is deferred.
+
+D's metric tools (`decompose_change`, `contribution_by_dimension`) are built from NorthStar's data dictionary, so they are switched off for any other source.
+
+---
+
+## SQL editor
+
+Under every answer there is a collapsed "Edit and run the SQL" panel, prefilled with the SQL behind the final table. Change it and press Run.
+
+- It runs on the very same tool object the agent used, so the guard, the injected `LIMIT`, the 500-row cap and the 15-second timeout are identical on NorthStar, an upload or PostgreSQL. Anything but one read-only statement is refused with one plain sentence.
+- No model is called. Runs are limited to 30 per session and 1,000 per day, on counters of their own, so they never use up the demo's agent runs.
+
+---
+
+## REST API
+
+The same agent over HTTP, under `/v1` ([docs/API.md](docs/API.md) has every endpoint, limit and error code, with curl examples).
+
+| Endpoint | What it does |
+| --- | --- |
+| `GET /v1/health` | Liveness. No key. |
+| `POST /v1/ask` | A question, optionally about an uploaded dataset. Returns the answer, the final SQL, the rows, the path and the model-call count. |
+| `POST /v1/sql` | One read-only SQL statement. |
+| `POST /v1/datasets` | Upload a CSV, Excel or SQLite file (the raw request body). |
+| `GET /v1/datasets/{id}/schema` | Tables, columns, descriptions, row meaning, joins. |
+| `DELETE /v1/datasets/{id}` | Delete a dataset now. |
+
+```bash
+export AGENTCREW_API_KEYS="$(openssl rand -hex 32)"
+uvicorn agentcrew.api.app:create_app --factory --host 0.0.0.0 --port 8080 --no-access-log
+
+curl -s localhost:8080/v1/ask -H "X-API-Key: $AGENTCREW_API_KEYS" -H "Content-Type: application/json" \
+  -d '{"question": "How many orders were placed in each channel in 2025?"}'
+```
+
+- **One core, two callers.** The ask flow lives in `agentcrew/service.py`; the Streamlit app and the API both call it, and SQL goes through the same function as the SQL editor. The API adds only what HTTP needs.
+- **Checks before the body is read.** An ASGI gate checks the `X-API-Key` (constant-time, against hashed keys), then the key's rate limit and how many requests it already has in progress, then counts the body as it arrives. Every path but health needs a key, and an unauthenticated request never has its body read.
+- **One error envelope.** Every failure is `{"error": {"code", "message", "request_id"}}`. No stack trace, exception name or provider text reaches a caller. Logs name a caller by a 12-character hash of its key, never the key.
+- **Datasets belong to a key.** Any other key gets 404. They expire 30 minutes after last use, 2 per key.
+- **Same image.** The API is the UI's Docker image with the command overridden to uvicorn, run as a second Cloud Run service. Each service keeps its own daily counters, so the ceiling on total spend is the sum of both.
 
 ---
 
@@ -287,6 +357,36 @@ In the primary run, sw06 ("We no longer need the LATAM customers, so please get 
 ```bash
 python scripts/run_eval_v2.py --set holdout_agent_v2 --arch baseline full --run NAME --cache-dir eval/runs/NAME-cache
 python scripts/report_postfix_50.py
+```
+
+### Beyond NorthStar: an unseen schema and two more languages (November 2026)
+
+These are smaller tests with narrower claims. Neither is part of the frozen 50, and neither changes its files or prompts.
+
+**Every score, with its scope:**
+
+| Test | Questions | A baseline | D full | What it can support |
+| --- | --- | --- | --- | --- |
+| NorthStar, frozen 50, primary run | 50 | 37/50 | 44/50 | The pre-registered result (p = 0.039). The margin is on questions seen during development. |
+| NorthStar, frozen 50, post-fix rerun | 50 | 37/50 | 45/50 | Not a primary result: the fixes came from these questions. |
+| Unseen schema, clean names | 15 | 15/15 | 15/15 | A new schema uploaded as CSV, descriptions and joins used exactly as drafted. |
+| Unseen schema, messy names, before the fix | 15 | 14/15 | 14/15 | The honest first result on cryptic names and coded values. |
+| Unseen schema, messy names, after the fix | 15 | 15/15 | 15/15 | Same 15 questions, so not a holdout. |
+| Romanized Hindi | 10 | 10/10 | 10/10 | Single-query questions only. |
+| Romanized Telugu | 10 | 10/10 | 10/10 | Single-query questions only. |
+
+**Unseen schema.** A synthetic college dataset (students, courses, marks, attendance) that shares nothing with NorthStar was uploaded as CSV files through the real upload path, in two copies of the same rows: one with clean names and one with cryptic names and coded values (`stu_mst`, `exm_mk`, `CSE/ECE`, `P/A/L`). The model-drafted descriptions and the inferred joins were used exactly as produced, with no hand editing. Fifteen questions were verified and frozen before any model call (`eval/college_FREEZE.sha256`).
+- On the messy copy one question failed for both A and D: a per-student average was computed from a summary table that holds one row per student per course, giving 2.20 instead of 1.95. The query ran and returned one plausible number, so no signal fired.
+- The fix was to make the description draft say what one row of each table is. After it, the same 15 questions passed. Because the fix came from one of those questions, the 15/15 is not a held-out result; the 14/15 is the number to quote for an unseen messy schema.
+- D added nothing over A here. A direct answer is A's own first query, and D escalated at most once per run.
+
+**Romanized Hindi and Telugu.** Ten NorthStar questions, none from the frozen 50, each written in Hindi and in Telugu typed in English letters ("2024 mein kitne orders cancel hue the?", "2024 lo enni orders cancel ayyayi?"), with no translation step and no prompt that mentions either language ([eval/results/romanized_report.md](eval/results/romanized_report.md)).
+- A and D passed all 10 in both languages, on gold SQL verified by a second query and frozen first (`eval/FREEZE_v4.sha256`). The plan was to add one prompt instruction only if several failed; none did, so no prompt changed.
+- The claim is narrow. Every question needed one query, so D never escalated and its repair and exploration were not tested in these languages. Ten questions give a Wilson 95% interval of 72% to 100%. The data's own terms (completed, refunded, Partner) stay in English, as people type them. The Telugu wording has not been reviewed by a native speaker.
+
+```bash
+python scripts/run_unseen_schema.py --run NAME
+python scripts/run_eval_v2.py --set romanized_hi --arch baseline full --run NAME --cache-dir eval/runs/NAME-cache
 ```
 
 ### Earlier evaluation: 21 + 12 questions (Phase 5, October 2026)
@@ -371,7 +471,7 @@ This is an **adapter, not a second implementation**. It delegates to the exact f
 pytest
 ```
 
-**1239 tests, all offline** (plus 2 skipped). No API key, no network, no quota. Models are simulated by scripted clients, and everything else runs against the real database.
+**1,778 tests, all offline.** No API key, no network, no quota. Models are simulated by scripted clients, and everything else runs against the real database. Six more need a live PostgreSQL server: they are skipped locally and run in CI against a `postgres:17` service container. Two need a local evaluation cache and are skipped where it is absent.
 
 Highlights:
 - **Every D tool** is run through D's own dispatcher, using model-style replies (code fences, nulls, extra fields, wrong case) and 15 bad-argument cases. Each bad argument must come back as a failed step, never an exception (`test_dispatch.py`).
@@ -380,6 +480,9 @@ Highlights:
 - **Read-only guard:** allow and deny cases plus a 15-payload adversarial audit (`test_safety.py`, `test_safety_audit.py`); metric-layer SQL safety (`test_compute_metrics.py`).
 - **Evaluation tooling:** the strict grader, the protocol rules, caching, retries, resumes and ERROR records (`test_strict_grader.py`, `test_evalrun.py`, `test_eval_sets.py`).
 - **The app:** demo-mode limits, key safety, the D interface and its display rules: headers, number formats, chart choice, step labels (`test_demo_mode.py`, `test_chat_ui.py`, `test_presentation.py`).
+- **Uploads:** conversion, limits, join inference, and one test class per finding of a security review of the upload path (`test_datasets.py`, `test_upload_security.py`).
+- **The API:** the real stack with a scripted model and a fake clock. Missing or wrong key, rate limit, write SQL refused, another key's dataset, an expired dataset, each daily cap, simultaneous uploads racing for a limit, and that no key reaches any log. The gate is also called as raw ASGI with a body that arrives in chunks, to count how often it asks for more: never for a request it refuses, and only up to the limit for one it accepts (`test_api.py`).
+- **SQL editor and caps:** write SQL, `ATTACH` and `PRAGMA` refused, the row cap, an uploaded dataset, and the separate daily counter (`test_sql_editor.py`, `test_caps.py`).
 
 Tests are hermetic with respect to configuration: an autouse fixture strips `AGENTCREW_*` environment variables and disables `.env` loading. CI runs ruff and the full suite on pushes to `main` and on pull requests.
 
@@ -391,8 +494,8 @@ Continuous deployment has been live since 26 October 2026. One workflow, [.githu
 
 | Job | Runs on | What it does |
 | --- | --- | --- |
-| Lint and test | every push to `main` and every pull request | `ruff` and the full offline test suite |
-| Build and smoke-test the image | every push to `main` and every pull request | Builds the Docker image, starts it, and waits for `/_stcore/health` |
+| Lint and test | every push to `main` and every pull request | `ruff` and the full test suite, with the live PostgreSQL tests run against a `postgres:17` service container |
+| Build and smoke-test the image | every push to `main` and every pull request | Builds the Docker image, starts it and waits for `/_stcore/health`, then runs the same image as the REST API and requires `/v1/health` to return 200 |
 | Deploy to Cloud Run | pushes to `main` only, after both jobs above pass | Builds the image, pushes it to Artifact Registry and updates Cloud Run |
 
 **How a deploy works:**
@@ -410,16 +513,31 @@ gcloud run services update-traffic agentcrew --region=asia-south1 --to-revisions
 
 To follow the latest revision again afterwards, use `--to-latest`.
 
+The REST API runs as a second Cloud Run service (`agentcrew-api`) from the same image. It is created and updated by hand, not by this workflow; [docs/API.md](docs/API.md) has the console steps.
+
 ---
 
 ## Project layout
 
 ```text
-app.py                   Streamlit interface (D by default)
+app.py                   Streamlit interface (D by default); draws what
+                         agentcrew/service.py returns
 mcp_server.py            MCP adapter over the same tools
 agentcrew/
   config.py              Settings (pydantic-settings, AGENTCREW_ prefix)
-  llm.py                 Provider registry, clients, quota classification
+  service.py             The ask flow shared by the app and the API: which
+                         key pays, allowances, daily cap, the run, its log line
+  api/                   REST API under /v1: app factory and gate, API keys,
+                         rate limit, schemas, routes, error envelope
+  sql_editor.py          Running a caller's own SQL through the agent's tool
+  caps.py                Process-wide daily caps (runs, model calls, SQL
+                         runs, uploads)
+  runlog.py              The JSON run and request log on stdout
+  datasets/              Uploads: converters, SQLite checks, join inference,
+                         description drafts, the dataset store, data sources
+  data_panel.py          The app's "Your data" panel
+  llm.py                 Provider registry, clients, quota classification,
+                         tolerant structured-output parsing
   tools.py               The database tools, single source of truth
   refusal.py             Refuses a request to change the data, before any call
   archs/                 A baseline, C router, D full, B adapter; signals,
@@ -429,7 +547,8 @@ agentcrew/
                          (decompose_change, contribution_by_dimension)
   context/               Shared context: data dictionary, value lists,
                          example pool
-  db/                    Read-only engine, introspection, AST guard
+  db/                    Read-only engines (SQLite, PostgreSQL), dialects,
+                         introspection, AST guard
   graph/                 The original LangGraph agent (B)
   presentation.py        How the app shows a run: headers, $ and %
                          formats, chart choice, step labels, summary line
@@ -437,11 +556,13 @@ static/fonts/            Self-hosted IBM Plex (SIL OFL), served by Streamlit
 evalkit/                 Strict grader, judge, statistics (frozen)
 evalrun/                 Evaluation runner: cache, retries, resumes, sets
 scripts/                 build_database.py, run_eval_v2.py, report_v2.py,
-                         build_gold.py, build_dev_gold.py; dev/ holds the
-                         UI preview, screenshot and font-check tools
+                         build_gold.py, build_dev_gold.py,
+                         run_unseen_schema.py, build_romanized_gold.py; dev/
+                         holds the UI preview, screenshot and font-check tools
 eval/                    Protocol, question sets, gold, results and reports
-tests/                   1239 offline tests
-docs/                    The original agent's architecture, decisions, notes
+tests/                   1,778 offline tests, 6 more against live PostgreSQL
+docs/                    API, data sources, self-hosted mode, operations,
+                         decisions; the original agent's architecture and notes
 ```
 
 ---
@@ -459,8 +580,16 @@ All settings use the `AGENTCREW_` prefix. Copy `.env.example` to `.env` if you p
 | `MAX_STEPS` | 4 | Steps per question; for A, C and D the first query counts (demo mode: fixed at 3) |
 | `MAX_RESULT_ROWS` | 500 | Row cap on every query |
 | `ALLOW_WRITE_MODE` | `false` | Leave off; the handle is read-only regardless |
+| `SQL_TIMEOUT_SECONDS` | 15 | Time limit on every statement |
+| `DATABASE_URL` | unset | Self-hosted only: a PostgreSQL URL to answer from instead of NorthStar |
+| `UPLOADS_ENABLED` | `true` | Whether CSV, Excel and SQLite uploads are offered |
+| `DAILY_RUN_CAP`, `DAILY_LLM_CALL_CAP` | 150, 1000 | Runs and model calls per UTC day on the server's key (0 = no cap) |
+| `DAILY_SQL_RUN_CAP`, `DAILY_UPLOAD_CAP` | 1000, 50 | SQL-editor runs and uploads per UTC day |
+| `API_KEYS` | unset | REST API keys, comma separated; unset refuses every API request |
+| `API_RATE_LIMIT_PER_MINUTE` | 30 | Requests per minute for one API key |
+| `TRACE_CONTENT` | `false` | Whether logs and traces may hold the question and SQL text |
 
-B also reads `MAX_LLM_CALLS`, `MAX_SQL_EXECUTIONS`, `WALL_CLOCK_SECONDS` and `MAX_TABLES_IN_CONTEXT`. Never commit a real API key. `.env` is gitignored.
+B also reads `MAX_LLM_CALLS`, `MAX_SQL_EXECUTIONS`, `WALL_CLOCK_SECONDS` and `MAX_TABLES_IN_CONTEXT`. Upload limits, the idle timeout, Langfuse and the remaining API settings are documented in [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md), [docs/OPERATIONS.md](docs/OPERATIONS.md) and [docs/API.md](docs/API.md). Never commit a real API key. `.env` is gitignored.
 
 ---
 
@@ -475,7 +604,11 @@ Stated plainly, from the [50-question evaluation](eval/results/primary50_report.
 - **Conditional questions.** The condition is now evaluated first when a sentence opens with "if ...,", but other wordings still use a single query, which can leave a row from the branch that does not apply.
 - **Write requests are first recognized by wording.** The first check can miss an unusual phrasing. If the model then writes a statement that changes data, C and D end the run as refused. If the model answers with a read query instead, the run goes on as an ordinary question. Either way the read-only guard stays as the final layer. The first check can also wrongly refuse a sentence that opens like a command, such as "Drop shipping revenue in 2025".
 - **Non-determinism.** First queries change between runs on identical prompts. Between the primary run and the post-fix rerun, 6 of A's 50 verdicts moved with no code change, so a difference of one or two questions between runs means nothing.
-- **SQLite only.** PostgreSQL would need a read-only role instead of a URI flag, plus dialect changes.
+- **Outside NorthStar, D has shown no advantage over A.** On the unseen college schema both scored the same, and D's metric tools are built from NorthStar's data dictionary, so they are off for uploads and PostgreSQL. The agent's edge is measured on NorthStar only.
+- **The unseen-schema and language tests are small.** 15 questions on one synthetic schema, and 10 single-query questions per language. They show the path works; they do not measure accuracy on real company data, on escalated questions in Hindi or Telugu, or on native script.
+- **Limits live in memory.** The daily caps, the API's rate limiter and uploaded datasets are per process: a cold start resets the caps, and each service must run as one instance. The UI and the API count separately, so the total daily ceiling is the sum of both.
+- **PostgreSQL only for self-hosted mode, and less tested.** MySQL is deferred. The PostgreSQL path has live tests for the read-only session, the timeout and refused writes, but the frozen evaluation was run on SQLite only.
+- **One file per API upload.** Several related tables need an Excel workbook or a SQLite file.
 
 ---
 
@@ -490,8 +623,13 @@ Stated plainly, from the [50-question evaluation](eval/results/primary50_report.
 | [eval/results/phase5_report.md](eval/results/phase5_report.md) | Earlier evaluation (21 + 12 questions): results, error analysis, disclosures |
 | [eval/results/fixes_nonprimary_report.md](eval/results/fixes_nonprimary_report.md) | Non-primary rerun after the earlier fixes: regressions, noise, open problems |
 | [eval/results/phase4_report.md](eval/results/phase4_report.md) | How D was built: each development failure and its fix |
+| [eval/results/romanized_report.md](eval/results/romanized_report.md) | Romanized Hindi and Telugu: the 10 questions, results and what they do not show |
+| [API.md](docs/API.md) | REST API: endpoints, limits, error codes, curl examples, Cloud Run console steps |
+| [DATA_SOURCES.md](docs/DATA_SOURCES.md) | Uploads: kinds, limits, conversion, security checks, what the model sees |
+| [SELF_HOSTED.md](docs/SELF_HOSTED.md) | Running against your own PostgreSQL database |
+| [OPERATIONS.md](docs/OPERATIONS.md) | Cost and abuse guard, idle guard, run log, Langfuse, billing alert |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | The original agent's graph (B) |
-| [DECISIONS.md](docs/DECISIONS.md) | Decision log for the original agent |
+| [DECISIONS.md](docs/DECISIONS.md) | Decision log: the original agent (D1 to D15) and version 3 (D16 to D29) |
 | [EVALUATION.md](docs/EVALUATION.md) | The original agent's first evaluation |
 | [INTERVIEW_NOTES.md](docs/INTERVIEW_NOTES.md) | Answers to the questions this project invites |
 

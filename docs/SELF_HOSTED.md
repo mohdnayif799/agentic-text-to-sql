@@ -40,6 +40,12 @@ or `AGENTCREW_OPENAI_API_KEY`) in a `.env` file next to the compose file.
 Open http://localhost:8080. Under "Your data", "Company database" is
 selected.
 
+The compose file publishes the port on this machine only (`127.0.0.1`). The
+app has no login, and it can read every table its database role can, so
+anyone who can reach the port can query your data and spend your model key.
+To share it with colleagues, put a reverse proxy with authentication in front
+of it. Change the port mapping to `"8080:8080"` only on a network you trust.
+
 ## 3. Describe the database once
 
 Open "Your data" and press "Draft descriptions with the model". The model

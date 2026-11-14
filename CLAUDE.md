@@ -4,9 +4,11 @@ Text-to-SQL router agent (Streamlit, SQLite, Gemini). See README.md and docs/.
 
 ## Current work: v3-production
 
-Branch `v3-production`. Phases 1 to 4 are done and pushed (Phase 4, the REST
-API, is `60da5cb`). Phase 5 is next. A draft PR to `main` is open and CI runs on every
-push to it (it does not deploy; only a merge to `main` does).
+Branch `v3-production`. Phases 1 to 6 are done and pushed (Phase 4, the REST
+API, is `60da5cb`; the upload-limit race fix is `8c3e10f`; Phases 5 and 6 are
+the four commits after it). PR 13 to `main` stays a draft until the owner
+decides; CI runs on every push to it (it does not deploy; only a merge to
+`main` does).
 
 ### Ground rules
 - Never push to `main`: CD auto-deploys it to the live demo. Work on `v3-production`.
@@ -92,26 +94,70 @@ push to it (it does not deploy; only a merge to `main` does).
     deployed image includes Phase 4. The deploy job is untouched; the opt-in
     CD step for the API (repository variable DEPLOY_API) was proposed as a
     diff only and is not applied.
-- 1687 tests pass, 7 skipped (live PostgreSQL). Decisions D16 to D29 are in
+- Phase 5, romanized Hindi and Telugu (eval/results/romanized_report.md):
+  `eval/romanized_hi.yaml` and `eval/romanized_te.yaml`, the same 10 NorthStar
+  questions typed in English letters, none from the frozen 50. Gold verified
+  by a second SQL and frozen first (`eval/FREEZE_v4.sha256`,
+  `scripts/build_romanized_gold.py --check`). Registered in `evalrun/sets.py`
+  as `ROMANIZED_SET_FILES`; kept out of the example pool's `POOL_SETS`.
+  Live result: Hindi A 10/10, D 10/10; Telugu A 10/10, D 10/10. Nothing
+  failed, so NO prompt changed and there is no "after" run. Scope: all
+  single-query questions, D never escalated; the Telugu wording has not been
+  checked by a native speaker.
+- Phase 6:
+  - No live rerun of the frozen 50 (no prompt changed); the offline replay is
+    still D 12 + 19 + 14 = 45/50 with 0 live calls.
+  - CI: the test job has a `postgres:17` service container and sets
+    `AGENTCREW_TEST_POSTGRES_URL`, so the 6 live PostgreSQL tests run there.
+  - pr-review-toolkit over the whole branch diff. Fixed from it: the API gate
+    now requires a key for every path but health and decides on the
+    root_path-stripped path; a per-key limit on requests in progress
+    (`AGENTCREW_API_MAX_CONCURRENT_PER_KEY`, 4) and an async health endpoint;
+    `DailyCap.reserve_sql_run`; upload refusals before the body is read;
+    PostgreSQL results are streamed so the row cap bounds memory; the
+    PostgreSQL function denylist matches whole families by prefix; SELECT INTO
+    and row locks refused by the guard; absolute caps on what an Excel file
+    may unzip to; the store reserves room for a conversion in progress; a
+    deeply nested model reply is an invalid reply, not a crash; the
+    self-hosted compose file binds 127.0.0.1. From the type, error-handling,
+    test and docs reviews: `EditorRun.status` and `Turn.code` are closed sets
+    (`EditorStatus`, `TurnCode`) and a test keeps every value mapped to an API
+    error; `ToolContext` is frozen; keys and key digests are out of every
+    repr; cap settings refuse negative values; `DatasetStore.update` takes only
+    notes and joins; the UI upload releases its daily slot on any failure and
+    a failed description draft is a notice; `deployment_cap` keeps a broken
+    configuration out of the real cap and logs it; docs corrected against the
+    code. New tests call the gate as raw ASGI and count how often it asks for
+    the body (0 for a refused request, 9 chunks for a 64 KB limit).
+  - A refused upload no longer deletes the session's previous dataset: the
+    new file is converted first and the old dataset is removed only once the
+    new one is stored (`data_panel.handle_upload`).
+  - Rechecked in a real browser after the fixes: CSV and Excel uploads, a
+    question on each, the SQL editor (edit, run, DELETE refused), and refused
+    uploads that left the previous dataset in place.
+  - README rewritten for version 3 with every score scoped.
+- 1778 tests pass offline; 6 more need a live PostgreSQL server (run in
+  CI) and 2 need a local evaluation cache. Decisions D16 to D29 are in
   docs/DECISIONS.md.
 
 ### Remaining plan
-- Phase 5: 10 NorthStar questions in Hindi and Telugu typed in English letters
-  only, no native script, no translation step. Add one prompt instruction only
-  if several fail; report before and after.
-- Phase 6: rerun the frozen 50 if prompts or schema selection changed (must stay
-  at 45/50 or better; show failures before changing anything), run
-  pr-review-toolkit on the whole branch diff, run the live PostgreSQL tests in
-  CI with a postgres service container, update README and docs, final resume
-  summary.
+- After the PR is merged to `main`: the owner creates the `agentcrew-api`
+  Cloud Run service and the `agentcrew-api-keys` secret by hand
+  (docs/API.md). The opt-in CD step for the API is still only a proposal.
 
 ### Open items
 - `st.components.v1.html` (idle guard) is deprecated; move to `st.iframe` before a Streamlit upgrade.
 - MySQL is deferred; self-hosted mode is PostgreSQL only (dialect parameter kept).
 - The daily cap resets on a cold start (no store behind it).
 - On uploaded data D adds nothing over A so far; D's metric tools are NorthStar-only.
-- Live PostgreSQL tests need `AGENTCREW_TEST_POSTGRES_URL` (skipped in CI),
-  including the SQL editor's.
+- Live PostgreSQL tests need `AGENTCREW_TEST_POSTGRES_URL`: skipped locally
+  without it, run in CI. Locally: `docker run -d -e POSTGRES_PASSWORD=test
+  -p 55432:5432 postgres:17`.
+- Review findings left open (see the Phase 6 summary): the daily run cap can
+  overshoot by the runs in flight; a DELETE racing a request can leave a
+  small cache entry behind; process-wide locks are held while a new source
+  is profiled; the model name is an alias, not a dated version.
+- The romanized test covers single-query questions only, 10 per language.
 - The API's rate limiter, caps and datasets are in memory: the service must
   stay at one instance and one worker.
 - app.py still re-exports `_log_run` and `trace_content_enabled` from the

@@ -7,13 +7,16 @@ service, Secret Manager and the CD workflow are described in the README.
 ## Cost and abuse guard
 
 The demo answers on the server's Gemini key. Three limits bound what that key
-can spend, from the inside out.
+can spend, from the inside out: the session allowance, the daily caps and
+the provider's quota. The SQL editor and upload limits in the same table
+bound database time and memory, not spend.
 
 | Limit | Where | Default | Setting |
 | --- | --- | --- | --- |
-| Per browser session | `app.py`, `st.session_state` | 5 runs | fixed (`DEMO_RUN_LIMIT`) |
+| Per browser session | `agentcrew/service.py`, the session's state | 5 runs | fixed (`DEMO_RUN_LIMIT`) |
 | Per UTC day, every session | `agentcrew/caps.py`, process-wide | 150 runs, 1,000 model calls | `AGENTCREW_DAILY_RUN_CAP`, `AGENTCREW_DAILY_LLM_CALL_CAP` (0 = no cap) |
 | Provider quota | Google, on the key | the key's daily quota | AI Studio or the Generative Language API quotas page |
+| Uploads, per UTC day | `agentcrew/caps.py`, its own counter | 50 uploads | `AGENTCREW_DAILY_UPLOAD_CAP` (0 = no cap) |
 | SQL editor, per browser session | `agentcrew/sql_editor.py`, `st.session_state` | 30 runs | `AGENTCREW_SESSION_SQL_RUN_CAP` (0 = no cap) |
 | SQL editor, per UTC day | `agentcrew/caps.py`, its own counter | 1,000 runs | `AGENTCREW_DAILY_SQL_RUN_CAP` (0 = no cap) |
 
@@ -26,8 +29,9 @@ can spend, from the inside out.
   process is the whole deployment, and there is no store behind it: a cold
   start (scale-to-zero, a deploy) starts the day's count at zero. The provider
   quota is the hard stop behind this one.
-- Both caps also apply to uploads: the description draft's model calls are
-  charged to the call cap.
+- An upload is counted against the daily upload cap. The model calls that
+  draft its descriptions are charged to the model-call cap when the server
+  key pays. Uploads do not use up the daily run cap.
 - The REST API (docs/API.md) charges the same kinds of counter for every
   request, but it is a separate Cloud Run service, so a separate process
   with its own counters. Each service counts its own day: the ceiling on

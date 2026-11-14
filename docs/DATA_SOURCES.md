@@ -36,6 +36,16 @@ or the room left in the store, whichever is smaller, so an oversized
 conversion stops at the row that crosses the line and its partial file is
 deleted.
 
+An Excel workbook is a zip file, so its size on disk says little. It is
+refused before it is opened if its parts unzip to more than 60 times the
+file's size, to more than 200 MB in all, or if its shared-strings part (which
+the reader loads whole) is over 50 MB.
+
+Uploads convert at the same time, and each writes its file before it is
+registered. So the room a conversion may use is reserved in the store before
+it starts and given back when it ends: two uploads can never both be
+promised the same free space.
+
 **Conversion.** Names become lower-case identifiers (`Student ID` ->
 `student_id`; reserved words get a trailing underscore). Excel dates become
 ISO text, the format NorthStar uses. CSV dates that are already ISO stay as
@@ -56,6 +66,10 @@ quotes it through the database dialect's identifier preparer
 (`db/introspect.quote_name`), for uploads and for a self-hosted PostgreSQL
 schema alike. Join inference runs under the same statement timeout as the
 agent's queries and a 20-second budget in all.
+
+**Replacing a dataset.** A new upload is checked and converted first. The
+session's previous dataset is deleted only once the new one is stored, so a
+refused upload leaves the data you were working with untouched.
 
 **Lifetime.** One dataset per session. It is deleted when the visitor
 removes it, uploads another, leaves it unused for 15 minutes

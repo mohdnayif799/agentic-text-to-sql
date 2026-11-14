@@ -51,10 +51,16 @@ ignored. With no usable key, every request is refused.
 - A key in the query string is not accepted, so it cannot end up in a URL
   log. A request with two `X-API-Key` headers is refused.
 - A request without a valid key is answered before its body is read.
+- Every path needs a key, not only the ones under `/v1`: an unknown path
+  without a key is 401, so the API says nothing about what exists. The key
+  check uses the path the router will match, with any proxy prefix (ASGI
+  `root_path`) removed.
 
 ## Errors
 
-Every failure, from every endpoint, is this envelope and nothing else:
+Every failure, from every endpoint, is this envelope and nothing else
+(a status the table below does not list would carry the code `error`; none
+is expected):
 
 ```json
 {"error": {"code": "rate_limited", "message": "Too many requests for this API key. Try again shortly.", "request_id": "5d0c1b0f6c0e4f0a"}}
@@ -78,6 +84,7 @@ name or provider error text is ever returned. `request_id` is also in the
 | 413 | `body_too_large` | The body is over the endpoint's limit. |
 | 422 | `invalid_request` | A field is missing, too long, unknown or of the wrong type. |
 | 429 | `rate_limited` | Over the key's rate limit. `Retry-After` gives the seconds to wait. |
+| 429 | `too_many_concurrent` | The key already has its 4 requests in progress. Wait for one to finish (`Retry-After: 1`). |
 | 429 | `daily_cap` | The service's daily cap is reached. |
 | 500 | `agent_error`, `internal_error` | The run or the server failed. |
 | 503 | `not_configured`, `unavailable`, `model_quota`, `store_full` | No model key, a dependency is down, the provider's quota is used up, or the dataset store is full. |
@@ -88,6 +95,7 @@ name or provider error text is ever returned. `request_id` is also in the
 | Limit | Default | Setting |
 | --- | --- | --- |
 | Requests per key | 30 a minute, sliding | `AGENTCREW_API_RATE_LIMIT_PER_MINUTE` (0 = none) |
+| Requests in progress per key | 4 | `AGENTCREW_API_MAX_CONCURRENT_PER_KEY` (0 = none) |
 | JSON body | 64 KB | `AGENTCREW_API_MAX_JSON_KB` |
 | Upload body | 10 MB | `AGENTCREW_MAX_UPLOAD_MB`, `AGENTCREW_MAX_EXCEL_UPLOAD_MB` (the UI's) |
 | Question | 2,000 characters | fixed |
@@ -97,6 +105,11 @@ name or provider error text is ever returned. `request_id` is also in the
 | Datasets per key | 2 | `AGENTCREW_API_DATASETS_PER_KEY` |
 | Dataset lifetime | 30 minutes after last use | `AGENTCREW_API_DATASET_TTL_SECONDS` |
 | All datasets together | 150 MB | `AGENTCREW_UPLOAD_STORE_MAX_MB` (the UI's) |
+
+The two per-key limits do different jobs. The rate limit bounds how many
+requests a key sends; the in-progress limit bounds how many worker threads it
+can hold at once, since a question can run for many seconds. `/v1/health` is
+answered on the event loop and never waits behind them.
 
 The body limit is enforced while the body is read. A declared
 `Content-Length` over the limit is refused before reading; a body with no
@@ -173,6 +186,8 @@ curl -s $API/ask -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
   made) or `needs_clarification`. All four are HTTP 200: the run happened
   and this is its outcome. A run that could not happen is an error envelope.
 - `path` is `direct` or `escalated`; `llm_calls` is the model calls it made.
+- `needs_clarification` and `path: "v1"` occur only when the deployment runs
+  the original agent (`AGENTCREW_ARCH=v1`); `path` is `"-"` when nothing ran.
 - `rows_capped` is true when the table stopped at the row cap.
 
 ### POST /v1/sql
@@ -213,6 +228,9 @@ curl -s -X POST "$API/datasets?filename=students.csv" -H "X-API-Key: $KEY" \
 {"dataset_id":"e8bf20d31a0e4840a0d41c4b7adb4fe2","label":"students.csv","kind":"csv","tables":["students"],"size_bytes":8192,"descriptions":"drafted","expires_after_seconds":1800}
 ```
 
+- Whether the key may upload at all (uploads enabled, fewer than 2 datasets,
+  the daily upload cap) is decided before the file is read, and again,
+  atomically, once it has arrived.
 - The file goes through the UI's converter and checks
   (`agentcrew/datasets/ingest.py`): the kind and size before parsing, the
   row, column and table limits, the SQLite checks, the store's total limit.
@@ -270,18 +288,25 @@ curl -s -o /dev/null -w "%{http_code}\n" -X DELETE $API/datasets/$DATASET -H "X-
   not exist: every endpoint answers `404 dataset_not_found`, the same as for
   an id that was never issued.
 - It is deleted 30 minutes after its last use (a question, a query or a
-  schema read each count as a use), or when you delete it. After that its
-  owner gets `410 dataset_expired`; everyone else still gets 404.
+  schema read each count as a use), or when you delete it.
+- After it expires, its owner gets `410 dataset_expired`, so the fix (upload
+  it again) is clear. After you delete it yourself, and always for any other
+  key, the answer is `404 dataset_not_found`. The service remembers who
+  owned the last 4,096 ids, in memory: past that, or after a restart, an
+  expired dataset is a plain 404.
 - A key holds at most 2 at a time; a third upload is `409 dataset_limit`.
-- Datasets are held in the instance's memory and vanish when it restarts or
-  scales to zero. Nothing is written to a bucket, a database or a log.
+- Datasets are held in the instance's temporary directory (on Cloud Run
+  that is memory) and vanish when it restarts or scales to zero. Nothing is
+  written to a bucket, a database or a log.
 
 ## Logs
 
 Two kinds of JSON line on stdout (`agentcrew/runlog.py`), both with
-`"surface":"api"` and the caller's `client` hash:
+`"surface":"api"` and the caller's `client` hash (null on a request line
+when the key was missing or wrong):
 
-- `"event":"request"`: one per HTTP request, whatever became of it: method,
+- `"event":"request"`: one per HTTP request except `/v1/health`, whatever
+  became of it: method,
   route template (never the raw path or the query string), status, seconds,
   the error `code` and the `request_id`.
 - `"event":"run"`: one per agent run, SQL run or description draft, the same
@@ -300,8 +325,8 @@ Result rows, uploaded data and keys never do.
 - **CORS.** No `Access-Control` header is sent, so a web page on another
   origin cannot read a response. The API is for servers and scripts; a key
   in browser JavaScript would be public anyway.
-- **Interactive docs.** `/docs` and `/openapi.json` are unauthenticated, so
-  they are off unless `AGENTCREW_API_DOCS=true`.
+- **Interactive docs.** `/docs` and `/openapi.json` need no key when they
+  are on, so they are off unless `AGENTCREW_API_DOCS=true`.
 - **Choosing the model or the budgets per request.** The server's key pays,
   so the server decides.
 
