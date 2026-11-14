@@ -22,6 +22,7 @@ from sqlglot.errors import OptimizeError, ParseError
 from sqlglot.optimizer.qualify import qualify
 
 from agentcrew.archs.checks import Schema
+from agentcrew.db import dialect as sql_dialect
 
 _FILTERS = (exp.EQ, exp.NEQ, exp.GT, exp.GTE, exp.LT, exp.LTE, exp.In, exp.Between,
             exp.Like, exp.ILike, exp.Is, exp.Not)
@@ -32,11 +33,11 @@ def _parse(sql: str, schema: Schema) -> exp.Expression | None:
     parse. If qualifying fails the plain tree is returned: the schema check reports
     that problem, and qualified names are only needed for unqualified columns."""
     try:
-        tree = sqlglot.parse_one(sql, read="sqlite")
+        tree = sqlglot.parse_one(sql, read=sql_dialect.current())
     except ParseError:
         return None
     try:
-        return qualify(tree.copy(), schema=schema, dialect="sqlite",
+        return qualify(tree.copy(), schema=schema, dialect=sql_dialect.current(),
                        validate_qualify_columns=False, identify=False)
     except OptimizeError:
         return tree
@@ -80,7 +81,7 @@ def join_filter_problem(sql: str, schema: Schema) -> str | None:
                 continue
             for predicate in _conjuncts(on):
                 if _only_on(predicate, alias):
-                    shown = predicate.sql(dialect="sqlite")
+                    shown = predicate.sql(dialect=sql_dialect.current())
                     return (
                         f"The filter {shown} is in the ON clause of a LEFT JOIN and "
                         f"nothing else in the query reads {alias}, so it restricts no "
@@ -120,7 +121,7 @@ def text_filters(sql: str, schema: Schema) -> list[tuple[str, str, str]]:
 def reads_no_table(sql: str) -> bool:
     """True if the query parses and reads no table at all."""
     try:
-        tree = sqlglot.parse_one(sql, read="sqlite")
+        tree = sqlglot.parse_one(sql, read=sql_dialect.current())
     except ParseError:
         return False
     return isinstance(tree, exp.Query) and tree.find(exp.Table) is None

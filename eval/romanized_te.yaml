@@ -1,0 +1,247 @@
+# Romanized Telugu: 10 NorthStar questions written in Telugu typed in English
+# letters (no native script), as people type it in chat. They are the same ten
+# questions as eval/romanized_hi.yaml, with the same gold SQL; `english` is a
+# gloss for the reader and for screening, and is never shown to the model.
+#
+# None is from the frozen 50 or any other set: the builder
+# (scripts/build_romanized_gold.py) requires the gloss to be dissimilar to every
+# other question (TF-IDF cosine < 0.5) and the gold to share no distinctive value
+# with another set's gold. Every gold has an independent second SQL under
+# `verify`, written a different way; the builder refuses to write the gold if the
+# two disagree. The grader never reads `verify` or `english`.
+#
+# Written for this test only: no architecture was run on them before they were
+# frozen (eval/FREEZE_v4.sha256), and no prompt mentions these languages.
+# Definitions as in eval/holdout_agent.yaml (revenue = completed orders only).
+
+- id: rt01
+  type: easy
+  question: >-
+    2024 lo prathi sales channel nundi enni completed orders vachayi?
+  english: >-
+    How many completed orders did each sales channel have in 2024?
+  gold:
+    sql: |
+      SELECT channel, COUNT(*) AS completed_orders
+      FROM orders
+      WHERE status = 'completed'
+        AND order_date BETWEEN '2024-01-01' AND '2024-12-31'
+      GROUP BY channel
+  verify: |
+    SELECT channel, SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END)
+    FROM orders WHERE substr(order_date, 1, 4) = '2024' GROUP BY channel
+  answer_checks:
+    - text: Online
+    - text: Direct
+    - text: Partner
+
+- id: rt02
+  type: easy
+  question: >-
+    2024 lo enni orders cancel ayyayi?
+  english: >-
+    How many orders were cancelled in 2024?
+  gold:
+    sql: |
+      SELECT COUNT(*) AS cancelled_orders FROM orders
+      WHERE status = 'cancelled'
+        AND order_date BETWEEN '2024-01-01' AND '2024-12-31'
+  verify: |
+    SELECT SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END)
+    FROM orders WHERE substr(order_date, 1, 4) = '2024'
+  answer_checks:
+    - gold_number: [0, 0]
+      rel: 0
+      abs: 0
+
+- id: rt03
+  type: easy
+  question: >-
+    2024 lo completed orders lo Services category products enni units ammudupoyayi?
+  english: >-
+    How many units of products in the Services category were sold in completed orders in 2024?
+  gold:
+    sql: |
+      SELECT SUM(oi.quantity) AS units
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN products p ON p.product_id = oi.product_id
+      WHERE o.status = 'completed' AND p.category = 'Services'
+        AND o.order_date BETWEEN '2024-01-01' AND '2024-12-31'
+  verify: |
+    SELECT SUM(quantity) FROM order_items
+    WHERE product_id IN (SELECT product_id FROM products WHERE category = 'Services')
+      AND order_id IN (SELECT order_id FROM orders
+                       WHERE status = 'completed'
+                         AND substr(order_date, 1, 4) = '2024')
+  answer_checks:
+    - gold_number: [0, 0]
+      rel: 0
+      abs: 0
+
+- id: rt04
+  type: easy
+  question: >-
+    2025 naalugo quarter lo (October nundi December varaku) Partner channel dwara vachina completed revenue entha?
+  english: >-
+    How much completed revenue came through the Partner channel in the fourth quarter of 2025 (October to December)?
+  gold:
+    sql: |
+      SELECT SUM(oi.quantity * oi.unit_price * (1 - oi.discount)) AS revenue
+      FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+      WHERE o.status = 'completed' AND o.channel = 'Partner'
+        AND o.order_date BETWEEN '2025-10-01' AND '2025-12-31'
+  verify: |
+    SELECT SUM(per_order) FROM (
+      SELECT (SELECT SUM(i.quantity * i.unit_price * (1 - i.discount))
+              FROM order_items i WHERE i.order_id = o.order_id) AS per_order
+      FROM orders o
+      WHERE o.status = 'completed' AND o.channel = 'Partner'
+        AND substr(o.order_date, 1, 7) IN ('2025-10', '2025-11', '2025-12'))
+  answer_checks:
+    - gold_number: [0, 0]
+
+- id: rt05
+  type: easy
+  question: >-
+    2024 lo ye region customers ekkuva support tickets open chesaru, mariyu enni?
+  english: >-
+    Customers of which region opened the most support tickets in 2024, and how many?
+  top_n: 1
+  gold:
+    sql: |
+      SELECT r.region_name, COUNT(*) AS tickets
+      FROM support_tickets t
+      JOIN customers c ON c.customer_id = t.customer_id
+      JOIN regions r ON r.region_id = c.region_id
+      WHERE t.created_date BETWEEN '2024-01-01' AND '2024-12-31'
+      GROUP BY r.region_name ORDER BY tickets DESC LIMIT 1
+  verify: |
+    SELECT region_name, n FROM (
+      SELECT r.region_name,
+             (SELECT COUNT(*) FROM support_tickets t, customers c
+              WHERE t.customer_id = c.customer_id AND c.region_id = r.region_id
+                AND substr(t.created_date, 1, 4) = '2024') AS n
+      FROM regions r)
+    WHERE n = (SELECT MAX(k) FROM (
+      SELECT COUNT(*) AS k FROM support_tickets t, customers c
+      WHERE t.customer_id = c.customer_id AND substr(t.created_date, 1, 4) = '2024'
+      GROUP BY c.region_id))
+  answer_checks:
+    - text: North America
+    - gold_number: [0, 1]
+      rel: 0
+      abs: 0
+
+- id: rt06
+  type: easy
+  question: >-
+    2024 lo EMEA region lo marketing meeda mottham entha kharchu ayyindi?
+  english: >-
+    How much was spent on marketing in the EMEA region in 2024?
+  gold:
+    sql: |
+      SELECT SUM(m.amount) AS spend
+      FROM marketing_spend m JOIN regions r ON r.region_id = m.region_id
+      WHERE r.region_name = 'EMEA' AND m.month BETWEEN '2024-01' AND '2024-12'
+  verify: |
+    SELECT SUM(amount) FROM marketing_spend
+    WHERE substr(month, 1, 4) = '2024'
+      AND region_id IN (SELECT region_id FROM regions WHERE region_name = 'EMEA')
+  answer_checks:
+    - gold_number: [0, 0]
+
+- id: rt07
+  type: easy
+  question: >-
+    2025 lo Mid-Market customers orders lo enni refund ayyayi?
+  english: >-
+    How many orders placed by Mid-Market customers in 2025 were refunded?
+  gold:
+    sql: |
+      SELECT COUNT(*) AS refunded_orders
+      FROM orders o JOIN customers c ON c.customer_id = o.customer_id
+      WHERE c.segment = 'Mid-Market' AND o.status = 'refunded'
+        AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+  verify: |
+    SELECT SUM(CASE WHEN status = 'refunded' THEN 1 ELSE 0 END)
+    FROM orders
+    WHERE substr(order_date, 1, 4) = '2025'
+      AND customer_id IN (SELECT customer_id FROM customers
+                          WHERE segment = 'Mid-Market')
+  answer_checks:
+    - gold_number: [0, 0]
+      rel: 0
+      abs: 0
+
+- id: rt08
+  type: easy
+  question: >-
+    2025 lo ye region lo ekkuva mandi customers manalni vadili vellaru, mariyu entha mandi?
+  english: >-
+    In which region did the most customers leave us in 2025, and how many left?
+  top_n: 1
+  gold:
+    sql: |
+      SELECT r.region_name, COUNT(*) AS churned_customers
+      FROM customers c JOIN regions r ON r.region_id = c.region_id
+      WHERE c.churn_date BETWEEN '2025-01-01' AND '2025-12-31'
+      GROUP BY r.region_name ORDER BY churned_customers DESC LIMIT 1
+  verify: |
+    WITH per_region AS (
+      SELECT region_id,
+             SUM(CASE WHEN substr(churn_date, 1, 4) = '2025' THEN 1 ELSE 0 END) AS n
+      FROM customers GROUP BY region_id)
+    SELECT r.region_name, p.n FROM per_region p, regions r
+    WHERE r.region_id = p.region_id AND p.n = (SELECT MAX(n) FROM per_region)
+  answer_checks:
+    - text: APAC
+    - gold_number: [0, 1]
+      rel: 0
+      abs: 0
+
+- id: rt09
+  type: easy
+  question: >-
+    2025 lo kaneesam oka completed order ichina veru veru customers entha mandi?
+  english: >-
+    How many different customers placed at least one completed order in 2025?
+  gold:
+    sql: |
+      SELECT COUNT(DISTINCT customer_id) AS customers FROM orders
+      WHERE status = 'completed'
+        AND order_date BETWEEN '2025-01-01' AND '2025-12-31'
+  verify: |
+    SELECT COUNT(*) FROM customers c WHERE EXISTS (
+      SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id
+        AND o.status = 'completed' AND substr(o.order_date, 1, 4) = '2025')
+  answer_checks:
+    - gold_number: [0, 0]
+      rel: 0
+      abs: 0
+
+- id: rt10
+  type: easy
+  question: >-
+    2024 lo ye nelalo ekkuva orders refund ayyayi, mariyu enni? Nelanu YYYY-MM format lo cheppandi.
+  english: >-
+    Which month of 2024 had the most refunded orders, and how many? Give the month as YYYY-MM.
+  top_n: 1
+  gold:
+    sql: |
+      SELECT substr(order_date, 1, 7) AS month, COUNT(*) AS refunded_orders
+      FROM orders
+      WHERE status = 'refunded'
+        AND order_date BETWEEN '2024-01-01' AND '2024-12-31'
+      GROUP BY month ORDER BY refunded_orders DESC LIMIT 1
+  verify: |
+    WITH monthly AS (
+      SELECT substr(order_date, 1, 7) AS m,
+             SUM(CASE WHEN status = 'refunded' THEN 1 ELSE 0 END) AS n
+      FROM orders WHERE substr(order_date, 1, 4) = '2024' GROUP BY m)
+    SELECT m, n FROM monthly WHERE n = (SELECT MAX(n) FROM monthly)
+  answer_checks:
+    - text: 2024-12
+    - gold_number: [0, 1]
+      rel: 0
+      abs: 0

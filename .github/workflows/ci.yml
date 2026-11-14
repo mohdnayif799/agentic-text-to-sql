@@ -18,6 +18,24 @@ jobs:
     name: Lint and test
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # A throwaway PostgreSQL for the live tests of self-hosted mode
+    # (tests/test_postgres.py, tests/test_sql_editor.py): the read-only
+    # session, the statement timeout, and writes refused through the app's
+    # own layers. It exists only for this job, holds no data and is reachable
+    # only from the runner, so its password is not a secret. The role CAN
+    # write, on purpose: the tests prove the app refuses, not the role.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - uses: actions/checkout@v7
 
@@ -39,8 +57,12 @@ jobs:
 
       # The demo database is built on demand by the db_path fixture in
       # tests/conftest.py, so no separate build step is needed.
+      # With the URL set, the live PostgreSQL tests run instead of being
+      # skipped; -rs lists any test that was still skipped.
       - name: Test
-        run: pytest -q
+        env:
+          AGENTCREW_TEST_POSTGRES_URL: postgresql://postgres:test@localhost:5432/postgres
+        run: pytest -q -rs
 
   docker:
     name: Build and smoke-test the image
@@ -71,6 +93,27 @@ jobs:
       - name: Container logs
         if: always()
         run: docker logs agentcrew
+
+      # The same image as the REST API (docs/API.md): the command overridden
+      # to uvicorn, as the agentcrew-api service runs it. No keys are given,
+      # so every endpoint but /v1/health would answer 401; health needs none.
+      # curl -f fails on anything but a 2xx, so this passes only on a 200.
+      - name: Smoke-test the image as the API
+        run: |
+          docker run -d --name agentcrew-api -p 8081:8080 -e HEALTH_PATH=/v1/health \
+            agentcrew:ci uvicorn agentcrew.api.app:create_app --factory \
+            --host 0.0.0.0 --port 8080 --no-access-log
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://localhost:8081/v1/health; then
+              echo
+              echo "API healthy after ${attempt} attempt(s)."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "The API did not answer /v1/health with 200 within 60 seconds."
+          docker logs agentcrew-api
+          exit 1
 
   # Continuous deployment to Cloud Run. Runs only for a push to main, and only
   # after both jobs above pass. A pull request never reaches it (the `if`

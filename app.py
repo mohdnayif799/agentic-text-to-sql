@@ -20,38 +20,31 @@ Run:  streamlit run app.py
 from __future__ import annotations
 
 import html
+import json
 import logging
 import re
 import sys
 import time
 from collections.abc import Callable, MutableMapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 import altair as alt
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from streamlit.delta_generator import DeltaGenerator
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from agentcrew.archs.app_runner import (  # noqa: E402
-    AppRun,
-    build_runtime,
-    run_arch_question,
-)
+from agentcrew import data_panel, runlog, service  # noqa: E402
+from agentcrew.archs.app_runner import AppRun  # noqa: E402
 from agentcrew.config import Settings  # noqa: E402
-from agentcrew.db.engine import DatabaseNotFoundError  # noqa: E402
-from agentcrew.graph.build import RunOutcome, build_deps, run_question  # noqa: E402
-from agentcrew.llm import (  # noqa: E402
-    PROVIDERS,
-    SELECTABLE_PROVIDERS,
-    LLMTimeoutError,
-    ProviderSpec,
-    QuotaExhaustedError,
-)
+from agentcrew.datasets.source import DataSource  # noqa: E402
+from agentcrew.graph.build import RunOutcome  # noqa: E402
+from agentcrew.llm import PROVIDERS, SELECTABLE_PROVIDERS  # noqa: E402
 from agentcrew.presentation import (  # noqa: E402
     FINAL_TABLE,
     arch_summary,
@@ -65,8 +58,24 @@ from agentcrew.presentation import (  # noqa: E402
     step_label,
     summary,
 )
-from agentcrew.refusal import WRITE_REFUSAL, is_write_request  # noqa: E402
 from agentcrew.schemas import ExecutionResult  # noqa: E402
+from agentcrew.service import (  # noqa: E402
+    DEMO_MAX_ATTEMPTS,
+    DEMO_MAX_STEPS,
+    DEMO_RUN_LIMIT,
+    Turn,
+    answer,
+    demo_runs_left,
+    redact,
+    server_key_configured,
+    trace_content_enabled,  # noqa: E402, F401
+)
+from agentcrew.service import deployment_cap as _daily_cap  # noqa: E402
+
+# The names this file had before the ask flow moved to agentcrew/service.py;
+# tests still reach them here.
+from agentcrew.service import log_run as _log_run  # noqa: E402, F401
+from agentcrew.sql_editor import EditorRun, runs_left  # noqa: E402
 
 # One line per run on stderr (Cloud Run sends stderr to Cloud Logging).
 # Streamlit re-executes this file on every rerun but loggers are process-wide,
@@ -80,6 +89,9 @@ if not log.handlers:
     log.addHandler(_stderr)
     log.setLevel(logging.INFO)
     log.propagate = False
+# The run record itself goes out as one JSON line on stdout (agentcrew/runlog.py),
+# which Cloud Logging stores as a structured entry.
+runlog.configure()
 
 # Must match primaryColor in .streamlit/config.toml (a test checks this), so
 # charts use the same blue as buttons, links and the question bubble.
@@ -314,41 +326,97 @@ def build_chart(df: pd.DataFrame) -> alt.Chart | None:
 CUSTOM_MODEL = "Custom..."
 
 # ---- Demo mode ---------------------------------------------------------------
-# A deployment can configure a server-side key (AGENTCREW_<PROVIDER>_API_KEY) so
-# visitors can try the agent without one. That key is read only through
-# Settings, only at the moment a run is built, and never placed in a widget or
-# in st.session_state: Streamlit sends every widget value to the browser, and a
-# password field has a show/hide toggle. Runs on it are capped per browser
-# session; a visitor's own key is never capped.
-DEMO_RUN_LIMIT = 5
-DEMO_RUNS_USED = "demo_runs_used"  # st.session_state key holding the count
-
-DEMO_LIMIT_MESSAGE = (
-    f"You've used the {DEMO_RUN_LIMIT} free demo runs. Add your own Gemini key "
-    "(free at aistudio.google.com/apikey) under 'Use your own API key' to keep "
-    "going."
-)
-SHARED_QUOTA_MESSAGE = (
-    "The shared demo quota is used up for now. Try again later or add your own key."
-)
-OWN_QUOTA_MESSAGE = (
-    "Your API key hit its provider's quota or rate limit. Wait a moment and try "
-    "again, or check the limits on your key."
-)
-DEMO_UNAVAILABLE_MESSAGE = (
-    "The demo is temporarily unavailable. Try again later, or add your own key "
-    "under 'Use your own API key'."
-)
-# A model call passed its request timeout (GEMINI_TIMEOUT_SECONDS). Shown on
-# either key: it is the provider being slow, not the visitor's key or input.
-SLOW_MODEL_MESSAGE = (
-    "The model is responding slowly right now. Please try again in a minute."
-)
-# Runs on the server key use fixed budgets. Otherwise the sliders would let one
-# counted run make several times as many model calls.
-DEMO_MAX_ATTEMPTS = 3
-DEMO_MAX_STEPS = 3
+# The ask flow (which key pays, the allowances, the daily cap, the run and
+# its log line) lives in agentcrew/service.py, shared with the REST API.
+# This file draws it. The server key is never placed in a widget or in
+# st.session_state: Streamlit sends every widget value to the browser, and
+# a password field has a show/hide toggle.
 DEMO_FIXED_CAPTION = "Fixed in demo mode. Add your own key to change."
+
+
+# ---- Idle guard ----------------------------------------------------------------
+# Streamlit holds one websocket per open tab and its client reconnects by
+# itself, so an idle tab keeps a request in flight and Cloud Run keeps the
+# instance (and its billing) alive indefinitely. Two halves end such a session:
+#
+# * In the browser: the small script below (components.html, so it runs)
+#   watches input in the page and, after `idle_timeout_seconds` without any,
+#   leaves for the static page static/idle.html. Leaving unloads the Streamlit
+#   client, which closes the connection for good.
+# * On the server: each script run stamps the session's last activity. A run
+#   that arrives after the timeout (the script is off, or the tab came back
+#   from suspension) finds the conversation cleared and a notice; Phase 2 also
+#   deletes the session's uploaded data here.
+LAST_ACTIVITY = "last_activity"  # st.session_state key, time.monotonic()
+IDLE_PAGE = "/app/static/idle.html"  # server.enableStaticServing serves static/
+IDLE_MESSAGE = (
+    "This session ended after a while without activity, so the conversation was "
+    "cleared. Ask a new question to start again."
+)
+# The component iframe is sandboxed without allow-top-navigation, so a
+# redirect from inside it is refused ("Unsafe attempt to initiate navigation",
+# seen in a browser check). It is same-origin with scripts allowed, though, so
+# it may add a script to the page itself; the timer then lives in the page,
+# navigates as the page, and survives the reruns that re-mount the iframe.
+# Installed once per page (the flag), whatever the number of reruns.
+IDLE_GUARD_HTML = """\
+<script>
+(function () {
+  var timeout = %d * 1000;
+  var target = %s;
+  var page = window.parent;
+  if (page.__agentcrewIdleGuard) { return; }
+  function install(timeout, target) {
+    if (window.__agentcrewIdleGuard) { return; }
+    window.__agentcrewIdleGuard = true;
+    var last = Date.now();
+    function bump() { last = Date.now(); }
+    ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"]
+      .forEach(function (name) {
+        document.addEventListener(name, bump, {passive: true, capture: true});
+      });
+    setInterval(function () {
+      if (Date.now() - last > timeout) { window.location.replace(target); }
+    }, 15000);
+  }
+  var script = page.document.createElement("script");
+  script.textContent = "(" + install.toString() + ")(" + timeout + "," +
+    JSON.stringify(target) + ");";
+  page.document.head.appendChild(script);
+})();
+</script>
+"""
+
+
+def idle_timeout() -> int:
+    """AGENTCREW_IDLE_TIMEOUT_SECONDS, or the default when it cannot be read."""
+    try:
+        return int(Settings().idle_timeout_seconds)
+    except Exception:
+        return int(Settings.model_fields["idle_timeout_seconds"].default)
+
+
+def session_expired(state: MutableMapping[str, Any], *, now: float,
+                    timeout: float) -> bool:
+    """True when the session's last activity is older than the timeout. A
+    session with no stamp yet is new, not stale."""
+    last = state.get(LAST_ACTIVITY)
+    return last is not None and now - last > timeout
+
+
+def touch(state: MutableMapping[str, Any], *, now: float) -> None:
+    state[LAST_ACTIVITY] = now
+
+
+def end_session(state: MutableMapping[str, Any]) -> None:
+    """Forget the conversation. The demo run count survives on purpose, as it
+    does for 'New chat'."""
+    state["turns"] = []
+    state["pending"] = None
+
+
+def idle_guard_html(timeout_seconds: int) -> str:
+    return IDLE_GUARD_HTML % (int(timeout_seconds), json.dumps(IDLE_PAGE))
 
 
 def configured_defaults() -> tuple[str, str]:
@@ -372,33 +440,6 @@ def model_options(provider: str, configured_model: str) -> list[str]:
     if configured_model and configured_model not in models:
         models = [configured_model, *models]
     return [*models, CUSTOM_MODEL]
-
-
-def _server_key(provider: str) -> str:
-    """The deployment's key for `provider`, or "". Never store or render this."""
-    try:
-        return getattr(Settings(), PROVIDERS[provider].key_field) or ""
-    except Exception:
-        return ""
-
-
-def server_key_configured(provider: str) -> bool:
-    return bool(_server_key(provider))
-
-
-def demo_runs_left(state: MutableMapping[str, Any]) -> int:
-    return max(0, DEMO_RUN_LIMIT - state.get(DEMO_RUNS_USED, 0))
-
-
-def record_demo_run(state: MutableMapping[str, Any]) -> None:
-    state[DEMO_RUNS_USED] = state.get(DEMO_RUNS_USED, 0) + 1
-
-
-def redact(text: str, secret: str) -> str:
-    """Never echo the key back into the UI, even inside a provider error."""
-    if secret and len(secret) > 8:
-        return text.replace(secret, "***")
-    return text
 
 
 # ---- Architecture runs (A, C, D) ---------------------------------------------
@@ -599,220 +640,36 @@ def render_run_details(outcome: RunOutcome, slot: int) -> None:
         )
 
 
-@dataclass
-class Turn:
-    """One submitted question and whatever came back.
-
-    Replaces the previous singleton `outcome` / `error` pair. Those could not
-    represent "question 2 failed but question 1's answer is still valid": a new
-    error overwrote `error` while leaving the old `outcome` on screen, so the
-    failure appeared to belong to the previous answer.
-
-    Binding the result (or the error) to the question that produced it makes
-    that state unrepresentable.
-    """
-
-    question: str
-    outcome: RunOutcome | None = None
-    arch_run: AppRun | None = None
-    """Set instead of `outcome` when a v2 architecture (A, C, D) answered."""
-    error: str | None = None
-    notice: str | None = None
-    """Not a failure of the agent: demo limit reached, quota refused, no key."""
+def describer(run: RunChoice) -> data_panel.Describer:
+    """Drafts a dataset's descriptions on this session's key choice
+    (agentcrew/service.describer)."""
+    return service.describer(provider=run.provider, model=run.model,
+                             own_key=run.own_key)
 
 
-def execute(
-    question: str,
-    cfg: dict[str, Any],
-    spec: ProviderSpec,
-    *,
-    own_key: str,
-    show_progress: Callable[[str, float], None] | None = None,
-) -> tuple[Turn, bool]:
-    """Run one question. Failures are returned on the Turn, never raised.
-
-    `cfg` carries the visitor's key when they gave one; otherwise it carries
-    no key at all and Settings reads the server key from the environment, so
-    the server key never passes through the UI. The returned bool says whether
-    the run counts against the demo allowance: only a run that completed does.
-    A quota refusal, a failure to start, or any exception during the run never
-    uses up a visitor's runs.
-
-    On the server key, failures show a generic message rather than provider
-    error text; the redacted detail goes to the log instead.
-    """
-    turn = Turn(question=question)
-    secret = own_key or _server_key(spec.key)  # for redaction only
-    started = time.perf_counter()
-    arch = cfg.get("arch", "?")
+def render_data_panel(run: RunChoice) -> DataSource | None:
+    """The 'Your data' expander (agentcrew/data_panel.py); returns the source
+    this session's questions are answered from, None for NorthStar."""
     try:
-        settings = Settings(**cfg)
-        arch = settings.arch
-        if arch == "v1":
-            deps = build_deps(settings)
-        else:
-            runtime = build_runtime(settings)
-            client = runtime.new_client()
-    except Exception as exc:
-        _log_run(cfg, "start_failed", started, 0, arch=arch, error=exc,
-                 secret=secret)
-        if not own_key:
-            turn.error = DEMO_UNAVAILABLE_MESSAGE
-        elif isinstance(exc, DatabaseNotFoundError):
-            turn.error = str(exc)
-        else:
-            turn.error = (
-                f"Could not start the agent: {redact(str(exc), secret)}\n\n"
-                f"Check the API key in the sidebar. If the SDK is missing, run "
-                f"`{spec.install}`."
-            )
-        return turn, False
-
-    def calls_so_far() -> int:
-        return _llm_calls_so_far(deps) if arch == "v1" else client.calls
-
+        settings = Settings()
+    except Exception:
+        return None
+    if not (settings.uploads_enabled or settings.database_url):
+        return None
+    cap = _daily_cap()
     try:
-        if arch == "v1":
-            turn.outcome = run_question(question, settings=settings, deps=deps)
-        else:
-            on_stage = (stage_reporter(show_progress, settings.max_steps)
-                        if show_progress else None)
-            turn.arch_run = run_arch_question(
-                question, settings=settings, runtime=runtime, client=client,
-                on_stage=on_stage)
-    except QuotaExhaustedError as exc:
-        # Stops the run outright: the provider refused, so there is nothing
-        # to repair and retrying would only be refused again.
-        _log_run(cfg, "quota", started, calls_so_far(), arch=arch, error=exc,
-                 secret=secret)
-        turn.notice = OWN_QUOTA_MESSAGE if own_key else SHARED_QUOTA_MESSAGE
-        return turn, False
-    except LLMTimeoutError as exc:
-        # The provider is slow, not broken: a notice rather than an error, the
-        # same on either key, and (like every failed run) not counted.
-        _log_run(cfg, "timeout", started, calls_so_far(), arch=arch, error=exc,
-                 secret=secret)
-        turn.notice = SLOW_MODEL_MESSAGE
-        return turn, False
+        return data_panel.render(settings=settings, describe=describer(run),
+                                 reserve_upload=cap.reserve_upload,
+                                 release_upload=cap.release_upload)
     except Exception as exc:
-        _log_run(cfg, "error", started, calls_so_far(), arch=arch, error=exc,
-                 secret=secret)
-        turn.error = (
-            f"Run failed: {type(exc).__name__}: {redact(str(exc), secret)}"
-            if own_key
-            else DEMO_UNAVAILABLE_MESSAGE
-        )
-        return turn, False
-
-    if turn.arch_run is not None:
-        run = turn.arch_run
-        _log_run(cfg, run.outcome.status, started, run.llm_calls, arch=arch,
-                 path=run.outcome.path, tools=run.tools)
-    else:
-        _log_run(cfg, turn.outcome.status, started,
-                 turn.outcome.trace["counters"]["llm_calls"], arch=arch, path="v1",
-                 tools=[["run_sql"] for _ in turn.outcome.step_results])
-    return turn, True
-
-
-def _llm_calls_so_far(deps: Any) -> int:
-    """Model calls made before a run raised, read from its tracer."""
-    tracer = getattr(deps, "tracer", None)
-    return tracer.counters.get("llm_calls", 0) if tracer is not None else 0
-
-
-def _log_run(
-    cfg: dict[str, Any],
-    status: str,
-    started: float,
-    llm_calls: int,
-    *,
-    arch: str = "?",
-    path: str = "-",
-    tools: list[list[str]] | None = None,
-    error: BaseException | None = None,
-    secret: str = "",
-) -> None:
-    """One log line per run: provider, model, architecture, status, path
-    (direct or escalated), the tools of each step and the LLM calls. Never
-    the key and never the question text."""
-    used = ">".join("+".join(step) for step in tools or []) or "-"
-    fields = (
-        f"provider={cfg['provider']} model={cfg['model']} arch={arch} "
-        f"status={status} path={path} tools={used} "
-        f"seconds={time.perf_counter() - started:.1f} llm_calls={llm_calls}"
-    )
-    if error is None:
-        log.info("run %s", fields)
-        return
-    # Collapsed to one line: provider errors often span several.
-    message = " ".join(redact(str(error), secret).split())
-    log.warning("run %s error=%s: %s", fields, type(error).__name__, message)
-
-
-def answer(
-    question: str,
-    *,
-    provider: str,
-    model: str,
-    own_key: str,
-    max_attempts: int,
-    max_steps: int,
-    state: MutableMapping[str, Any],
-    show_progress: Callable[[str, float], None] | None = None,
-) -> Turn:
-    """Choose the key for this run, enforce the demo allowance, and run. A request
-    to change the data is refused first: no model call, no SQL, no run counted."""
-    if is_write_request(question):
-        _log_run({"provider": provider, "model": model}, "refused",
-                 time.perf_counter(), 0)
-        return Turn(question=question, notice=WRITE_REFUSAL)
-    spec = PROVIDERS[provider]
-    own_key = own_key.strip()
-    if not model:
-        return Turn(
-            question=question,
-            notice=(
-                "Enter a custom model ID under 'Advanced settings', or pick one "
-                "from the list."
-            ),
-        )
-    cfg: dict[str, Any] = {
-        "provider": provider,
-        "model": model,
-        "max_attempts_per_step": max_attempts,
-        "max_steps": max_steps,
-    }
-    if own_key:
-        turn, _ = execute(
-            question, {**cfg, spec.key_field: own_key}, spec, own_key=own_key,
-            show_progress=show_progress,
-        )
-        return turn
-
-    if not server_key_configured(provider):
-        return Turn(
-            question=question,
-            notice=(
-                f"Add your {spec.label} API key under 'Use your own API key' "
-                "to run the agent."
-            ),
-        )
-    if demo_runs_left(state) == 0:
-        return Turn(question=question, notice=DEMO_LIMIT_MESSAGE)
-
-    # Enforced here, not only by the disabled sliders: widget values come from
-    # the browser, so the server decides the budgets for its own key.
-    demo_cfg = {
-        **cfg,
-        "max_attempts_per_step": DEMO_MAX_ATTEMPTS,
-        "max_steps": DEMO_MAX_STEPS,
-    }
-    turn, charged = execute(question, demo_cfg, spec, own_key="",
-                            show_progress=show_progress)
-    if charged:
-        record_demo_run(state)
-    return turn
+        # The panel must never take the app down with it; NorthStar stays.
+        # The detail goes to the log through redact(), which also scrubs the
+        # database URL; the browser gets a fixed sentence.
+        log.warning("data panel failed: %s: %s", type(exc).__name__,
+                    " ".join(redact(str(exc), "").split())[:400])
+        st.sidebar.error("Your data could not be loaded. Questions use the "
+                         "sample data.")
+        return None
 
 
 ABOUT = (
@@ -855,9 +712,10 @@ def _render_user_message(text: str) -> None:
     )
 
 
-def render_reply(turn: Turn, slot: int) -> None:
+def render_reply(turn: Turn, slot: int, source: DataSource | None = None) -> None:
     """`slot` is the turn's position in the conversation; it keeps the keys
-    of the reply's containers unique on the page."""
+    of the reply's containers unique on the page. `source` is the data
+    source selected now (None = NorthStar), for the SQL editor."""
     if turn.notice:
         st.warning(turn.notice)
     if turn.error:
@@ -866,14 +724,101 @@ def render_reply(turn: Turn, slot: int) -> None:
         render_run(turn.outcome, slot)
     if turn.arch_run is not None:
         render_arch_run(turn.arch_run, slot)
+    render_sql_editor(turn, slot, source)
 
 
-def render_turn(turn: Turn, slot: int) -> None:
+def render_turn(turn: Turn, slot: int, source: DataSource | None = None) -> None:
     _render_user_message(turn.question)
     # Plain container, not st.chat_message: chat_message always renders an
     # avatar and there is no supported way to suppress it.
     with st.container():
-        render_reply(turn, slot)
+        render_reply(turn, slot, source)
+
+
+# ---- SQL editor (agentcrew/sql_editor.py) -------------------------------------
+SQL_EDITOR_LABEL = "Edit and run the SQL"
+SQL_OTHER_SOURCE = (
+    "This answer came from a different data source than the one selected now, "
+    "so its SQL can't run here."
+)
+
+
+def source_id(source: DataSource | None) -> str:
+    """A data source's identity that survives edits of its descriptions
+    (which bump the revision at the end of its key)."""
+    return "northstar" if source is None else source.key.rsplit(":", 1)[0]
+
+
+def final_sql(turn: Turn) -> str | None:
+    """The SQL behind the answer's final table: what the editor starts from."""
+    if turn.arch_run is not None and turn.arch_run.outcome.selected is not None:
+        return turn.arch_run.outcome.selected.sql or None
+    if turn.outcome is not None and turn.outcome.step_results:
+        return turn.outcome.step_results[-1].sql or None
+    return None
+
+
+def run_editor_sql(sql: str, source: DataSource | None,
+                   state: MutableMapping[str, Any]) -> tuple[EditorRun, int]:
+    """Run the editor's SQL on the agent's own ToolContext for `source`
+    (agentcrew/service.run_sql_on). Returns the run and the row cap it ran
+    under. No model call is made."""
+    return service.run_sql_on(sql, source, state=state)
+
+
+def _session_sql_cap() -> int:
+    try:
+        return Settings().session_sql_run_cap
+    except Exception:
+        return Settings.model_fields["session_sql_run_cap"].default
+
+
+def render_sql_editor(turn: Turn, slot: int, source: DataSource | None) -> None:
+    """A collapsed expander under the answer, prefilled with its final SQL.
+    Runs go through tools.execute_readonly_sql (agentcrew/sql_editor.py):
+    the agent's guard, LIMIT, row cap and timeout, never a model call."""
+    sql = final_sql(turn)
+    if sql is None:
+        return
+    # Keyed, with its open state tracked: otherwise the rerun a Run click
+    # triggers draws it as a new element, collapsed, hiding the result.
+    with st.expander(SQL_EDITOR_LABEL, expanded=False, key=f"sql_editor_{slot}",
+                     on_change="rerun"):
+        if turn.source_id != source_id(source):
+            note(SQL_OTHER_SOURCE)
+            st.code(sql, language="sql", wrap_lines=True)
+            return
+        text = st.text_area("SQL", value=sql, key=f"sql_text_{slot}", height=160,
+                            label_visibility="collapsed")
+        result_key = f"sql_result_{slot}"
+        if st.button("Run", key=f"sql_run_{slot}"):
+            st.session_state[result_key] = run_editor_sql(text, source,
+                                                          st.session_state)
+        if result_key in st.session_state:
+            render_editor_run(*st.session_state[result_key])
+        cap = _session_sql_cap()
+        left = runs_left(st.session_state, cap)
+        if left is not None:
+            note(f"SQL runs left this session: {left} of {cap}. Read-only, with "
+                 "the same checks and limits as the agent's queries.")
+
+
+def render_editor_run(run: EditorRun, max_rows: int) -> None:
+    if run.message:
+        # A refused or failed statement is an error; a limit or empty input
+        # (nothing ran) is a notice.
+        (st.error if run.charged else st.warning)(run.message)
+    result = run.result
+    if result is None or not result.ok:
+        return
+    df = to_frame(result)
+    if df.empty:
+        note("No rows returned.")
+    else:
+        show_table(df)
+    capped = result.truncated or (max_rows > 0 and result.row_count >= max_rows)
+    note(f"{count(result.row_count, 'row')} in {result.duration_ms:.0f} ms"
+         + (f", capped at {max_rows:,} rows" if capped else ""))
 
 
 def _queue_question(question: str) -> None:
@@ -1018,7 +963,23 @@ def main() -> None:
     st.session_state.setdefault("turns", [])
     st.session_state.setdefault("pending", None)
 
+    # Idle guard, server half: every script run is an interaction, so a run
+    # that finds the stamp older than the timeout is a session coming back
+    # from idle. It starts over, and says so.
+    timeout = idle_timeout()
+    now = time.monotonic()
+    expired = session_expired(st.session_state, now=now, timeout=timeout)
+    if expired:
+        end_session(st.session_state)
+        try:
+            data_panel.drop_session_data(st.session_state, Settings())
+        except Exception as exc:  # the sweeper deletes it later regardless
+            log.warning("could not drop an idle session's data: %s",
+                        type(exc).__name__)
+    touch(st.session_state, now=now)
+
     run, counter = render_sidebar(*configured_defaults())
+    source = render_data_panel(run)
     show_demo_counter(counter, run)
 
     st.title("Agentic Text-to-SQL")
@@ -1028,16 +989,26 @@ def main() -> None:
         "Each question is answered independently: the agent does not see "
         "earlier questions in this chat."
     )
+    if expired:
+        st.warning(IDLE_MESSAGE)
+    if source is not None:
+        note(f"Answering from {source.label}. The sample questions below the "
+             "chat do not apply to it.")
+    # Idle guard, browser half (height 0: nothing to see). Last in the page
+    # order would be tidier, but a component mounts where it is called and
+    # the chat input below is pinned to the bottom regardless.
+    components.html(idle_guard_html(timeout), height=0)
 
     # st.chat_input is pinned to the bottom of the page wherever it is called.
     # Calling it before the history means this script run already knows
     # whether a question was submitted, so the example chips can be skipped.
-    submitted = st.chat_input("Ask a question about the sales data")
+    submitted = st.chat_input("Ask a question about the sales data"
+                              if source is None else "Ask a question about your data")
     question = submitted or st.session_state.pending
     st.session_state.pending = None
 
     for slot, turn in enumerate(st.session_state.turns):
-        render_turn(turn, slot)
+        render_turn(turn, slot, source)
 
     if question:
         # The question appears at once; the spinner then sits where the reply
@@ -1062,14 +1033,17 @@ def main() -> None:
                     max_attempts=run.max_attempts,
                     max_steps=run.max_steps,
                     state=st.session_state,
-                    show_progress=show_progress,
+                    stages=lambda max_steps: stage_reporter(show_progress,
+                                                            max_steps),
+                    source=source,
                 )
+            turn = replace(turn, source_id=source_id(source))
             progress_slot.empty()
             # The same slot it gets from the loop above on later reruns.
-            render_reply(turn, len(st.session_state.turns))
+            render_reply(turn, len(st.session_state.turns), source)
         st.session_state.turns = [*st.session_state.turns, turn]
         show_demo_counter(counter, run)
-    elif not st.session_state.turns:
+    elif not st.session_state.turns and source is None:
         render_examples()
 
 

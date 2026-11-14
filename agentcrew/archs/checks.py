@@ -49,6 +49,7 @@ import sqlglot
 from sqlglot.errors import OptimizeError, ParseError
 from sqlglot.optimizer.qualify import qualify
 
+from agentcrew.db import dialect as sql_dialect
 from agentcrew.db.introspect import Catalog
 from agentcrew.schemas import ExecutionResult
 
@@ -77,7 +78,8 @@ def schema_error(sql: str, schema: Schema) -> str | None:
     """The qualify error text, or None if every column resolves."""
     try:
         qualify(
-            sqlglot.parse_one(sql, read="sqlite"), schema=schema, dialect="sqlite",
+            sqlglot.parse_one(sql, read=sql_dialect.current()), schema=schema,
+            dialect=sql_dialect.current(),
             validate_qualify_columns=True, identify=False,
         )
     except OptimizeError as exc:

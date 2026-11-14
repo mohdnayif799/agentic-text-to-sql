@@ -281,13 +281,27 @@ def seconds_text(seconds: float) -> str:
 
 
 def arch_summary(outcome: ArchOutcome, *, llm_calls: int, seconds: float) -> str:
-    """'Escalated · 3 steps · 2 repairs · 6 LLM calls · 9.3 s'."""
+    """'Escalated · 3 steps · 2 repairs · 6 LLM calls · 9.3 s'. A run that
+    did not answer leads with what happened instead of its path: 'Stopped'
+    (failed) or 'Refused'."""
     steps = [s for s in outcome.steps if s.get("step") != "final"]
     return summary(
-        "Escalated" if outcome.path == "escalated" else "Direct",
+        _path_label(outcome),
         count(len(steps), "step"), count(len(outcome.repairs), "repair"),
         count(llm_calls, "LLM call"), seconds_text(seconds),
     )
+
+
+def _path_label(outcome: ArchOutcome) -> str:
+    if outcome.status == "refused":
+        return "Refused"
+    if outcome.status != "done":
+        return "Stopped"
+    return "Escalated" if outcome.path == "escalated" else "Direct"
+
+
+STOPPED = "It stopped before it could answer."
+REFUSED = "It refused the request: the database is read-only."
 
 
 #: Why a run escalated, by signal kind (archs/checks.py and archs/verify.py).
@@ -379,9 +393,19 @@ def _actions(outcome: ArchOutcome) -> list[str]:
 
 def escalation_reason(outcome: ArchOutcome) -> str:
     """The reason in plain words: 'The first query returned no rows, so it
-    searched for similar names and ran a follow-up query.'"""
+    searched for similar names and ran a follow-up query.' Only a run that
+    answered says it answered directly; a failed one says it stopped."""
+    if outcome.status == "refused":
+        return REFUSED
+    answered = outcome.status == "done"
     if outcome.path != "escalated":
-        return "One query was enough, so it answered directly."
+        return ("One query was enough, so it answered directly." if answered
+                else STOPPED)
+    reason = _escalated_reason(outcome)
+    return reason if answered else f"{reason} {STOPPED}"
+
+
+def _escalated_reason(outcome: ArchOutcome) -> str:
     actions = _actions(outcome)
     trigger = _trigger(outcome)
     if trigger is None:

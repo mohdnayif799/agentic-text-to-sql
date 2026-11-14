@@ -1,0 +1,241 @@
+student_id,name,department,year_of_study,gender,admission_date
+1001,Yash Rao,Computer Science,1,F,2025-07-25
+1002,Neha Singh,Electronics,2,M,2024-08-12
+1003,Aditya Das,Mechanical,4,F,2022-08-08
+1004,Kabir Reddy,Civil,1,M,2025-08-03
+1005,Aarav Bose,Computer Science,1,M,2025-07-29
+1006,Nikhil Patel,Electronics,3,M,2023-07-21
+1007,Nikhil Joshi,Mechanical,3,F,2023-08-09
+1008,Zoya Rao,Civil,3,M,2023-07-17
+1009,Rohan Kulkarni,Computer Science,3,M,2023-07-29
+1010,Kavya Nair,Electronics,1,M,2025-08-11
+1011,Nikhil Kulkarni,Mechanical,4,M,2022-07-17
+1012,Yash Verma,Civil,1,M,2025-07-28
+1013,Yash Patel,Computer Science,4,M,2022-08-13
+1014,Yash Verma,Electronics,4,F,2022-07-31
+1015,Rohan Bose,Mechanical,2,F,2024-08-08
+1016,Neha Gupta,Civil,1,M,2025-08-06
+1017,Priya Bose,Computer Science,2,F,2024-07-30
+1018,Tara Joshi,Electronics,4,M,2022-08-05
+1019,Ananya Rao,Mechanical,4,M,2022-08-05
+1020,Arjun Patel,Civil,4,M,2022-07-28
+1021,Rohan Menon,Computer Science,1,M,2025-07-16
+1022,Arjun Patel,Electronics,4,M,2022-07-26
+1023,Tara Verma,Mechanical,4,M,2022-07-31
+1024,Ananya Nair,Civil,1,M,2025-08-10
+1025,Yash Patel,Computer Science,1,M,2025-07-29
+1026,Pooja Bose,Electronics,2,M,2024-08-14
+1027,Vikram Kulkarni,Mechanical,1,M,2025-08-04
+1028,Arjun Joshi,Civil,3,M,2023-07-18
+1029,Aarav Reddy,Computer Science,2,F,2024-07-29
+1030,Zoya Kulkarni,Electronics,4,F,2022-08-02
+1031,Meera Singh,Mechanical,2,F,2024-07-22
+1032,Kavya Iyer,Civil,3,F,2023-08-05
+1033,Aditya Singh,Computer Science,3,M,2023-08-05
+1034,Priya Das,Electronics,2,F,2024-08-01
+1035,Pooja Menon,Mechanical,3,F,2023-07-17
+1036,Aditya Patel,Civil,2,M,2024-08-09
+1037,Rohan Rao,Computer Science,4,F,2022-08-09
+1038,Meera Gupta,Electronics,4,F,2022-07-15
+1039,Kavya Menon,Mechanical,1,M,2025-08-10
+1040,Yash Das,Civil,1,M,2025-07-15
+1041,Ishaan Kulkarni,Computer Science,3,F,2023-07-29
+1042,Rahul Singh,Electronics,4,F,2022-08-14
+1043,Yash Khan,Mechanical,2,M,2024-08-02
+1044,Neha Khan,Civil,3,F,2023-07-29
+1045,Arjun Menon,Computer Science,4,F,2022-07-16
+1046,Zoya Kulkarni,Electronics,1,F,2025-08-04
+1047,Arjun Das,Mechanical,4,F,2022-08-11
+1048,Yash Khan,Civil,2,F,2024-08-04
+1049,Sneha Gupta,Computer Science,2,M,2024-08-05
+1050,Pooja Bose,Electronics,4,F,2022-08-01
+1051,Sneha Nair,Mechanical,4,F,2022-07-24
+1052,Tara Verma,Civil,3,M,2023-07-29
+1053,Sneha Nair,Computer Science,3,M,2023-07-29
+1054,Yash Verma,Electronics,4,M,2022-07-18
+1055,Arjun Khan,Mechanical,1,F,2025-08-11
+1056,Rahul Menon,Civil,1,M,2025-08-12
+1057,Sneha Sharma,Computer Science,4,M,2022-08-01
+1058,Zoya Menon,Electronics,2,F,2024-07-26
+1059,Vikram Rao,Mechanical,1,F,2025-08-03
+1060,Vikram Menon,Civil,3,F,2023-08-02
+1061,Vikram Reddy,Computer Science,1,M,2025-08-09
+1062,Diya Verma,Electronics,2,M,2024-07-18
+1063,Meera Rao,Mechanical,2,M,2024-08-04
+1064,Kabir Patel,Civil,3,M,2023-08-02
+1065,Vikram Reddy,Computer Science,2,F,2024-07-23
+1066,Vikram Gupta,Electronics,4,F,2022-08-11
+1067,Priya Sharma,Mechanical,1,M,2025-07-18
+1068,Zoya Singh,Civil,1,M,2025-07-18
+1069,Rahul Singh,Computer Science,3,F,2023-08-08
+1070,Neha Khan,Electronics,4,M,2022-07-25
+1071,Meera Menon,Mechanical,4,M,2022-08-05
+1072,Ananya Bose,Civil,3,M,2023-07-27
+1073,Pooja Kulkarni,Computer Science,1,F,2025-08-07
+1074,Ishaan Patel,Electronics,3,F,2023-08-06
+1075,Pooja Nair,Mechanical,3,F,2023-08-08
+1076,Zoya Sharma,Civil,3,F,2023-07-21
+1077,Meera Reddy,Computer Science,2,F,2024-08-03
+1078,Kavya Singh,Electronics,2,M,2024-07-31
+1079,Aditya Iyer,Mechanical,1,M,2025-07-28
+1080,Nikhil Khan,Civil,4,M,2022-07-27
+1081,Rohan Iyer,Computer Science,2,F,2024-08-08
+1082,Vikram Verma,Electronics,4,F,2022-08-12
+1083,Aarav Patel,Mechanical,2,M,2024-07-15
+1084,Ishaan Iyer,Civil,4,F,2022-07-23
+1085,Diya Menon,Computer Science,2,M,2024-08-01
+1086,Yash Verma,Electronics,3,M,2023-08-04
+1087,Aarav Menon,Mechanical,1,F,2025-08-05
+1088,Priya Menon,Civil,4,F,2022-07-16
+1089,Kavya Verma,Computer Science,4,F,2022-08-06
+1090,Arjun Nair,Electronics,3,M,2023-07-25
+1091,Rahul Rao,Mechanical,4,M,2022-08-04
+1092,Sneha Menon,Civil,3,M,2023-07-21
+1093,Aarav Nair,Computer Science,2,M,2024-07-30
+1094,Sneha Reddy,Electronics,1,M,2025-08-04
+1095,Vikram Iyer,Mechanical,3,F,2023-08-01
+1096,Arjun Bose,Civil,1,M,2025-08-01
+1097,Nikhil Gupta,Computer Science,1,F,2025-08-14
+1098,Rohan Joshi,Electronics,1,M,2025-07-17
+1099,Vikram Patel,Mechanical,3,F,2023-08-01
+1100,Ananya Patel,Civil,2,M,2024-07-20
+1101,Nikhil Khan,Computer Science,3,F,2023-07-19
+1102,Pooja Nair,Electronics,4,F,2022-08-14
+1103,Ishaan Rao,Mechanical,1,F,2025-07-20
+1104,Meera Rao,Civil,2,F,2024-07-15
+1105,Kavya Patel,Computer Science,3,F,2023-07-17
+1106,Neha Khan,Electronics,2,F,2024-08-03
+1107,Tara Reddy,Mechanical,1,F,2025-07-25
+1108,Neha Patel,Civil,4,F,2022-07-23
+1109,Tara Reddy,Computer Science,3,F,2023-07-30
+1110,Rahul Kulkarni,Electronics,3,M,2023-08-05
+1111,Kabir Verma,Mechanical,1,M,2025-07-17
+1112,Priya Iyer,Civil,3,M,2023-07-23
+1113,Zoya Nair,Computer Science,4,M,2022-07-31
+1114,Ishaan Iyer,Electronics,4,F,2022-07-27
+1115,Kavya Verma,Mechanical,4,M,2022-07-22
+1116,Aditya Gupta,Civil,4,F,2022-08-10
+1117,Aditya Menon,Computer Science,2,F,2024-07-29
+1118,Ishaan Bose,Electronics,4,F,2022-07-23
+1119,Rahul Patel,Mechanical,3,F,2023-07-23
+1120,Ishaan Iyer,Civil,3,F,2023-07-22
+1121,Aditya Das,Computer Science,3,M,2023-07-24
+1122,Zoya Joshi,Electronics,4,M,2022-07-15
+1123,Meera Menon,Mechanical,4,M,2022-07-25
+1124,Kavya Menon,Civil,2,M,2024-07-28
+1125,Nikhil Joshi,Computer Science,1,F,2025-08-13
+1126,Zoya Joshi,Electronics,1,M,2025-07-23
+1127,Aditya Menon,Mechanical,2,M,2024-07-25
+1128,Tara Nair,Civil,4,F,2022-08-11
+1129,Priya Menon,Computer Science,1,F,2025-08-08
+1130,Aarav Verma,Electronics,3,F,2023-07-25
+1131,Vikram Singh,Mechanical,4,M,2022-07-31
+1132,Arjun Rao,Civil,1,F,2025-08-01
+1133,Ishaan Khan,Computer Science,1,M,2025-07-19
+1134,Sneha Joshi,Electronics,2,M,2024-08-03
+1135,Pooja Joshi,Mechanical,1,F,2025-08-02
+1136,Vikram Gupta,Civil,1,F,2025-07-15
+1137,Yash Khan,Computer Science,2,M,2024-08-01
+1138,Kavya Nair,Electronics,3,M,2023-07-25
+1139,Ishaan Bose,Mechanical,3,M,2023-07-30
+1140,Tara Iyer,Civil,1,F,2025-08-04
+1141,Kavya Patel,Computer Science,4,M,2022-08-09
+1142,Vikram Rao,Electronics,2,M,2024-07-26
+1143,Aditya Sharma,Mechanical,3,M,2023-07-21
+1144,Yash Menon,Civil,1,M,2025-08-07
+1145,Kabir Bose,Computer Science,4,M,2022-08-03
+1146,Ishaan Nair,Electronics,4,F,2022-07-25
+1147,Sneha Verma,Mechanical,1,M,2025-08-01
+1148,Meera Kulkarni,Civil,4,F,2022-08-04
+1149,Priya Khan,Computer Science,1,M,2025-07-29
+1150,Arjun Verma,Electronics,2,M,2024-07-31
+1151,Zoya Menon,Mechanical,4,M,2022-07-19
+1152,Nikhil Rao,Civil,3,F,2023-08-04
+1153,Zoya Joshi,Computer Science,2,F,2024-08-03
+1154,Aditya Sharma,Electronics,2,F,2024-07-19
+1155,Ananya Bose,Mechanical,3,F,2023-08-09
+1156,Zoya Joshi,Civil,2,M,2024-07-23
+1157,Sneha Iyer,Computer Science,2,F,2024-07-29
+1158,Rohan Gupta,Electronics,2,M,2024-08-05
+1159,Priya Rao,Mechanical,1,M,2025-07-24
+1160,Pooja Iyer,Civil,1,M,2025-07-29
+1161,Yash Sharma,Computer Science,2,M,2024-08-06
+1162,Meera Nair,Electronics,1,M,2025-07-16
+1163,Aarav Iyer,Mechanical,3,F,2023-08-08
+1164,Pooja Khan,Civil,1,F,2025-07-28
+1165,Tara Khan,Computer Science,2,M,2024-07-22
+1166,Pooja Joshi,Electronics,2,M,2024-08-01
+1167,Kavya Joshi,Mechanical,4,F,2022-08-11
+1168,Rahul Kulkarni,Civil,3,M,2023-08-04
+1169,Arjun Joshi,Computer Science,1,F,2025-08-12
+1170,Kabir Nair,Electronics,1,F,2025-08-08
+1171,Arjun Menon,Mechanical,1,M,2025-07-20
+1172,Pooja Sharma,Civil,2,F,2024-08-12
+1173,Kavya Gupta,Computer Science,3,F,2023-07-24
+1174,Rahul Kulkarni,Electronics,4,M,2022-07-31
+1175,Rohan Reddy,Mechanical,3,F,2023-07-30
+1176,Rahul Gupta,Civil,2,F,2024-07-26
+1177,Vikram Menon,Computer Science,3,F,2023-08-08
+1178,Kavya Rao,Electronics,4,F,2022-07-29
+1179,Diya Reddy,Mechanical,3,F,2023-07-24
+1180,Rahul Singh,Civil,1,F,2025-07-31
+1181,Aditya Das,Computer Science,4,M,2022-08-09
+1182,Ishaan Iyer,Electronics,1,F,2025-07-19
+1183,Kabir Iyer,Mechanical,1,M,2025-07-27
+1184,Kabir Verma,Civil,1,F,2025-07-16
+1185,Rohan Patel,Computer Science,3,M,2023-08-06
+1186,Rahul Joshi,Electronics,2,F,2024-07-25
+1187,Yash Bose,Mechanical,4,M,2022-07-22
+1188,Tara Khan,Civil,4,F,2022-07-16
+1189,Meera Singh,Computer Science,4,M,2022-07-21
+1190,Yash Sharma,Electronics,4,M,2022-07-30
+1191,Diya Rao,Mechanical,2,M,2024-07-27
+1192,Priya Bose,Civil,2,M,2024-07-24
+1193,Pooja Bose,Computer Science,3,F,2023-08-08
+1194,Yash Iyer,Electronics,3,F,2023-08-03
+1195,Arjun Singh,Mechanical,3,F,2023-08-09
+1196,Nikhil Verma,Civil,2,F,2024-07-29
+1197,Pooja Gupta,Computer Science,1,F,2025-08-09
+1198,Diya Patel,Electronics,2,F,2024-07-21
+1199,Kavya Reddy,Mechanical,3,M,2023-08-13
+1200,Diya Khan,Civil,2,F,2024-08-13
+1201,Rahul Bose,Civil,1,F,2025-07-26
+1202,Ananya Reddy,Electronics,4,F,2022-07-16
+1203,Aarav Patel,Computer Science,3,F,2023-07-21
+1204,Zoya Iyer,Civil,3,F,2023-07-17
+1205,Kavya Khan,Civil,1,M,2025-08-01
+1206,Diya Sharma,Civil,1,M,2025-07-22
+1207,Neha Iyer,Civil,1,F,2025-07-29
+1208,Arjun Rao,Electronics,2,M,2024-08-01
+1209,Sneha Das,Civil,3,F,2023-08-04
+1210,Rohan Singh,Computer Science,3,F,2023-07-17
+1211,Ishaan Iyer,Civil,2,M,2024-08-05
+1212,Nikhil Reddy,Computer Science,2,M,2024-07-15
+1213,Kavya Reddy,Civil,3,F,2023-07-31
+1214,Nikhil Kulkarni,Mechanical,2,F,2024-07-18
+1215,Zoya Sharma,Mechanical,2,F,2024-07-24
+1216,Rahul Singh,Mechanical,2,F,2024-08-06
+1217,Sneha Singh,Electronics,4,M,2022-08-08
+1218,Aarav Singh,Computer Science,1,M,2025-07-19
+1219,Vikram Sharma,Electronics,4,M,2022-08-14
+1220,Aarav Das,Mechanical,2,F,2024-07-27
+1221,Ishaan Das,Computer Science,2,F,2024-08-10
+1222,Rahul Joshi,Civil,3,M,2023-07-29
+1223,Neha Gupta,Mechanical,4,M,2022-08-07
+1224,Sneha Reddy,Mechanical,3,F,2023-08-10
+1225,Ananya Joshi,Electronics,2,M,2024-08-06
+1226,Meera Khan,Electronics,3,M,2023-07-20
+1227,Zoya Gupta,Electronics,3,F,2023-08-04
+1228,Vikram Nair,Mechanical,4,M,2022-08-06
+1229,Ananya Sharma,Electronics,2,F,2024-07-31
+1230,Pooja Menon,Mechanical,2,F,2024-08-11
+1231,Tara Menon,Civil,4,F,2022-08-04
+1232,Neha Rao,Mechanical,1,M,2025-08-09
+1233,Zoya Kulkarni,Mechanical,4,M,2022-07-22
+1234,Nikhil Rao,Mechanical,3,F,2023-08-08
+1235,Pooja Gupta,Computer Science,4,M,2022-07-31
+1236,Aarav Reddy,Electronics,4,F,2022-07-26
+1237,Neha Gupta,Electronics,2,M,2024-07-30
+1238,Arjun Nair,Electronics,4,F,2022-07-31
+1239,Arjun Gupta,Computer Science,1,F,2025-07-18
+1240,Yash Kulkarni,Civil,3,F,2023-08-04

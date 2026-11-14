@@ -28,7 +28,12 @@ from dataclasses import dataclass
 import sqlglot
 from sqlglot import exp
 
-DIALECT = "sqlite"
+from agentcrew.db import dialect as sql_dialect
+
+#: The default dialect, kept for callers that import it. Every parse below
+#: uses the run's dialect (agentcrew/db/dialect.py), which is "sqlite" unless
+#: a self-hosted run on PostgreSQL set it.
+DIALECT = sql_dialect.SQLITE
 
 #: Expression types that mutate data or schema. Rejected unconditionally in
 #: read-only mode. Kept explicit rather than "anything not SELECT" so that the
@@ -67,8 +72,61 @@ _WRITE_START = re.compile(
 _COMMENTS = re.compile(r"--[^\n]*|/\*.*?\*/", re.DOTALL)
 
 
+#: PostgreSQL functions a read-only SELECT must never call. A read-only
+#: transaction already refuses writes; these are the ways round it or out of
+#: the database: changing session settings for the NEXT transaction on a
+#: pooled connection (set_config('default_transaction_read_only', 'off')),
+#: reading server files, large objects, other servers, other sessions, and
+#: advisory locks or sleeps that hold resources. Matched by name, lower case.
+#: The real guarantee on PostgreSQL is still a read-only role (docs/SELF_HOSTED.md).
+_POSTGRES_DENIED_FUNCTIONS = frozenset({
+    "set_config", "pg_sleep", "pg_sleep_for", "pg_sleep_until",
+    "pg_read_file", "pg_read_binary_file", "pg_ls_dir", "pg_stat_file",
+    "pg_ls_logdir", "pg_ls_waldir", "pg_ls_tmpdir", "pg_ls_archive_statusdir",
+    "lo_import", "lo_export", "lo_get", "lo_put", "lo_from_bytea", "lo_open",
+    "lo_create", "lo_unlink", "dblink", "dblink_exec", "dblink_connect",
+    "dblink_send_query", "pg_terminate_backend", "pg_cancel_backend",
+    "pg_reload_conf", "pg_rotate_logfile", "pg_promote", "pg_switch_wal",
+    "pg_advisory_lock", "pg_advisory_xact_lock", "pg_advisory_lock_shared",
+    "pg_try_advisory_lock", "pg_notify", "txid_current", "nextval", "setval",
+    "query_to_xml", "query_to_xml_and_xmlschema", "table_to_xml",
+    "cursor_to_xml", "database_to_xml",
+})
+
+
+#: Whole families, matched by prefix, so a variant not listed above (the
+#: shared and try_ forms of the advisory locks, say) is refused too. An
+#: advisory lock taken in a read-only transaction outlives it on a pooled
+#: connection and can block the database's real applications.
+_POSTGRES_DENIED_PREFIXES = (
+    "pg_advisory", "pg_try_advisory", "pg_logical_", "pg_file_", "pg_create_",
+    "pg_replication_", "lo_", "dblink",
+)
+
+
 class UnsafeSQLError(Exception):
     """Raised when a statement fails the guard."""
+
+
+def _function_name(node: exp.Expression) -> str:
+    if isinstance(node, exp.Anonymous):
+        return str(node.name or "").lower()
+    try:
+        return node.sql_name().lower()
+    except Exception:  # a function class without a SQL name
+        return ""
+
+
+def _denied_function(tree: exp.Expression, dialect: str) -> str | None:
+    """The first denied function the statement calls, on PostgreSQL."""
+    if dialect != sql_dialect.POSTGRES:
+        return None
+    for node in tree.find_all(exp.Func):
+        name = _function_name(node)
+        if (name in _POSTGRES_DENIED_FUNCTIONS
+                or name.startswith(_POSTGRES_DENIED_PREFIXES)):
+            return name
+    return None
 
 
 def is_write_sql(sql: str) -> bool:
@@ -79,7 +137,7 @@ def is_write_sql(sql: str) -> bool:
     if any(_WRITE_START.match(part) for part in text.split(";")):
         return True
     try:
-        statements = sqlglot.parse(sql, dialect=DIALECT)
+        statements = sqlglot.parse(sql, dialect=sql_dialect.current())
     except Exception:  # sqlglot raises several subclasses
         return False  # no statement opens with a write; the guard rejects the rest
     return any(tree.find(*_MUTATING) is not None
@@ -106,8 +164,9 @@ def fingerprint(sql: str) -> str:
     something new". Falls back to raw-text hashing for unparseable SQL.
     """
     try:
-        tree = sqlglot.parse_one(sql, dialect=DIALECT)
-        canonical = tree.sql(dialect=DIALECT, normalize=True, pretty=False).lower()
+        name = sql_dialect.current()
+        tree = sqlglot.parse_one(sql, dialect=name)
+        canonical = tree.sql(dialect=name, normalize=True, pretty=False).lower()
     except Exception:
         canonical = " ".join(sql.lower().split())
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
@@ -151,8 +210,9 @@ def guard_sql(
     if not sql or not sql.strip():
         raise UnsafeSQLError("Empty statement.")
 
+    dialect = sql_dialect.current()
     try:
-        statements = sqlglot.parse(sql, dialect=DIALECT)
+        statements = sqlglot.parse(sql, dialect=dialect)
     except Exception as exc:  # sqlglot raises several subclasses
         raise UnsafeSQLError(f"Could not parse SQL: {exc}") from exc
 
@@ -190,6 +250,23 @@ def guard_sql(
             name = str(cmd.this or "").strip().lower()
             if name.startswith(_DENIED_COMMAND_PREFIXES):
                 raise UnsafeSQLError(f"Embedded '{name}' command is not permitted.")
+        for select in tree.find_all(exp.Select):
+            # SELECT ... INTO creates a table; FOR UPDATE / FOR SHARE take row
+            # locks. A read-only transaction refuses them, but the guard is
+            # the layer that should say so first.
+            if select.args.get("into") is not None:
+                raise UnsafeSQLError(
+                    "SELECT ... INTO is not permitted: this agent only reads data.")
+            if select.args.get("locks"):
+                raise UnsafeSQLError(
+                    "Row locks (FOR UPDATE / FOR SHARE) are not permitted: this "
+                    "agent only reads data.")
+        denied = _denied_function(tree, dialect)
+        if denied:
+            raise UnsafeSQLError(
+                f"The function {denied}() is not permitted: this agent only reads "
+                "data."
+            )
 
     tables = tuple(
         sorted(
@@ -206,7 +283,7 @@ def guard_sql(
         tree = tree.limit(max_rows)
         limit_injected = True
 
-    final_sql = tree.sql(dialect=DIALECT, pretty=False)
+    final_sql = tree.sql(dialect=dialect, pretty=False)
     return GuardResult(
         sql=final_sql,
         fingerprint=fingerprint(final_sql),

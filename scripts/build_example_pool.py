@@ -39,6 +39,7 @@ from evalkit.grader import Gold, contains_gold  # noqa: E402
 from evalrun.sets import (  # noqa: E402
     ALL_GOLD_FILES,
     ALL_SET_FILES,
+    ROMANIZED_SET_FILES,
     V2_SET_FILES,
     load_questions,
 )
@@ -46,7 +47,8 @@ from evalrun.sets import (  # noqa: E402
 # The pool is part of the agent's context, which is frozen for the 50-question
 # evaluation, so the file is built from the sets that existed when it was fixed. A
 # test rebuilds it with the new holdout included and requires the same pool.
-POOL_SETS = [name for name in ALL_SET_FILES if name not in V2_SET_FILES]
+POOL_SETS = [name for name in ALL_SET_FILES
+             if name not in V2_SET_FILES and name not in ROMANIZED_SET_FILES]
 
 SOURCES = {
     "orig": "eval/questions.yaml",
