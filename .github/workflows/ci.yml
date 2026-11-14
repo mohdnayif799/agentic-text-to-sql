@@ -18,6 +18,24 @@ jobs:
     name: Lint and test
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # A throwaway PostgreSQL for the live tests of self-hosted mode
+    # (tests/test_postgres.py, tests/test_sql_editor.py): the read-only
+    # session, the statement timeout, and writes refused through the app's
+    # own layers. It exists only for this job, holds no data and is reachable
+    # only from the runner, so its password is not a secret. The role CAN
+    # write, on purpose: the tests prove the app refuses, not the role.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - uses: actions/checkout@v7
 
@@ -39,8 +57,12 @@ jobs:
 
       # The demo database is built on demand by the db_path fixture in
       # tests/conftest.py, so no separate build step is needed.
+      # With the URL set, the live PostgreSQL tests run instead of being
+      # skipped; -rs lists any test that was still skipped.
       - name: Test
-        run: pytest -q
+        env:
+          AGENTCREW_TEST_POSTGRES_URL: postgresql://postgres:test@localhost:5432/postgres
+        run: pytest -q -rs
 
   docker:
     name: Build and smoke-test the image
