@@ -32,8 +32,8 @@ def editor(at: Any) -> Any:
 
 
 def run_in_editor(at: Any, sql: str) -> Any:
-    at.text_area(key="sql_text_0").set_value(sql)
-    at.button(key="sql_run_0").click()
+    at.text_area(key="sql_text_c1_0").set_value(sql)
+    at.button(key="sql_run_c1_0").click()
     return at.run()
 
 
@@ -46,7 +46,7 @@ class TestSqlEditorUi:
         at = ask(start_app(), "q")
         box = editor(at)
         assert box.proto.expanded is False
-        assert at.text_area(key="sql_text_0").value == "SELECT region, n FROM t"
+        assert at.text_area(key="sql_text_c1_0").value == "SELECT region, n FROM t"
 
     def test_runs_without_a_model_call_and_counts(self, agent: FakeAgent) -> None:
         at = ask(start_app(), "q")

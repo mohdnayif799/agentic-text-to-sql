@@ -39,7 +39,7 @@ from streamlit.delta_generator import DeltaGenerator
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from agentcrew import data_panel, runlog, service  # noqa: E402
+from agentcrew import chats, data_panel, runlog, service  # noqa: E402
 from agentcrew.archs.app_runner import AppRun  # noqa: E402
 from agentcrew.config import Settings  # noqa: E402
 from agentcrew.datasets.source import DataSource  # noqa: E402
@@ -166,6 +166,11 @@ p.note {
     border-radius: 1.25rem;
     font-size: 0.875rem;
     text-align: left;
+}
+/* The chat list: one left-aligned button per chat, the open one primary. */
+.st-key-chat_list button {
+    text-align: left;
+    justify-content: flex-start;
 }
 /* The original agent's trace is an HTML table (st.table), where CSS can set
    tabular figures. st.dataframe draws on a canvas, where it cannot. */
@@ -408,11 +413,11 @@ def touch(state: MutableMapping[str, Any], *, now: float) -> None:
     state[LAST_ACTIVITY] = now
 
 
-def end_session(state: MutableMapping[str, Any]) -> None:
-    """Forget the conversation. The demo run count survives on purpose, as it
-    does for 'New chat'."""
-    state["turns"] = []
+def end_session(state: MutableMapping[str, Any]) -> list[dict[str, Any]]:
+    """Forget every chat and return them. The demo run count and the other
+    session limits survive on purpose, as they do for 'New chat'."""
     state["pending"] = None
+    return chats.reset(state)
 
 
 def idle_guard_html(timeout_seconds: int) -> str:
@@ -773,29 +778,42 @@ def _session_sql_cap() -> int:
         return Settings.model_fields["session_sql_run_cap"].default
 
 
+def editor_key(name: str, slot: int) -> str:
+    """A widget key unique to this chat's answer `slot`: a widget keyed by
+    the slot alone would hand one chat's edited SQL to the next chat."""
+    return f"{name}_{chats.current(st.session_state)['id']}_{slot}"
+
+
 def render_sql_editor(turn: Turn, slot: int, source: DataSource | None) -> None:
     """A collapsed expander under the answer, prefilled with its final SQL.
     Runs go through tools.execute_readonly_sql (agentcrew/sql_editor.py):
-    the agent's guard, LIMIT, row cap and timeout, never a model call."""
+    the agent's guard, LIMIT, row cap and timeout, never a model call.
+
+    `source` is the chat's own data source, so an editor under an old answer
+    runs on that chat's dataset, or shows the SQL read-only when the dataset
+    is gone (removed, replaced or expired). The last run's SQL and result are
+    kept in the chat, so switching away and back shows them again."""
     sql = final_sql(turn)
     if sql is None:
         return
     # Keyed, with its open state tracked: otherwise the rerun a Run click
     # triggers draws it as a new element, collapsed, hiding the result.
-    with st.expander(SQL_EDITOR_LABEL, expanded=False, key=f"sql_editor_{slot}",
-                     on_change="rerun"):
+    with st.expander(SQL_EDITOR_LABEL, expanded=False,
+                     key=editor_key("sql_editor", slot), on_change="rerun"):
         if turn.source_id != source_id(source):
             note(SQL_OTHER_SOURCE)
             st.code(sql, language="sql", wrap_lines=True)
             return
-        text = st.text_area("SQL", value=sql, key=f"sql_text_{slot}", height=160,
+        results = chats.current(st.session_state)[chats.SQL_RESULTS]
+        last = results.get(slot)
+        text = st.text_area("SQL", value=last[0] if last else sql,
+                            key=editor_key("sql_text", slot), height=160,
                             label_visibility="collapsed")
-        result_key = f"sql_result_{slot}"
-        if st.button("Run", key=f"sql_run_{slot}"):
-            st.session_state[result_key] = run_editor_sql(text, source,
-                                                          st.session_state)
-        if result_key in st.session_state:
-            render_editor_run(*st.session_state[result_key])
+        if st.button("Run", key=editor_key("sql_run", slot)):
+            last = (text, *run_editor_sql(text, source, st.session_state))
+            results[slot] = last
+        if last is not None:
+            render_editor_run(last[1], last[2])
         cap = _session_sql_cap()
         left = runs_left(st.session_state, cap)
         if left is not None:
@@ -826,10 +844,72 @@ def _queue_question(question: str) -> None:
     st.session_state.pending = question
 
 
+CHAT_NOTICE = "chat_notice"  # session key: a notice shown once, next run
+DELETE_CHAT = "Delete this chat"
+
+
+def _forget_chats(dropped: list[dict[str, Any]]) -> None:
+    """Delete the uploaded data of chats that were dropped. A failure is
+    logged: the store's sweeper deletes the data at its expiry regardless."""
+    if not any(chat.get(chats.DATASET_ID) for chat in dropped):
+        return
+    try:
+        data_panel.remove_chat_data(st.session_state, dropped, Settings())
+    except Exception as exc:
+        log.warning("could not delete a dropped chat's data: %s",
+                    type(exc).__name__)
+
+
 def _new_chat() -> None:
-    """Clear the conversation. The demo run count deliberately survives."""
-    st.session_state.turns = []
+    """Open a new chat; the one on screen stays in the list. The session's
+    limits (demo runs, SQL runs, uploads) are the session's, not the chat's,
+    so they carry over unchanged."""
+    dropped = chats.start_new(st.session_state)
     st.session_state.pending = None
+    notice = chats.eviction_notice(dropped)
+    if notice:
+        st.session_state[CHAT_NOTICE] = notice
+    _forget_chats(dropped)
+
+
+def _switch_chat(chat_id: str) -> None:
+    st.session_state.pending = None
+    chats.switch(st.session_state, chat_id)
+
+
+def _delete_chat() -> None:
+    """Delete the chat on screen, with its uploaded data."""
+    st.session_state.pending = None
+    gone = chats.delete(st.session_state,
+                        chats.current(st.session_state)["id"])
+    if gone is not None:
+        _forget_chats([gone])
+
+
+def markdown_safe(text: str) -> str:
+    """Text for a widget label, which Streamlit reads as markdown: every
+    markdown character is escaped, so a question shows as typed."""
+    return re.sub(r"([\\`*_{}\[\]()#+\-.!|<>~$:])", r"\\\1", text)
+
+
+def render_chat_list(slot: DeltaGenerator, asking: str | None = None) -> None:
+    """The session's chats in the sidebar, newest first, the open one
+    highlighted; a click opens one. Drawn once the question of this run is
+    known and before the agent runs, so the list stays visible during a run
+    and a new chat is already titled with the question being asked."""
+    on_screen = chats.current(st.session_state)["id"]
+    with slot.container():
+        note(f"Chats in this session (up to {chats.MAX_CHATS})")
+        with st.container(key="chat_list", gap="small"):
+            for chat in reversed(chats.all_chats(st.session_state)):
+                st.button(markdown_safe(chats.title(
+                              chat, asking if chat["id"] == on_screen else None)),
+                          key=f"chat_{chat['id']}", on_click=_switch_chat,
+                          args=(chat["id"],), width="stretch",
+                          type="primary" if chat["id"] == on_screen
+                          else "secondary")
+        st.button(DELETE_CHAT, key="delete_chat", on_click=_delete_chat,
+                  width="stretch")
 
 
 def render_examples() -> None:
@@ -848,8 +928,9 @@ def render_examples() -> None:
 
 def render_sidebar(
     default_provider: str, default_model: str
-) -> tuple[RunChoice, DeltaGenerator]:
-    """Build the sidebar. Returns the run settings and the counter's slot."""
+) -> tuple[RunChoice, DeltaGenerator, DeltaGenerator]:
+    """Build the sidebar. Returns the run settings, the counter's slot and
+    the chat list's slot."""
     with st.sidebar:
         st.subheader("About")
         st.markdown(ABOUT)
@@ -857,6 +938,9 @@ def render_sidebar(
         # count shown is never one behind.
         counter = st.empty()
         st.button("New chat", key="new_chat", on_click=_new_chat, width="stretch")
+        # Filled by render_chat_list() once this run's question is known, so
+        # a chat's title is its first question as soon as it is asked.
+        chat_slot = st.empty()
 
         with st.expander("Use your own API key"):
             provider = st.selectbox(
@@ -928,7 +1012,7 @@ def render_sidebar(
         max_attempts=max_attempts,
         max_steps=max_steps,
     )
-    return run, counter
+    return run, counter, chat_slot
 
 
 def show_demo_counter(slot: DeltaGenerator, run: RunChoice) -> None:
@@ -960,7 +1044,6 @@ def main() -> None:
     # 1,400 px on a desktop screen.
     st.set_page_config(page_title="AgentCrew: Text-to-SQL Agent", layout="centered")
     st.markdown(PAGE_CSS, unsafe_allow_html=True)
-    st.session_state.setdefault("turns", [])
     st.session_state.setdefault("pending", None)
 
     # Idle guard, server half: every script run is an interaction, so a run
@@ -977,8 +1060,9 @@ def main() -> None:
             log.warning("could not drop an idle session's data: %s",
                         type(exc).__name__)
     touch(st.session_state, now=now)
+    chat = chats.current(st.session_state)
 
-    run, counter = render_sidebar(*configured_defaults())
+    run, counter, chat_slot = render_sidebar(*configured_defaults())
     source = render_data_panel(run)
     show_demo_counter(counter, run)
 
@@ -991,6 +1075,9 @@ def main() -> None:
     )
     if expired:
         st.warning(IDLE_MESSAGE)
+    notice = st.session_state.pop(CHAT_NOTICE, None)
+    if notice:
+        st.info(notice)
     if source is not None:
         note(f"Answering from {source.label}. The sample questions below the "
              "chat do not apply to it.")
@@ -1006,8 +1093,9 @@ def main() -> None:
                               if source is None else "Ask a question about your data")
     question = submitted or st.session_state.pending
     st.session_state.pending = None
+    render_chat_list(chat_slot, asking=question)
 
-    for slot, turn in enumerate(st.session_state.turns):
+    for slot, turn in enumerate(chat[chats.TURNS]):
         render_turn(turn, slot, source)
 
     if question:
@@ -1040,10 +1128,10 @@ def main() -> None:
             turn = replace(turn, source_id=source_id(source))
             progress_slot.empty()
             # The same slot it gets from the loop above on later reruns.
-            render_reply(turn, len(st.session_state.turns), source)
-        st.session_state.turns = [*st.session_state.turns, turn]
+            render_reply(turn, len(chat[chats.TURNS]), source)
+        chat[chats.TURNS] = [*chat[chats.TURNS], turn]
         show_demo_counter(counter, run)
-    elif not st.session_state.turns and source is None:
+    elif not chat[chats.TURNS] and source is None:
         render_examples()
 
 

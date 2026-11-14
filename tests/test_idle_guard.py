@@ -21,7 +21,7 @@ import time
 from pathlib import Path
 
 import pytest
-from ui_harness import FakeAgent, ask, everything_rendered, start_app
+from ui_harness import FakeAgent, ask, chat_turns, everything_rendered, start_app
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -71,11 +71,11 @@ class TestInTheApp:
         at.text_input(key="api_key_anthropic").set_value("sk-ant-own").run()
         at = ask(at, "How many customers?")
         assert fake_agent.questions == ["How many customers?"]
-        assert len(at.session_state["turns"]) == 1
+        assert len(chat_turns(at)) == 1
 
         at.session_state[app.LAST_ACTIVITY] = time.monotonic() - 601
         at.run()
-        assert at.session_state["turns"] == []
+        assert chat_turns(at) == []
         assert any(app.IDLE_MESSAGE in w.value for w in at.warning)
         assert fake_agent.questions == ["How many customers?"], "no run for stale state"
         # The session is usable again without a reload.
@@ -86,7 +86,7 @@ class TestInTheApp:
         at.text_input(key="api_key_anthropic").set_value("sk-ant-own").run()
         at = ask(at, "q")
         at.run()
-        assert len(at.session_state["turns"]) == 1
+        assert len(chat_turns(at)) == 1
         assert not any(app.IDLE_MESSAGE in w.value for w in at.warning)
 
     def test_browser_guard_is_rendered_with_the_timeout(self) -> None:

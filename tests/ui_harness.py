@@ -14,6 +14,7 @@ from typing import Any
 
 from streamlit.testing.v1 import AppTest
 
+from agentcrew import chats
 from agentcrew.archs import ArchOutcome
 from agentcrew.archs.app_runner import AppRun
 from agentcrew.archs.outcome import RepairEvent
@@ -29,6 +30,17 @@ OWN_KEY = "AQ.a-visitors-own-key-0123456789"
 
 def start_app() -> AppTest:
     return AppTest.from_file(APP, default_timeout=60).run()
+
+
+def open_chat(at: AppTest) -> dict[str, Any]:
+    """The chat on screen, as agentcrew/chats.py keeps it in session state."""
+    state = at.session_state
+    wanted = state[chats.CURRENT]
+    return next(c for c in state[chats.CHATS] if c["id"] == wanted)
+
+
+def chat_turns(at: AppTest) -> list[Any]:
+    return open_chat(at)[chats.TURNS]
 
 
 def ask(at: AppTest, question: str) -> AppTest:
