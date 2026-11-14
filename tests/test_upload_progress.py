@@ -87,7 +87,7 @@ class TestInTheApp:
                 name: str, data: bytes) -> Any:
         monkeypatch.setenv("AGENTCREW_UPLOAD_DIR", str(tmp_path / "uploads"))
         at = start_app()
-        at.radio(key=data_panel.DATA_CHOICE).set_value(data_panel.UPLOAD).run()
+        at.radio(key=f"{data_panel.DATA_CHOICE}_c1").set_value(data_panel.UPLOAD).run()
         at.sidebar.file_uploader[0].set_value((name, data, "application/x")).run()
         return at
 

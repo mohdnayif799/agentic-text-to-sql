@@ -5,13 +5,17 @@ which knows nothing about Streamlit. This module owns the session's side of
 bring-your-own-data: which source the session answers from, the upload
 widget, the description and join editors, and deleting the session's data.
 
-Session state it uses (all per browser session):
+State it uses. The functions take a mapping: in the app it is
+chats.view(st.session_state), which keeps the per-chat keys in the chat on
+screen and the rest in the session (agentcrew/chats.py).
+    Per session (shared by every chat):
     owner          a random id the store binds this session's datasets to
-    dataset_id     the session's current upload, if any
+    uploads_used   uploads this session, for the per-session limit
+    Per chat:
+    dataset_id     the chat's upload, if any
     upload_seen    the uploader's file id last handled, so a rerun does not
                    ingest the same file twice
-    uploads_used   uploads this session, for the per-session limit
-    data_choice    which source the radio selects
+    data_choice    which source the chat's radio selects
 
 A model call to draft descriptions is made by a callback app.py passes in,
 because app.py decides which key pays and charges the caps.
@@ -27,10 +31,11 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
+from agentcrew import chats
 from agentcrew.config import Settings
 from agentcrew.datasets.describe import Notes
 from agentcrew.datasets.errors import UploadError
-from agentcrew.datasets.ingest import EXTENSIONS, ingest
+from agentcrew.datasets.ingest import EXTENSIONS, STORE_FULL, ingest
 from agentcrew.datasets.joins import Join, check_join
 from agentcrew.datasets.source import (
     DataSource,
@@ -42,10 +47,10 @@ from agentcrew.datasets.store import Dataset, DatasetStore
 from agentcrew.tools import ToolContext
 
 OWNER = "owner"
-DATASET_ID = "dataset_id"
-UPLOAD_SEEN = "upload_seen"
 UPLOADS_USED = "uploads_used"
-DATA_CHOICE = "data_choice"
+DATASET_ID = chats.DATASET_ID
+UPLOAD_SEEN = chats.UPLOAD_SEEN
+DATA_CHOICE = chats.DATA_CHOICE
 
 UPLOADS_PER_SESSION = 3
 
@@ -69,8 +74,9 @@ PRIVACY_NOTE = (
     "40 characters. All of it goes to the model provider: Google Gemini on the "
     "demo key, or the provider of your own key.\n\n"
     "**What is kept.** Your file is converted and held in this server's memory "
-    "for this session only. It is deleted when you remove it, upload another, "
-    "leave it unused for {minutes} minutes, or the session ends. It is never "
+    "for this chat only. It is deleted when you remove it, upload another, "
+    "delete the chat, leave it unused for {minutes} minutes, or the session "
+    "ends. It is never "
     "written to a log, a bucket or a database.\n\n"
     "**The public demo is not for sensitive or personal data.**"
 )
@@ -85,6 +91,10 @@ UPLOAD_LIMIT_MESSAGE = (
 )
 DAILY_UPLOAD_MESSAGE = (
     "The demo has reached its daily limit on uploads. Try again tomorrow."
+)
+STORE_FULL_OTHER_CHATS = (
+    " Your other chats hold uploaded data too: deleting one of them frees "
+    "room."
 )
 DESCRIPTIONS_FAILED = (
     "Descriptions could not be drafted right now, so they are empty. You can "
@@ -123,10 +133,29 @@ def current_dataset(state: MutableMapping[str, Any],
 
 
 def drop_session_data(state: MutableMapping[str, Any], settings: Settings) -> None:
-    """Delete everything this session uploaded (idle timeout, remove button)."""
+    """Delete everything this session uploaded, in every chat (idle timeout)."""
     if OWNER in state:
         store(settings).remove_owner(state[OWNER])
-    state[DATASET_ID] = None
+
+
+def remove_dataset(state: MutableMapping[str, Any], dataset_id: str | None,
+                   settings: Settings) -> bool:
+    """Delete one dataset, only if this session owns it."""
+    if not dataset_id or OWNER not in state:
+        return False
+    the_store = store(settings)
+    if the_store.get(dataset_id, state[OWNER]) is None:
+        return False
+    return the_store.remove(dataset_id)
+
+
+def remove_chat_data(state: MutableMapping[str, Any],
+                     dropped: list[dict[str, Any]], settings: Settings) -> None:
+    """Delete the datasets of chats that were deleted or pushed out by the
+    chat limit. `state` is the session (any mapping holding its owner)."""
+    for chat in dropped:
+        remove_dataset(state, chat.get(DATASET_ID), settings)
+        chat[DATASET_ID] = None
 
 
 def choices(settings: Settings) -> list[str]:
@@ -159,10 +188,12 @@ def handle_upload(files: list[tuple[str, bytes]], *,
     a notice is information (descriptions could not be drafted), an error
     means nothing was stored.
 
-    A session has one dataset. The new file is checked and converted first;
-    the previous dataset is deleted only once the new one is stored, so a
-    refused upload (a wrong file type, a file over a limit, a full store)
-    leaves the data the visitor was working with exactly as it was.
+    A chat has one dataset. The new file is checked and converted first;
+    the chat's previous dataset is deleted only once the new one is stored,
+    so a refused upload (a wrong file type, a file over a limit, a full
+    store) leaves the data the visitor was working with exactly as it was.
+    Other chats' datasets are never touched: a full store refuses the
+    upload, it does not make room by deleting someone's data.
 
     `reserve_upload` checks the daily upload cap and counts this upload in
     one step (DailyCap.reserve_upload), so two sessions uploading at the same
@@ -177,18 +208,20 @@ def handle_upload(files: list[tuple[str, bytes]], *,
     try:
         owner = session_owner(state)
         the_store = store(settings)
-        previous = [d.id for d in the_store.owned_by(owner)]
+        previous = state.get(DATASET_ID)
         dataset = ingest(the_store, owner=owner, files=files, settings=settings,
                          progress=progress)
     except UploadError as exc:
         release_upload()
-        return None, None, str(exc)
+        message = str(exc)
+        if message == STORE_FULL and _holds_other_data(state, settings):
+            message += STORE_FULL_OTHER_CHATS
+        return None, None, message
     except BaseException:
         release_upload()
         raise
-    # Only now, with the new dataset stored: one dataset per session.
-    for old in previous:
-        the_store.remove(old)
+    # Only now, with the new dataset stored: one dataset per chat.
+    remove_dataset(state, previous, settings)
     state[DATASET_ID] = dataset.id
     state[UPLOADS_USED] = state.get(UPLOADS_USED, 0) + 1
     if progress is not None:
@@ -204,6 +237,15 @@ def handle_upload(files: list[tuple[str, bytes]], *,
     if notes is not None:
         dataset = the_store.update(dataset.id, owner, notes=notes) or dataset
     return dataset, notice, None
+
+
+def _holds_other_data(state: MutableMapping[str, Any], settings: Settings) -> bool:
+    """Whether this session has data stored besides the current chat's."""
+    try:
+        mine = state.get(DATASET_ID)
+        return any(d.id != mine for d in store(settings).owned_by(state[OWNER]))
+    except Exception:
+        return False
 
 
 def edited_joins(frame: pd.DataFrame, catalog: Any,
@@ -262,14 +304,21 @@ def _editors(source: DataSource, *, key: str) -> tuple[Notes, tuple[Join, ...],
 def render(*, settings: Settings, describe: Describer,
            reserve_upload: Callable[[], bool], release_upload: Callable[[], None],
            ) -> DataSource | None:
-    """Draw the panel in the sidebar; return the session's source."""
-    state = st.session_state
+    """Draw the panel in the sidebar; return the source of the chat on
+    screen. Its widgets are keyed by the chat id: each chat has its own radio
+    and uploader, so switching chats never carries a choice or a file over."""
+    state = chats.view(st.session_state)
+    chat_id = chats.current(st.session_state)["id"]
     options = choices(settings)
+    saved = state.get(DATA_CHOICE)
     with st.sidebar, st.expander(EXPANDER):
-        choice = st.radio("Answer questions from", options, key=DATA_CHOICE)
+        choice = st.radio("Answer questions from", options,
+                          index=options.index(saved) if saved in options else 0,
+                          key=f"{DATA_CHOICE}_{chat_id}")
+        state[DATA_CHOICE] = choice
         if choice == UPLOAD:
             _render_upload(state, settings, describe, reserve_upload,
-                           release_upload)
+                           release_upload, chat_id)
         elif choice == DATABASE:
             _render_database(settings, describe)
     return current_source(state, settings)
@@ -277,14 +326,15 @@ def render(*, settings: Settings, describe: Describer,
 
 def _render_upload(state: MutableMapping[str, Any], settings: Settings,
                    describe: Describer, reserve_upload: Callable[[], bool],
-                   release_upload: Callable[[], None]) -> None:
+                   release_upload: Callable[[], None], chat_id: str) -> None:
     minutes = max(1, settings.dataset_ttl_seconds // 60)
     st.markdown(PRIVACY_NOTE.format(minutes=minutes))
     st.caption(f"One or more CSV files (one table each) or a SQLite file, up to "
                f"{settings.max_upload_mb:g} MB in all; or an Excel workbook (.xlsx, "
                f"one table per sheet) up to {settings.max_excel_upload_mb:g} MB.")
     uploaded = st.file_uploader("CSV, Excel or SQLite", type=list(EXTENSIONS),
-                                key="upload", accept_multiple_files=True)
+                                key=f"upload_{chat_id}",
+                                accept_multiple_files=True)
     seen = tuple(sorted(f.file_id for f in uploaded or []))
     if seen and state.get(UPLOAD_SEEN) != seen:
         state[UPLOAD_SEEN] = seen
@@ -316,8 +366,9 @@ def _render_upload(state: MutableMapping[str, Any], settings: Settings,
         for problem in problems:
             st.warning(problem)
         st.rerun()
-    if st.button("Remove my data", key="remove_data"):
-        drop_session_data(state, settings)
+    if st.button("Remove my data", key=f"remove_data_{chat_id}"):
+        remove_dataset(state, dataset.id, settings)
+        state[DATASET_ID] = None
         st.rerun()
 
 

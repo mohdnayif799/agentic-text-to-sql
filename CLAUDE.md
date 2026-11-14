@@ -2,16 +2,16 @@
 
 Text-to-SQL router agent (Streamlit, SQLite, Gemini). See README.md and docs/.
 
-## Current work: v3-production
+## Current work: v3.1
 
-Branch `v3-production`. Phases 1 to 6 are done and pushed (Phase 4, the REST
-API, is `60da5cb`; the upload-limit race fix is `8c3e10f`; Phases 5 and 6 are
-the four commits after it). PR 13 to `main` stays a draft until the owner
-decides; CI runs on every push to it (it does not deploy; only a merge to
-`main` does).
+Version 3 (branch `v3-production`, Phases 1 to 6) was merged to `main` as PR
+13 (merge commit `7a7600d`) on 2026-11-14 and deployed (revision
+`agentcrew-00016-kw5`). Version 3.1 is on branch `v3.1`, cut from that
+merge: chat history, a data source per chat, and the opt-in CD step for the
+API. CI runs on every push to a PR; only a merge to `main` deploys.
 
 ### Ground rules
-- Never push to `main`: CD auto-deploys it to the live demo. Work on `v3-production`.
+- Never push to `main`: CD auto-deploys it to the live demo. Work on a branch (now `v3.1`).
 - Ask before every commit and every push.
 - Extend existing modules. Do not rewrite the router agent or anything that works.
 - Every SQL path (agent, SQL editor, API) goes through the same layers:
@@ -136,14 +136,46 @@ decides; CI runs on every push to it (it does not deploy; only a merge to
     question on each, the SQL editor (edit, run, DELETE refused), and refused
     uploads that left the previous dataset in place.
   - README rewritten for version 3 with every score scoped.
-- 1778 tests pass offline; 6 more need a live PostgreSQL server (run in
+- 1803 tests pass offline; 6 more need a live PostgreSQL server (run in
   CI) and 2 need a local evaluation cache. Decisions D16 to D29 are in
   docs/DECISIONS.md.
 
+- Version 3.1 (branch `v3.1`, decision D30):
+  - Chats (`agentcrew/chats.py`): "New chat" keeps the old chat in a list in
+    the sidebar (newest first, the open one primary, "Untitled chat" before
+    its first question); a click switches back with its turns, answers,
+    tables and SQL editors (the editor's last SQL and result live in the
+    chat). Up to 10 chats per session; an 11th removes the oldest with a
+    notice. "Delete this chat" deletes it and its dataset. Chats live in the
+    session only (reload or idle guard ends them; `app.end_session` resets
+    them). The list is drawn once the run's question is known, before the
+    agent runs, so it stays visible during a run.
+  - Per chat: turns, data source choice, dataset id, uploader file id, SQL
+    editor results (`chats.CHAT_KEYS`). Per session: everything else, so
+    the 5 demo runs, the SQL run cap, the 3 uploads and the owner id never
+    reset with a new chat. `chats.ChatState` (`chats.view`) routes each key;
+    data_panel works on that view. Widgets in a chat are keyed by the chat
+    id (`c1`, `c2`, ..., never reused in a session).
+  - Data per chat: a new chat starts on the default source, never on
+    another chat's upload; switching back restores the chat's dataset; an
+    upload replaces only its own chat's dataset; a full store refuses with
+    a message (plus a hint when the session's other chats hold data), never
+    evicting. Each dataset still expires 15 minutes after its last use.
+  - tests/test_chats.py: the chat list, the routing, and the app through
+    AppTest (histories kept, dataset restored, new chat on NorthStar,
+    editors on their own chat's source or read-only once the data is gone,
+    delete removes the dataset, the 10-chat limit, a full store, and the
+    demo, SQL and upload limits driven across new chats).
+  - CI: the opt-in Phase 4 CD step is applied as proposed: when the
+    repository variable `DEPLOY_API` is `true`, the deploy job runs
+    `gcloud run services update agentcrew-api --image=<same digest>` and
+    checks its `/v1/health`. It never creates the service.
+
 ### Remaining plan
-- After the PR is merged to `main`: the owner creates the `agentcrew-api`
-  Cloud Run service and the `agentcrew-api-keys` secret by hand
-  (docs/API.md). The opt-in CD step for the API is still only a proposal.
+- After v3.1 is merged and deployed: create the `agentcrew-api-keys` secret
+  and the `agentcrew-api` service (docs/API.md), give `github-deployer` the
+  same role on it as on `agentcrew`, set `DEPLOY_API=true`, and rerun the
+  main workflow so CD deploys both services.
 
 ### Open items
 - `st.components.v1.html` (idle guard) is deprecated; move to `st.iframe` before a Streamlit upgrade.
@@ -158,7 +190,12 @@ decides; CI runs on every push to it (it does not deploy; only a merge to
   small cache entry behind; process-wide locks are held while a new source
   is profiled; the model name is an alias, not a dated version.
 - The romanized test covers single-query questions only, 10 per language.
+- pytest warns (PytestRemovedIn10Warning) that the class-scoped `seeded`
+  fixture in `tests/test_postgres.py::TestLiveServer` is an instance method;
+  make it a `@classmethod` (or module-scoped) before upgrading to pytest 10.
 - The API's rate limiter, caps and datasets are in memory: the service must
   stay at one instance and one worker.
 - app.py still re-exports `_log_run` and `trace_content_enabled` from the
   service because older tests reach them there.
+- A dataset in a chat left unopened for 15 minutes expires (the store's
+  per-dataset TTL); its SQL editors then show the SQL read-only.

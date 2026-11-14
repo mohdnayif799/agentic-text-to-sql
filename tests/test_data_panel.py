@@ -10,7 +10,14 @@ from typing import Any
 
 import pandas as pd
 import pytest
-from ui_harness import OWN_KEY, FakeAgent, ask, everything_rendered, start_app
+from ui_harness import (
+    OWN_KEY,
+    FakeAgent,
+    ask,
+    everything_rendered,
+    open_chat,
+    start_app,
+)
 
 from agentcrew import caps, data_panel
 from agentcrew.archs import answer as answer_module
@@ -48,8 +55,13 @@ def model(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     return systems
 
 
+def choice_radio(at):
+    """The data source radio of the chat on screen (keyed by the chat id)."""
+    return at.radio(key=f"{data_panel.DATA_CHOICE}_{open_chat(at)['id']}")
+
+
 def choose_upload(at):
-    at.radio(key=data_panel.DATA_CHOICE).set_value(data_panel.UPLOAD).run()
+    choice_radio(at).set_value(data_panel.UPLOAD).run()
     return at
 
 
@@ -67,9 +79,9 @@ def store_of(at) -> Any:
 class TestPanel:
     def test_offers_northstar_and_upload(self, uploads: Path) -> None:
         at = start_app()
-        assert at.radio(key=data_panel.DATA_CHOICE).options == [
+        assert choice_radio(at).options == [
             data_panel.NORTHSTAR, data_panel.UPLOAD]
-        assert at.radio(key=data_panel.DATA_CHOICE).value == data_panel.NORTHSTAR
+        assert choice_radio(at).value == data_panel.NORTHSTAR
 
     def test_upload_choice_shows_the_privacy_note(self, uploads: Path) -> None:
         at = choose_upload(start_app())
@@ -167,18 +179,18 @@ class TestUpload:
         self, uploads: Path, demo_env: None, fake_agent: FakeAgent, model: list[str]
     ) -> None:
         at = upload(choose_upload(start_app()))
-        first = at.session_state[data_panel.DATASET_ID]
+        first = open_chat(at)[data_panel.DATASET_ID]
         at = upload(at, name="other.csv", data=b"a,b\n1,2\n")
-        second = at.session_state[data_panel.DATASET_ID]
+        second = open_chat(at)[data_panel.DATASET_ID]
         assert first != second and not (uploads / first).exists()
         assert len(store_of(at).owned_by(at.session_state[data_panel.OWNER])) == 1
 
     def test_remove_button(self, uploads: Path, demo_env: None,
                            fake_agent: FakeAgent, model: list[str]) -> None:
         at = upload(choose_upload(start_app()))
-        dataset_id = at.session_state[data_panel.DATASET_ID]
-        at.button(key="remove_data").click().run()
-        assert at.session_state[data_panel.DATASET_ID] is None
+        dataset_id = open_chat(at)[data_panel.DATASET_ID]
+        at.button(key=f"remove_data_{open_chat(at)['id']}").click().run()
+        assert open_chat(at)[data_panel.DATASET_ID] is None
         assert not (uploads / dataset_id).exists()
 
     def test_idle_session_deletes_its_data(self, uploads: Path, demo_env: None,
@@ -189,7 +201,7 @@ class TestUpload:
         import app as app_module
 
         at = upload(choose_upload(start_app()))
-        dataset_id = at.session_state[data_panel.DATASET_ID]
+        dataset_id = open_chat(at)[data_panel.DATASET_ID]
         at.session_state[app_module.LAST_ACTIVITY] = time.monotonic() - 601
         at.run()
         assert not (uploads / dataset_id).exists()
@@ -198,9 +210,9 @@ class TestUpload:
                                             fake_agent: FakeAgent,
                                             model: list[str]) -> None:
         first = upload(choose_upload(start_app()))
-        dataset_id = first.session_state[data_panel.DATASET_ID]
+        dataset_id = open_chat(first)[data_panel.DATASET_ID]
         other = choose_upload(start_app())
-        other.session_state[data_panel.DATASET_ID] = dataset_id  # a guessed id
+        open_chat(other)[data_panel.DATASET_ID] = dataset_id  # a guessed id
         other = ask(other, "q")
         assert fake_agent.sources_seen[-1] is None, "falls back, never borrows"
 

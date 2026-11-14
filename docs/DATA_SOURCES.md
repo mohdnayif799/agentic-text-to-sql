@@ -68,13 +68,25 @@ schema alike. Join inference runs under the same statement timeout as the
 agent's queries and a 20-second budget in all.
 
 **Replacing a dataset.** A new upload is checked and converted first. The
-session's previous dataset is deleted only once the new one is stored, so a
+chat's previous dataset is deleted only once the new one is stored, so a
 refused upload leaves the data you were working with untouched.
 
-**Lifetime.** One dataset per session. It is deleted when the visitor
-removes it, uploads another, leaves it unused for 15 minutes
-(`AGENTCREW_DATASET_TTL_SECONDS`), or the session goes idle (the idle guard);
-and with everything else when the instance scales to zero. It is never
+**One dataset per chat.** Each chat in the sidebar owns its data source
+(agentcrew/chats.py). A new chat starts on the default (NorthStar, or the
+company database in self-hosted mode), never on a dataset uploaded in
+another chat; switching back to a chat restores its own dataset, and the SQL
+editor under an old answer runs on that chat's dataset, or shows the SQL
+read-only once the dataset is gone. The limits stay per session: 3 uploads
+per session whatever the number of chats, and the 150 MB store for every
+session together. When the store is full a new upload is refused with a
+message; another chat's dataset is never evicted to make room.
+
+**Lifetime.** It is deleted when the visitor removes it, uploads another in
+the same chat, deletes the chat (or it is pushed out by the 10-chat limit),
+leaves it unused for 15 minutes (`AGENTCREW_DATASET_TTL_SECONDS`, counted
+per dataset, so a dataset in a chat you have not opened for 15 minutes
+expires), or the session goes idle (the idle guard); and with everything
+else when the instance scales to zero. It is never
 written to a log, a bucket or a database.
 
 **Memory, measured.** In the production image with `--memory=1g`, one

@@ -678,3 +678,25 @@ dataset store are in each process. Each service counts its own day, so the
 ceiling on total spend is the sum of both services' caps; the provider's
 quota on the key is the hard stop behind them. Both run at most one
 instance for the same reason.
+
+## D30. Chats are per session; the data source is per chat, the limits are not
+
+**Chosen.** "New chat" keeps the old chat in a sidebar list (up to 10 per
+session, the oldest removed past that, with a notice). Each chat owns its
+turns, its data source choice, its uploaded dataset and its SQL editor
+results; everything else in the session state is shared by its chats. One
+mapping view (`chats.ChatState`) routes each key to one place, so the upload
+code is unchanged in shape and the counters it keeps (uploads, and the demo
+and SQL run counts kept elsewhere) can only be the session's.
+
+**Why.** A visitor comparing two datasets, or NorthStar and a file, wants
+both conversations at hand. If any limit were per chat, "New chat" would be
+a reset button for it; tests drive the app through every limit across new
+chats to keep that so.
+
+**Trade-offs.** Chats live in the session only (a reload or the idle guard
+ends them): no storage behind them, nothing to secure or expire. A full
+dataset store refuses a new upload instead of evicting another chat's data:
+deleting data the visitor did not choose to delete would be a surprise. Each
+dataset still expires 15 minutes after its last use, so a chat left alone
+that long comes back with its SQL editors read-only.

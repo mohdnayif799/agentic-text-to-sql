@@ -199,6 +199,7 @@ Delete every other check and the agent still cannot write, because the handle ph
 - **Demo mode:** on the server's key, each browser session gets 5 runs at those fixed budgets. The limits are enforced server-side, whatever the sidebar sends. A visitor's own key is never capped. A quota refusal shows a friendly message and does not use up a demo run.
 - **Daily ceiling:** a page reload starts a new session, so the session allowance bounds nothing by itself. A process-wide cap does: 150 runs and 1,000 model calls per UTC day on the server's key, 50 uploads, and 1,000 SQL-editor runs on a counter of its own. A run that would cross the call limit stops at that call. The counters live in memory (the service runs one instance) and reset on a cold start; the provider's quota on the key is the hard stop behind them ([docs/OPERATIONS.md](docs/OPERATIONS.md)).
 - **Idle sessions:** a tab with no activity for 10 minutes is ended in the browser and on the server, so an open tab cannot keep the instance from scaling to zero.
+- **Chats:** "New chat" keeps the current chat in a list in the sidebar; a click switches back to it with its answers, tables and SQL editors. A session keeps up to 10 chats (an 11th removes the oldest, with a notice), in the session only: a reload or the idle guard ends them. Every limit above is per session, not per chat, so a new chat never resets one.
 
 ---
 
@@ -246,7 +247,7 @@ NorthStar is the default. Two other sources are supported, and both are read thr
 **Uploads.** Under "Your data" in the app, upload one or more CSV files (one table each), an Excel workbook (one table per sheet) or a SQLite file, up to 10 MB.
 - The file is converted to SQLite and opened read-only. The model drafts a short description of each table and column, including what one row of each table means, and joins are inferred where both the column names and the data agree. You can edit both.
 - An uploaded file is treated as untrusted. Limits on size, rows, columns and tables are enforced before or during the work, never after. A SQLite upload is checked, refused if it has virtual tables or unsafe names, and copied with SQLite's own backup API before the agent reads it.
-- A dataset belongs to one browser session, lives in the server's temporary directory (memory, on Cloud Run), and is deleted when you remove it, after 15 minutes without use, or when the session ends. Nothing is written to a bucket, a database or a log. The public demo is not for sensitive data.
+- A dataset belongs to one chat of one browser session. A new chat starts on NorthStar (or the company database), never on another chat's upload; switching back to a chat brings back its own dataset. The dataset lives in the server's temporary directory (memory, on Cloud Run) and is deleted when you remove it, delete its chat, after 15 minutes without use, or when the session ends. A full store refuses a new upload rather than deleting another chat's data. Nothing is written to a bucket, a database or a log. The public demo is not for sensitive data.
 
 **Self-hosted PostgreSQL.** A company can run its own copy against its own database ([docs/SELF_HOSTED.md](docs/SELF_HOSTED.md)):
 
@@ -513,7 +514,7 @@ gcloud run services update-traffic agentcrew --region=asia-south1 --to-revisions
 
 To follow the latest revision again afterwards, use `--to-latest`.
 
-The REST API runs as a second Cloud Run service (`agentcrew-api`) from the same image. It is created and updated by hand, not by this workflow; [docs/API.md](docs/API.md) has the console steps.
+The REST API runs as a second Cloud Run service (`agentcrew-api`) from the same image. The service and its key secret are created by hand ([docs/API.md](docs/API.md) has the steps). When the repository variable `DEPLOY_API` is `true`, the deploy job also rolls `agentcrew-api` to the same digest and checks its `/v1/health`; it only updates the image and never creates anything.
 
 ---
 
