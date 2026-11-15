@@ -2,16 +2,35 @@
 
 Text-to-SQL router agent (Streamlit, SQLite, Gemini). See README.md and docs/.
 
-## Current work: v3.1
+## Status: v3.1 complete
 
 Version 3 (branch `v3-production`, Phases 1 to 6) was merged to `main` as PR
-13 (merge commit `7a7600d`) on 2026-11-14 and deployed (revision
-`agentcrew-00016-kw5`). Version 3.1 is on branch `v3.1`, cut from that
-merge: chat history, a data source per chat, and the opt-in CD step for the
-API. CI runs on every push to a PR; only a merge to `main` deploys.
+13 (merge commit `7a7600d`) on 2026-11-14. Version 3.1 (branch `v3.1`: chat
+history, a data source per chat, the opt-in CD step for the API) was merged
+as PR 14 (merge commit `5f83a83`) on 2026-11-15 and deployed. Both Cloud Run
+services are live and CD deploys both on every merge to `main`. No work is
+in progress. CI runs on every push to a PR; only a merge to `main` deploys.
+
+### Deployed (2026-11-15)
+- UI: Cloud Run service `agentcrew` (asia-south1), health `/_stcore/health`.
+- REST API: Cloud Run service `agentcrew-api` (asia-south1), health
+  `/v1/health`; every other path needs a key (401 without one). Created by
+  hand as in docs/API.md: same image, runtime service account
+  (`agentcrew-runtime`), Gemini secret, 1 CPU and 1 GiB as `agentcrew`;
+  0 to 1 instances, concurrency 8, timeout 300 s, the uvicorn command, a
+  startup probe on `/v1/health`.
+- API keys: Secret Manager secret `agentcrew-api-keys` (version 1 is one
+  generated key, never printed). `agentcrew-runtime` can read it. To give
+  out keys, add a new version.
+- Opt-in CD is on: repository variable `DEPLOY_API=true`, so the deploy job
+  rolls `agentcrew-api` to the same image digest as `agentcrew` and checks
+  its `/v1/health`. `github-deployer` has `roles/run.developer` on both
+  services.
+- Revision `agentcrew-api-00001-jw7` failed its startup probe (see the
+  Git Bash note under Open items) and is kept, not deleted.
 
 ### Ground rules
-- Never push to `main`: CD auto-deploys it to the live demo. Work on a branch (now `v3.1`).
+- Never push to `main`: CD auto-deploys it to the live demo. Work on a branch.
 - Ask before every commit and every push.
 - Extend existing modules. Do not rewrite the router agent or anything that works.
 - Every SQL path (agent, SQL editor, API) goes through the same layers:
@@ -88,12 +107,9 @@ API. CI runs on every push to a PR; only a merge to `main` deploys.
     offline replay of the frozen 50 still D 45/50 with 0 live calls.
   - CI's docker job also runs the image with the uvicorn command and checks
     /v1/health returns 200 (no keys needed).
-  - NOT done, by decision: the `agentcrew-api` Cloud Run service and the
-    `agentcrew-api-keys` secret. The owner creates them by hand (console
-    steps in docs/API.md) only AFTER the PR is merged to `main`, so the
-    deployed image includes Phase 4. The deploy job is untouched; the opt-in
-    CD step for the API (repository variable DEPLOY_API) was proposed as a
-    diff only and is not applied.
+  - Deferred in Phase 4, done after v3.1 was merged (see Deployed above):
+    the `agentcrew-api` Cloud Run service, the `agentcrew-api-keys` secret,
+    and the opt-in CD step for the API (repository variable DEPLOY_API).
 - Phase 5, romanized Hindi and Telugu (eval/results/romanized_report.md):
   `eval/romanized_hi.yaml` and `eval/romanized_te.yaml`, the same 10 NorthStar
   questions typed in English letters, none from the frozen 50. Gold verified
@@ -137,10 +153,10 @@ API. CI runs on every push to a PR; only a merge to `main` deploys.
     uploads that left the previous dataset in place.
   - README rewritten for version 3 with every score scoped.
 - 1803 tests pass offline; 6 more need a live PostgreSQL server (run in
-  CI) and 2 need a local evaluation cache. Decisions D16 to D29 are in
+  CI) and 2 need a local evaluation cache. Decisions D16 to D30 are in
   docs/DECISIONS.md.
 
-- Version 3.1 (branch `v3.1`, decision D30):
+- Version 3.1 (branch `v3.1`, decision D30), merged as PR 14 and deployed:
   - Chats (`agentcrew/chats.py`): "New chat" keeps the old chat in a list in
     the sidebar (newest first, the open one primary, "Untitled chat" before
     its first question); a click switches back with its turns, answers,
@@ -171,11 +187,13 @@ API. CI runs on every push to a PR; only a merge to `main` deploys.
     `gcloud run services update agentcrew-api --image=<same digest>` and
     checks its `/v1/health`. It never creates the service.
 
+  - Verified before the merge: ruff clean; 1809 passed with a live
+    PostgreSQL (2 skipped, need the local eval cache); offline replay of the
+    frozen 50 still D 45/50 with 0 live calls; a browser check of chats
+    with a CSV and NorthStar and the SQL editor in both; CI green.
+
 ### Remaining plan
-- After v3.1 is merged and deployed: create the `agentcrew-api-keys` secret
-  and the `agentcrew-api` service (docs/API.md), give `github-deployer` the
-  same role on it as on `agentcrew`, set `DEPLOY_API=true`, and rerun the
-  main workflow so CD deploys both services.
+- None: v3.1 is complete. New work starts on a new branch from `main`.
 
 ### Open items
 - `st.components.v1.html` (idle guard) is deprecated; move to `st.iframe` before a Streamlit upgrade.
@@ -199,3 +217,7 @@ API. CI runs on every push to a PR; only a merge to `main` deploys.
   service because older tests reach them there.
 - A dataset in a chat left unopened for 15 minutes expires (the store's
   per-dataset TTL); its SQL editors then show the SQL read-only.
+- Run `gcloud` commands with URL paths in their flags (for example
+  `--startup-probe=httpGet.path=/v1/health`) from PowerShell, not Git Bash:
+  Git Bash rewrites `/v1/health` into a Windows path, and
+  `MSYS_NO_PATHCONV=1` breaks the gcloud wrapper.
